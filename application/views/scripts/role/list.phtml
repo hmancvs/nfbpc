@@ -1,0 +1,187 @@
+<?php
+	require_once APPLICATION_PATH.'/includes/header.php';
+	
+	# Page title
+	$title = "Roles";
+	$plural = $title;
+	
+	# Create an instance of the class to handle the pagination
+	$paginate = new Pagination();	
+	$paginate->setView($this);
+	# set the search columns to be used on this list
+	$paginate->setSearchColumns(array("name","description"));
+	$paginate->setDefaultSortBy("name");	
+	
+	# define the letter to be clicked to ease navigation 
+	$where_query = " WHERE d.id <> '' ";
+	$allowclear = false;
+	
+	if(!isEmptyString($request->searchterm)){
+		$allowclear = true;
+	}
+	
+	$paginate->processPost($request->getParams());
+	$all_results_query = "select r.id AS id, aug.groupid AS `groupid`, aug.userid AS `userid`, r.name AS `Name`, r.name AS `Group`, r.description AS Description from `aclgroup` `r` left join `aclusergroup` `aug` on(`r`.`id` = `aug`.`groupid`) WHERE name <> '' ".$paginate->getSearchAndFilterSQL()." GROUP BY id ".$paginate->getSortSQL();
+	
+	# debugMessage($all_results_query);
+	$paginate->setItemCountFromSQLQuery($all_results_query);
+	
+	$current_results_query = $all_results_query." ".$paginate->getSQLLimit();
+	//echo $current_results_query;
+	$session->setVar(ALL_RESULTS_QUERY, $all_results_query);
+	$session->setVar(CURRENT_RESULTS_QUERY, $current_results_query);
+	# the query string to be appended to the return to list URL
+	$session->setVar('list_query_string'.$request->getControllerName(), $request->getParams());
+	
+	$conn = Doctrine_Manager::connection(); 
+	$result = $conn->fetchAll($current_results_query);
+	$has_no_data = (count($result) == 0) ? true : false; 
+	
+	# This variable stores the number of redundant columns returned in the query so that when we are printing
+	# we are able to know how many columns to ignore. This variable is sent in the print URL
+	$number_of_redundant_columns = 3;
+	
+	# the columns which contain numbers in the invoice query
+	# Please note that the column count begins at 0
+	$export_number_column_list = "";
+	
+	$listurl = $this->baseUrl('role/list');
+	$title = $this->translate("role_pagetitle_list");
+	$listitems = $this->translate("role_list_items");
+	$this->headTitle($title.$browserappend);
+	$description = 'System User Groups';
+	$icon = $this->baseUrl('images/icon_settings.png');
+	$showsearch = true;
+	
+?>
+<script>
+$(document).ready(function() {
+	// breadcrumb config
+	$("#levelone_icon").addClass('icon-settings');
+	$("#levelone_link").attr('href', '<?php echo $listurl; ?>').html('<?php echo $listitems; ?>');
+	$("#leveltwo_link").html('<?php //echo $leveltwoname; ?>');
+
+});
+</script>
+<!--=== Page Header ===-->
+<div class="page-header makerelative">
+    <div class="page-title">
+        <h3><?php echo $title; ?></h3>
+        <span><?php echo $description; ?></span>
+    </div>
+    
+</div>
+<!--=== Responsive DataTable ===-->
+<div class="row">
+    <div class="col-md-12">
+    <form class="form margin0" action="<?php echo $this->baseUrl("role/listsearch"); ?>" method="get" id="listform">
+		<?php if ($sessionhaserror) { ?>
+            <div class="alert alert-danger fade in"><i class="icon-remove close" data-dismiss="alert"></i><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
+        <?php } ?>
+        <?php if (!isEmptyString($session->getVar(SUCCESS_MESSAGE))) { ?>
+            <div class="alert alert-success fade in"><i class="icon-remove close" data-dismiss="alert"></i><?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
+        <?php } ?>
+		<div class="widget box padding5">
+            <div class="row col-md-12" style="margin-bottom:10px; padding-right:0; margin-right:0;">
+                <div class="col-md-9 padding0">
+                    <ul class="clearfix managelist">
+                        <?php if ($acl->checkPermission('Role', ACTION_CREATE)) { ?>
+                            <li><a href="<?php echo $this->baseUrl('role'); ?>" title="New Role" class="btn btn-info"><i class="icon-plus icon-white"></i> New Role</a></li>
+                        <?php } ?>
+                    </ul>
+                    <div class="errors"><div id="errormessage"></div></div>
+                </div>
+                <div class="col-md-3 padding0">
+                    <div class="input-group col-md-12 margin0 padding0 clearfix floatright">
+                        <input type="text" name="searchterm" id="searchterm" class="form-control" value="<?php echo $request->searchterm; ?>" placeholder="Search <?php echo $listitems; ?>..." />
+                        <span class="input-group-btn">
+                            <button type="submit" class="btn btn-default" style="padding:8px 12px 7px;"><i class="icon-search"></i></button>
+						</span>
+                    </div>
+                    <a class="col-md-3 floatright btn btn-xs" style="margin:5px; margin-right:0;" href="<?php echo $listurl; ?>"><i class="icon-refresh"></i> Reset</a>
+                </div>
+            </div>
+			<?php if($has_no_data) { ?>
+                <div class="alert alert-warning fade in"><?php echo $this->translate("global_list_noentries"); ?></div>
+            <?php } else { ?>                            		               
+               <div class="row col-md-12 margin0 padding0 clearfix">
+               	<?php
+                    $counter = 1;			  		
+                    foreach($result as $line){
+                        $counter_mod = $counter % 2;
+                        $modclass = '';
+                        // debugMessage('mod is '.$counter_mod);
+                        if($counter_mod == 0){
+                            $modclass = ' odd';
+                        }
+                        
+						$indexurl = $this->baseUrl('role/index/id/'.encode($line['id']));
+                        $viewurl =  $this->baseUrl("role/view/id/".encode($line['id']));
+						$role = new AclGroup(); 
+						$role->populate($line['id']);
+                    ?>
+                        <?php if($counter_mod == 1){ ?>
+                        <div class="row">
+                        <?php }?>
+                            <div class="col-md-6">
+                                <div class="widget box">
+                                    <div class="widget-header">
+                                        <h4><i class="icon-reorder"></i> <a href="<?php echo $viewurl; ?>"><?php echo $line['Name']; ?></a></h4>
+                                        <div class="toolbar no-padding">
+                                            <div class="btn-group">
+                                                <span data-toggle="dropdown" class="btn btn-xs dropdown-toggle" style="margin:0; border-top:none; border-bottom:none; margin-top:3px;">
+                                                    Actions <i class="icon-angle-down"></i>
+                                                </span>
+                                                <ul class="dropdown-menu pull-right">
+                                                    <li><a href="<?php echo $viewurl; ?>"><i class="icon-list"></i> View Details</a></li>
+                                                    <?php if ($acl->checkPermission("Role", ACTION_EDIT)) { ?>
+                                                        <li><a class="" href="<?php echo $indexurl; ?>"><i class="icon-pencil icon-white"></i> Update Profile</a></li>
+                                                    <?php } ?>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="widget-content" style="min-height:150px; position:relative; margin-bottom:5px;">
+                                    	<div class="col-md-3 padding0">
+                                        	<a href="<?php echo $viewurl; ?>" class="editpic"><img class="imagecontainer" src="<?php echo $this->baseUrl('images/icon_users.png'); ?>" style="width:150px;" /></a>
+                                        </div>
+                                        <div class="col-md-9 padding0">
+                                        	<div class="form-group clearfix">
+                                                <label class="col-md-12 padding0"></label>
+                                                <div class="col-md-12 padding0 nullifempty" style="min-height:70px;">
+                                                
+                                                </div>
+                                            </div>
+                                       
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php if($counter_mod == 0){ ?>
+                        </div>
+                        <?php }?>
+                    <?php $counter++; } ?>
+               </div>
+               <div class="row">
+                    <div class="table-footer">
+                        <div class="col-md-6">
+                            <div class="table-actions">
+                                <div class="row col-md-12 margin0 padding0 clearfix">
+                                    <div class="col-md-6 paddingleft5 floatleft" style="margin-bottom:5px;"><?php echo $paginate->getListCountDropDown(); ?></div>
+                                    <div class="col-md-6 padding0 floatright rightalign"><?php echo sprintf($this->translate("global_list_counter"), $paginate->getItemCounterText()); ?></div>
+                               </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <?php echo $paginate->getPaginationLinks(); ?>
+                        </div>
+                    </div>
+                </div>
+            <?php } ?>
+		</div>
+	</form>
+</div>                         
+<?php
+	$session->setVar(SUCCESS_MESSAGE, "");
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

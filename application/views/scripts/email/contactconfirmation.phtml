@@ -1,0 +1,19 @@
+<?php include(APPLICATION_PATH.'/views/scripts/email/emailheader.phtml'); ?>
+
+    Dear Admin,<br /><br />
+    
+    This is to inform you that a new <?php echo $this->appname; ?> Contact Form message has been received with the following details;<br /><br />
+    <b>Name: </b><?php echo $this->name; ?><br />
+    <b>Email: </b><?php echo $this->email; ?><br />
+    <b>Subject: </b><?php echo $this->subject; ?><br />
+    <b>Message: </b><?php echo $this->message; ?><br /><br />
+
+	<?php echo $this->serverUrl($this->baseUrl()); ?>
+    </td>
+</tr>
+<tr>
+    <td colspan="2" style="padding:10px 0 10px 0; text-align:center; border-top: 3px solid #E2E2E2; background:none repeat scroll 0 0 #F4F4F4;">
+       <?php echo getCopyrightInfo(); ?>
+    </td>
+</tr>
+</table>

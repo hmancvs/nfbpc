@@ -1,0 +1,59 @@
+<?php
+	require_once APPLICATION_PATH.'/includes/header.php';
+	
+	# Page title
+	$title = $this->translate("appconfig_pagetitle_dashboard"); 
+	$this->headTitle($title); 
+?>
+<style>
+table.list thead {
+	font-size:14px;	
+}
+table.list tr td {
+	height:45px;
+	padding:0 10px 0 10px;
+	vertical-align:middle;
+}
+div#listresults_div {
+	overflow:hidden;
+}
+</style>
+<div id="listresults_div">
+<h2><?php echo $title; ?></h2>
+<table class="list">    
+    <thead>
+        <tr>
+            <td width="20">&nbsp;</td>
+            <td width="550">Setting</td>
+            <td>New</td>
+			<td>Manage</td>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><a href="<?php echo $this->baseUrl("profile/list")?>" title="Manage System User Accounts"><img src="<?php echo $this->baseUrl('images/top_menu_personalinfo.png'); ?>" /></a></td>
+            <td><a href="<?php echo $this->baseUrl("profile/list")?>" title="Manage System User Accounts">User Accounts</a></td>
+            <td><a href="<?php echo $this->baseUrl("profile/index")?>" title="New User"><img src="<?php echo $this->baseUrl('images/add.png'); ?>" /></a></td>
+			<td><a href="<?php echo $this->baseUrl("profile/list")?>" title="Manage Users"><img src="<?php echo $this->baseUrl('images/update.png'); ?>" /></a></td>
+        </tr>
+        <tr>
+            <td><a href="<?php echo $this->baseUrl("role/list")?>" title="Manage User Roles and Permissions"><img src="<?php echo $this->baseUrl('images/security.png'); ?>" /></a></td>
+            <td><a href="<?php echo $this->baseUrl("role/list")?>" title="Manage User Roles and Permissions">User Roles and Permissions</a></td>
+            <td><a href="<?php echo $this->baseUrl("role/list")?>" title="Manage User Roles and Permissions"><img src="<?php echo $this->baseUrl('images/update.png'); ?>" /></a></td>
+        </tr>
+        <tr>
+            <td><a href="<?php echo $this->baseUrl("appconfig/list")?>" title="Manage System Configuration Variables"><img src="<?php echo $this->baseUrl('images/security.png'); ?>" /></a></td>
+            <td><a href="<?php echo $this->baseUrl("appconfig/list")?>" title="Manage System Configuration Variables">System Configuration Variables</a></td>
+            <td><a href="<?php echo $this->baseUrl("appconfig/list")?>" title="Manage System Configuration Variables"><img src="<?php echo $this->baseUrl('images/update.png'); ?>" /></a></td>
+        </tr>        
+        <tr>
+            <td><a href="#" title="Manage System Lookup Variables"><img src="<?php echo $this->baseUrl('images/categories.png'); ?>" /></a></td>
+            <td><a href="#" title="Manage System Lookup Variables">System Lookup Variables</a></td>
+            <td><a href="#" title="Manage System Lookup Variables"><img src="<?php echo $this->baseUrl('images/update.png'); ?>" /></a></td>
+        </tr>
+    </tbody>
+</table>
+</div>
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

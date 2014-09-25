@@ -1,0 +1,129 @@
+<?php
+	include APPLICATION_PATH.'/includes/header.php';
+	
+	$position = new Position();
+	$id = decode($request->id);
+	
+	if(isEmptyString($request->id)){
+		$posturl = $this->baseUrl('position/create');
+		$title = "New Position";
+		$description = '';
+		$button_title = $this->translate("global_button_save"); 
+		$successmessage = $this->translate('global_save_success');
+	} else {
+		$position->populate(decode($request->id));
+		$posturl = $this->baseUrl('position/edit');
+		$title = "Update Position";
+		$description = '';
+		$button_title = $this->translate("global_button_save");
+		$successmessage = $this->translate('global_update_success');
+	}
+	
+	#in case of errors in session, populate the fields from session
+	if(!isEmptyString($session->getVar(ERROR_MESSAGE))){ 
+		$payment->processPost($session->getVar(FORM_VALUES));	
+	}
+	
+	$this->headTitle($title.$browserappend);
+?>
+<script>
+$(document).ready(function() {
+	$('.titlebreadcrumb').html('<?php echo $homedir.'Positions / '.$title; ?>');
+	$('.titlelabel').html('<?php echo $title; ?>');
+	$('.desclabel').html('<?php echo $description; ?>');
+	$('.pageicon').html('<span class="glyphicon glyphicon-cog"></span>');
+	
+	$("#indexform").validate({		
+		// define the validation rules one field at a time
+		rules: {
+			name: "required"
+		}, 
+		// the messages for each of the fields being validated
+		messages: {		
+			name: "<?php echo $this->translate("global_name_error"); ?>"
+		},
+		// custom error positions
+		errorPlacement: function(error, element) {
+			switch(element.attr("name")){					
+				default:
+					if(element.hasClass("useid_error")){
+						error.appendTo("#"+element.attr("id")+"_error");
+					} else {
+						error.appendTo("#"+element.attr("name")+"_error");
+					}
+					break;
+			}			
+		},
+		ignore: ":hidden:not(select)"
+	});
+});
+</script>
+<div class="row-fluid margin0 index">
+    <form id="indexform" class="form-horizontal" role="form" action="<?php echo $posturl; ?>" method="post">
+        <div class="col-md-12 padding0">
+            <div class="headerbox">
+                <table class="table border0 nohover margin0">                       
+                    <tr>		                    
+                        <td class="padding2">
+                            <button type="submit" class="btn btn-primary savethenview save"><i class="glyphicon glyphicon-ok icon-white"></i> <?php echo $button_title; ?></button>
+                            <a class="btn btn-default cancel gonowhere"><i class="glyphicon glyphicon-remove"></i> <?php echo $this->translate('global_button_cancel'); ?></a>
+                            <input type="hidden" name="entityname" value="Position" />
+                            <input type="hidden" id="id" name="id" value="<?php echo encode($position->getID()); ?>" />
+                            <input type="hidden" id="<?php echo SUCCESS_MESSAGE; ?>" name="<?php echo SUCCESS_MESSAGE; ?>" value="<?php echo $successmessage; ?>" /> 
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        <?php if ($sessionhaserror) { ?>
+            <div class="alert alert-danger"><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
+        <?php } ?>
+        <?php if (!isEmptyString($session->getVar(SUCCESS_MESSAGE))) { ?>
+            <div class="alert alert-success alert-dismissable"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button> <?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
+        <?php } ?>
+        <div class="contentcontainer clearfix">
+        	<div class="row-fluid marginleft5">
+            	<div class="col-md-12">
+                    <fieldset class="fieldsetcontainer">
+                        <legend><?php echo $title; ?></legend>
+                        <div class="panel-body well-sm">
+                            <div class="col-md-9">
+                            	<div class="row-fluid margin">
+                                	<div class="col-md-12 paddingleft0">
+                                    	<div class="form-group">
+                                            <label class="col-sm-2 control-label"><?php echo $this->translate("global_name_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                            <div class="col-sm-10">
+                                                <input type="text" class="form-control input-sm width300" id="name" name="name" value="<?php echo $position->getName(); ?>" /><div id="name_error"></div>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="col-md-2 control-label"><?php echo $this->translate('global_description_label'); ?>:</label>
+                                            <div class="col-md-10">
+                                                <textarea class="form-control expanding" id="description" name="description"><?php echo $position->getDescription(); ?></textarea>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="col-sm-2 control-label"><?php echo $this->translate("global_title_label"); ?>:</label>
+                                            <div class="col-sm-10">
+                                                <input type="text" class="form-control input-sm width300" id="title" name="title" value="<?php echo $position->getTitle(); ?>" />
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="col-sm-2 control-label"><?php echo $this->translate("global_abbr_label"); ?>:</label>
+                                            <div class="col-sm-10">
+                                                <input type="text" class="form-control input-sm width100" id="abbr" name="abbr" value="<?php echo $position->getAbbr(); ?>" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </fieldset>
+                </div>
+            </div>
+   		</div>
+ 	</form>
+</div>
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

@@ -1,0 +1,53 @@
+<?php
+	require_once APPLICATION_PATH.'/includes/header.php';
+	
+	$title = "Test";
+	$this->headTitle($title.$browserappend); 
+	
+	/*$soundcloud = new Services_Soundcloud('53720605d2e819ed3690e3e2306a35af', '75d5e8013acca51c3e0475979b43c79d', 'htt://127.0.0.1/agmis/public/test/soundcloud');
+	$authorizeUrl = $soundcloud->getAuthorizeUrl();
+	debugMessage('url is '.$authorizeUrl);*/
+	
+	// $soundcloud = new Soundcloud('53720605d2e819ed3690e3e2306a35af');
+	
+	//include 'Services/Soundcloud.php';
+	//$soundcloud = new Services_Soundcloud('_myClientId_', '_ClientSecret_', '_RedirectUri_');
+
+	// echo '';
+	//$authorizeUrl = $soundcloud->getAuthorizeUrl(); 
+	/*try {
+		$accessToken = $soundcloud2->accessToken($_GET['code']);
+	} catch (Services_Soundcloud_Invalid_Http_Response_Code_Exception $e) {
+		exit($e->getMessage());
+	}*/
+?>
+
+<script>
+
+</script>
+<script>
+$(document).ready(function() {
+	
+	$("#generate").click(function(){
+		// alert('clicked fetch');
+		
+		$.get("<?php echo $this->baseUrl('weather/forecast/pgc/true'); ?>", 
+		   {                        
+			cachebuster: new Date().getTime()},                            
+			function(data){                        
+				alert(data);                        
+				// $('#pricehistory').html(data);
+			}
+		);
+	});
+	// $("#generate").trigger('click');	
+});
+</script>
+<div class="divider30"></div>
+<form>
+	<a class="btn btn-info gonowhere" id="generate"><i class="icon-search"></i> Generate</a>
+	
+</form>
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

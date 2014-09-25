@@ -1,0 +1,44 @@
+<?php
+	require_once APPLICATION_PATH.'/includes/header.php';
+	
+	$member = new Member();
+    $member->populate(decode($request->id));
+	$id = $member->getID();
+	
+	$listurl = $this->baseUrl('member/list');
+	$title = $member->getName();
+	$description = 'Profile Details';	
+	$this->headTitle($title.$browserappend);
+?>
+<script>
+$(document).ready(function() {
+	$('.titlebreadcrumb').html('<?php echo $homedir.'Members / '.$member->getName(); ?>');
+	$('.titlelabel').html('<?php echo $title; ?>');
+	$('.desclabel').html('<?php echo $description; ?>');
+	$('.pageicon').html('<span class="icon-large icon-group"></span>');
+	
+});
+</script>
+<div class="row-fluid margin0 view">
+    <div class="col-md-12 padding0">
+    	<div class="headerbox">
+            <table class="table border0 nohover margin0">                       
+                <tr>		                    
+                    <td class="padding2">
+                        
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    <?php if($sessionhaserror) { ?>
+        <div class="alert alert-danger"><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
+    <?php } ?>
+    <?php if (!isEmptyString($session->getVar(SUCCESS_MESSAGE))) { ?>
+        <div class="alert alert-success alert-dismissable"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button> <?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
+    <?php } ?>
+    
+</div>    
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

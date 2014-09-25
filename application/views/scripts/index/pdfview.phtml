@@ -1,0 +1,63 @@
+<?php
+	$controller = $request->getControllerName();
+	$action = $request->getActionName();
+	
+	$baseurl_bootstrap = $this->serverUrl($this->baseUrl('stylesheets/bootstrap-3.1.1.min.css'));
+	$baseurl_bootstrap_code = file_get_contents($baseurl_bootstrap);
+	$baseurl_bootstrap_theme = $this->serverUrl($this->baseUrl('stylesheets/bootstrap-theme.css'));
+	$baseurl_bootstrap_theme_code = file_get_contents($baseurl_bootstrap_theme);
+	$baseurl_plugincss =  $this->serverUrl($this->baseUrl('stylesheets/plugins.css'));
+	$baseurl_plugincss_code = file_get_contents($baseurl_plugincss);
+	$baseurl_customcss =  $this->serverUrl($this->baseUrl('stylesheets/custom.css'));
+	$baseurl_customcss_code = file_get_contents($baseurl_customcss);
+	$baseurl_appcss =  $this->serverUrl($this->baseUrl('stylesheets/app.css'));
+	$baseurl_appcss_code = file_get_contents($baseurl_appcss);
+	
+	ob_start();
+	
+?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<html>
+<head>
+    <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+    <meta content="utf-8" http-equiv="encoding">
+    <link href="<?php echo $baseurl_bootstrap; ?>" type="text/css" rel="stylesheet" />
+    <link href="<?php echo $baseurl_plugincss; ?>" type="text/css" rel="stylesheet" />
+	<link href="<?php echo $baseurl_customcss; ?>" type="text/css" rel="stylesheet" />
+    <link href="<?php echo $baseurl_appcss; ?>" type="text/css" rel="stylesheet" />
+</head>    
+<body style="background:none">
+    <div style="width:850px; margin:0; padding:0; margin-top:20px;">
+        <form class="form-horizontal margin10 padding0"><?php echo $html; ?></form>
+    </div>
+</body>
+</html>
+<?php
+    $pdf_html = ob_get_clean(); 
+    # filename          
+	$timestamp = time().rand(100, 5000);
+	$temp_file_pdf = ($timestamp).".pdf";
+	$temp_file_html = ($timestamp).".html";
+	$temp_file_doc = ($timestamp).".doc";
+	$temp_file_txt = ($timestamp).".txt";
+	// $temp_file_html = '13853537363737.html';
+	# path to remote file
+	$path = BASE_PATH.DIRECTORY_SEPARATOR."temp".DIRECTORY_SEPARATOR.$temp_file_pdf;
+	$path_html = BASE_PATH.DIRECTORY_SEPARATOR."temp".DIRECTORY_SEPARATOR.$temp_file_html;
+	$path_doc = BASE_PATH.DIRECTORY_SEPARATOR."temp".DIRECTORY_SEPARATOR.$temp_file_doc;
+	$path_txt = BASE_PATH.DIRECTORY_SEPARATOR."temp".DIRECTORY_SEPARATOR.$temp_file_txt;	
+	$relativepathtodocument = $this->serverUrl($this->baseUrl('temp/'.$temp_file_pdf));
+	# save file to temp folder
+	file_put_contents($path_html, $pdf_html);
+	// file_put_contents($path_doc, $pdf_html);
+	# write pdf to file
+	$mpdf=new mPDF('win-1252','A4'); 
+	/*$mpdf->WriteHTML($baseurl_bootstrap_code, 1);
+	$mpdf->WriteHTML($baseurl_plugincss_code, 1);
+	$mpdf->WriteHTML($baseurl_customcss_code, 1);
+	$mpdf->WriteHTML($baseurl_appcss_code, 1);*/
+	$mpdf->WriteHTML($pdf_html);
+	$mpdf->Output($path, 'F');
+    
+?>
+

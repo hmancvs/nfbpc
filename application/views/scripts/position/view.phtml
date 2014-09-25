@@ -1,0 +1,100 @@
+<?php
+	require_once APPLICATION_PATH.'/includes/header.php';
+	
+	$position = new Position();
+    $position->populate(decode($request->id));
+	$id = $position->getID();
+	
+	$title = $position->getName();
+	$description = '';	
+	$viewurl = $this->baseUrl('position/view/id/'.encode($position->getID()));
+	$indexurl = $this->baseUrl('position/index/id/'.encode($position->getID()));
+	$listurl = $this->baseUrl('position/list');
+	$listitems = 'List Positions';
+	$this->headTitle($title.$browserappend);
+?>
+<script>
+$(document).ready(function() {
+	$('.titlebreadcrumb').html('<?php echo $homedir.'Leadership Positions / '.$position->getName(); ?>');
+	$('.titlelabel').html('<?php echo $title; ?>');
+	$('.desclabel').html('<?php echo $description; ?>');
+	$('.pageicon').html('<span class="glyphicon glyphicon-cog"></span>');
+	
+});
+</script>
+<div class="row-fluid margin0 view">
+    <div class="col-md-12 padding0">
+    	<div class="headerbox">
+            <table class="table border0 nohover margin0">                       
+                <tr>		                    
+                    <td class="padding2">
+                    	<div class="btn-group gridactions">
+                            <button type="button" class="btn btn-default btn-sm dropdown-toggle noround" data-toggle="dropdown">Actions <span class="caret"></span></button>
+                            <ul class="dropdown-menu" role="menu" style="left:-86px;">
+                                <?php if ($acl->checkPermission('Position', ACTION_EDIT)) { ?>
+                                    <li><a class="blockanchor" href="<?php echo $indexurl; ?>"><i class="glyphicon glyphicon-pencil"></i>&nbsp; Update</a></li>
+                                <?php } ?>
+                                <?php if ($acl->checkPermission('Position', ACTION_DELETE)) { ?>
+                                    <li><a class="deleteline gonowhere" action="<?php echo $this->baseUrl('position/delete/id/'.encode($position->getID())."/entityname/Position/successurl/".encode($listurl)); ?>" message="<?php echo $this->translate('global_delete_confirm_message'); ?>" title="Delete Entry"><i class="glyphicon  glyphicon-trash"></i>&nbsp; Delete</a></li>
+                                <?php } ?>
+								<?php if ($acl->checkPermission('Position', ACTION_LIST)) { ?>
+                                    <li><a class="blockanchor" href="<?php echo $listurl; ?>"><i class="glyphicon glyphicon-list"></i>&nbsp; <?php echo $listitems; ?></a></li>
+                                <?php } ?>
+                            </ul>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    <?php if($sessionhaserror) { ?>
+        <div class="alert alert-danger"><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
+    <?php } ?>
+    <?php if (!isEmptyString($session->getVar(SUCCESS_MESSAGE))) { ?>
+        <div class="alert alert-success alert-dismissable"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button> <?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
+    <?php } ?>
+    <div class="contentcontainer clearfix">
+    	<form id="viewform" class="form-horizontal" role="form" method="get">
+        	<div class="row-fluid margin0">
+            	<div class="col-md-12">
+                    <fieldset class="fieldsetcontainer">
+                        <legend><?php echo $title; ?></legend>
+                        <div class="panel-body well-sm">
+                            <div class="row-fluid marginleft5">
+                                <div class="col-md-12 paddingleft10">
+                                    <div class="form-group">
+                                        <label class="col-md-2 control-label"><?php echo $this->translate('global_name_label'); ?>:</label>
+                                        <div class="col-md-10">
+                                            <p class="form-control-static nullifempty view"><?php echo $position->getName(); ?></p>
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="col-md-2 control-label"><?php echo $this->translate('global_description_label'); ?>:</label>
+                                        <div class="col-md-10">
+                                            <p class="form-control-static nullifempty view"><?php echo nl2br($position->getDescription()); ?></p>
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="col-md-2 control-label"><?php echo $this->translate('global_title_label'); ?>:</label>
+                                        <div class="col-md-10">
+                                            <p class="form-control-static nullifempty view"><?php echo $position->getTitle(); ?></p>
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="col-md-2 control-label"><?php echo $this->translate('global_abbr_label'); ?>:</label>
+                                        <div class="col-md-10">
+                                            <p class="form-control-static nullifempty view"><?php echo $position->getAbbr(); ?></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                		</div>
+               		</fieldset>
+              	</div>
+        	</div>
+		</form>
+	</div>                   
+</div>    
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

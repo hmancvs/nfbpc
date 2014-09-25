@@ -1,0 +1,11 @@
+<?php include(APPLICATION_PATH.'/views/scripts/email/emailheader.phtml'); ?>
+
+Dear <?php echo $this->firstname; ?>,<br /><br />
+
+This email confirms that your account on <?php echo $this->appname; ?> has been cancelled.<br /><br />
+
+We're sorry you will no longer be using <?php echo $this->appname; ?> to build your Buganda Ancestry.<br /><br /> 
+
+If you need any further assistance or have any question, please feel free to <a href="<?php echo $this->serverUrl($this->baseUrl('contactus')); ?>" title="Contact us">Contact us</a><br /><br />
+
+<?php include(APPLICATION_PATH.'/views/scripts/email/emailfooter.phtml'); ?>

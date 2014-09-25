@@ -1,0 +1,214 @@
+<?php
+	require_once APPLICATION_PATH.'/includes/header.php';
+	
+	$location = new Location();
+	$type = $request->type;
+	if(isEmptyString($request->type)){
+		$type = 6;
+	}
+	$isregion = false; $isprovince = false; $isdistrict = false; $iscounty = false; $issubcounty = false; $isparish = false; $isvillage = false;
+	
+	if($type == 0 || $type == 7){
+		if($type == 0){
+			$location = new Region();
+   			$location->populate(decode($request->id));
+			$moduleitem = "Region";
+			$listitems = "Regions";
+			$moduleitem_lower = strtolower($moduleitem);
+			$title = "Regions";	
+			$isregion = true;
+			$listurl = $this->baseUrl('location/list/type/0');
+			$entityname = 'Region';
+		}
+		if($type == 7){
+			$location = new Province();
+			$location->populate(decode($request->id));
+			$moduleitem = "Province";
+			$listitems = "Provinces";
+			$moduleitem_lower = strtolower($moduleitem);
+			$title = 'Provinces';
+			$isprovince = true;
+			$listurl = $this->baseUrl('location/list/type/7');
+			$entityname = 'Province';
+		}
+	} else {
+		$location->populate(decode($request->id));
+		$listurl = $this->baseUrl('location/list/type/'.$location->getLocationType());
+		$listitems = "Locations";
+		$entityname = 'Location';
+		switch($type){
+			case 1:
+				$moduleitem = "Region";
+				$listitems = "Regions";
+				$moduleitem_lower = strtolower($moduleitem);
+				$title = "Regions";	
+				$isregion = true;
+				break;
+			case 2:
+				$moduleitem = "District";
+				$listitems = "Districts";
+				$moduleitem_lower = strtolower($moduleitem);
+				$title = "Districts";
+				$isdistrict = true;
+				break;
+			case 3:
+				$moduleitem = "County";
+				$listitems = "Counties";
+				$moduleitem_lower = strtolower($moduleitem);
+				$title = "Counties";
+				$iscounty = true;
+				break;
+			case 4:
+				$moduleitem = "Sub-county";
+				$listitems = "Sub-counties";
+				$moduleitem_lower = strtolower($moduleitem);
+				$title = "Sub-counties";
+				$issubcounty = true; 
+				break;
+			case 5:
+				$moduleitem = "Parish";
+				$listitems = "Parishes";
+				$moduleitem_lower = strtolower($moduleitem);
+				$title = "Parishes";
+				$isparish = true; 
+				break;
+			case 6:
+				$moduleitem = "Village";
+				$listitems = "Villages";
+				$moduleitem_lower = strtolower($moduleitem);
+				$title = "Villages";
+				$isvillage = true;
+				break;
+			default:
+				break;
+		}
+	}
+	
+	$title = $location->getName();
+	$description = '';	
+	$indexurl = $this->baseUrl('location/index/type/'.$type.'/id/'.encode($location->getID()));
+	$this->headTitle($title.$browserappend);
+?>
+<script>
+$(document).ready(function() {
+	$('.titlebreadcrumb').html('<?php echo $homedir.'Locations / '.$listitems.' / '.$location->getName(); ?>');
+	$('.titlelabel').html('<?php echo $title; ?>');
+	$('.desclabel').html('<?php echo $description; ?>');
+	$('.pageicon').html('<span class="glyphicon glyphicon-map-marker"></span>');
+	
+});
+</script>
+<div class="row-fluid margin0 view">
+    <div class="col-md-12 padding0">
+    	<div class="headerbox">
+            <table class="table border0 nohover margin0">                       
+                <tr>		                    
+                    <td class="padding2">
+                    	<div class="btn-group gridactions">
+                            <button type="button" class="btn btn-default btn-sm dropdown-toggle noround" data-toggle="dropdown">Actions <span class="caret"></span></button>
+                            <ul class="dropdown-menu" role="menu" style="left:-86px;">
+                                <?php if ($acl->checkPermission('Location', ACTION_EDIT)) { ?>
+                                    <li><a class="blockanchor" href="<?php echo $indexurl; ?>"><i class="glyphicon glyphicon-pencil"></i>&nbsp; Update</a></li>
+                                <?php } ?>
+                                <?php if ($acl->checkPermission('Location', ACTION_DELETE)) { ?>
+                                    <li><a class="deleteline gonowhere" action="<?php echo $this->baseUrl('location/delete/id/'.encode($location->getID())."/entityname/".$entityname."/successurl/".encode($listurl)); ?>" message="<?php echo $this->translate('global_delete_confirm_message'); ?>" title="Delete Entry"><i class="glyphicon  glyphicon-trash"></i>&nbsp; Delete</a></li>
+                                <?php } ?>
+								<?php if ($acl->checkPermission('Location', ACTION_LIST)) { ?>
+                                    <li><a class="blockanchor" href="<?php echo $listurl; ?>"><i class="glyphicon glyphicon-list"></i>&nbsp; List <?php echo $listitems; ?></a></li>
+                                <?php } ?>
+                            </ul>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    <?php if($sessionhaserror) { ?>
+        <div class="alert alert-danger"><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
+    <?php } ?>
+    <?php if (!isEmptyString($session->getVar(SUCCESS_MESSAGE))) { ?>
+        <div class="alert alert-success alert-dismissable"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button> <?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
+    <?php } ?>
+    <div class="contentcontainer clearfix">
+    	<form id="viewform" class="form-horizontal" role="form" method="get">
+        	<div class="row-fluid margin0">
+            	<div class="col-md-12">
+                    <fieldset class="fieldsetcontainer">
+                        <legend><?php echo $listitems; ?> : <?php echo $title; ?></legend>
+                        <div class="panel-body well-sm">
+                            <div class="row-fluid marginleft5">
+                                <div class="col-md-12 paddingleft10">
+                                    <div class="form-group">
+                                        <label class="col-md-2 control-label"><?php echo $this->translate('global_name_label'); ?>:</label>
+                                        <div class="col-md-10">
+                                            <p class="form-control-static nullifempty view"><?php echo $location->getName(); ?></p>
+                                        </div>
+                                    </div>
+                                    <?php if(!$isregion){ ?>
+                                        <div class="form-group">
+                                            <label class="col-md-2 control-label"><?php echo $this->translate('global_region_label'); ?>:</label>
+                                            <div class="col-md-10">
+                                                <p class="form-control-static nullifempty view">
+													<?php 
+														if($isprovince){
+															echo $location->getRegion()->getName(); 
+														} else {
+															echo !isEmptyString($location->getNFBPCRegionID()) ? $location->getNFBPCRegion()->getName(): $location->getDistrict()->getNFBPCRegion()->getName(); 
+														}
+													?>
+                                                    </p>
+                                            </div>
+                                        </div>
+                                    <?php } ?>
+                                    <?php if(!$isregion && !$isprovince){ ?>
+                                        <div class="form-group">
+                                            <label class="col-md-2 control-label"><?php echo $this->translate('global_province_label'); ?>:</label>
+                                            <div class="col-md-10">
+                                                <p class="form-control-static nullifempty view"><?php echo $location->getProvince()->getName(); ?></p>
+                                            </div>
+                                        </div>
+                                    <?php } ?>
+                                    <?php if(!$isregion && !$isprovince && !$isdistrict){ ?>
+                                        <div class="form-group">
+                                            <label class="col-md-2 control-label"><?php echo $this->translate('global_district_label'); ?>:</label>
+                                            <div class="col-md-10">
+                                                <p class="form-control-static nullifempty view"><?php echo $location->getDistrict()->getName(); ?></p>
+                                            </div>
+                                        </div>
+                                    <?php } ?>
+                                    <?php if(!$isregion && !$isprovince && !$isdistrict && !$iscounty){ ?>
+                                        <div class="form-group">
+                                            <label class="col-md-2 control-label"><?php echo $this->translate('global_county_label'); ?>:</label>
+                                            <div class="col-md-10">
+                                                <p class="form-control-static nullifempty view"><?php echo $location->getCounty()->getName(); ?></p>
+                                            </div>
+                                        </div>
+                                    <?php } ?>
+                                    <?php if(!$isregion && !$isprovince && !$isdistrict && !$iscounty && !$issubcounty){ ?>
+                                        <div class="form-group">
+                                            <label class="col-md-2 control-label"><?php echo $this->translate('global_subcounty_label'); ?>:</label>
+                                            <div class="col-md-10">
+                                                <p class="form-control-static nullifempty view"><?php echo $location->getSubcounty()->getName(); ?></p>
+                                            </div>
+                                        </div>
+                                    <?php } ?>
+                                    <?php if(!$isregion && !$isprovince && !$isdistrict && !$iscounty && !$issubcounty && !$isparish){ ?>
+                                        <div class="form-group">
+                                            <label class="col-md-2 control-label"><?php echo $this->translate('global_parish_label'); ?>:</label>
+                                            <div class="col-md-10">
+                                                <p class="form-control-static nullifempty view"><?php echo $location->getParish()->getName(); ?></p>
+                                            </div>
+                                        </div>
+                                    <?php } ?>
+                                </div>
+                            </div>
+                		</div>
+               		</fieldset>
+              	</div>
+        	</div>
+		</form>
+	</div>                   
+</div>    
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

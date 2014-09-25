@@ -1,0 +1,13 @@
+<?php include(APPLICATION_PATH.'/views/scripts/email/emailheader.phtml'); ?>
+Dear <?php echo $this->firstname; ?>,<br /><br />
+
+<?php echo $this->commentemailintro; ?>:<br /><br />
+ 
+"<?php echo $this->emailcontent; ?>"<br /><br />
+
+To view and reply to this comment click on the link below:<br />
+<?php echo $this->serverUrl($this->url($this->emaillink)); ?><br /><br />
+
+If the page fails to open, copy the link and paste it in the address window of your browser.<br /><br />
+
+<?php include(APPLICATION_PATH.'/views/scripts/email/emailfooter.phtml'); ?>

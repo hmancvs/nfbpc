@@ -1,0 +1,171 @@
+<?php
+	require_once APPLICATION_PATH.'/includes/header.php';
+	
+	$user = new Member();
+	$id = decode($request->id);
+	
+	$user->populate($id);
+	// debugMessage($user->toArray());	
+	
+	$hasid = false;
+	$mobileactivate = false;
+	if(!isEmptyString($id)){
+		$hasid = true;
+		if ($this->result) {
+			$title = $this->translate("useraccount_pagetitle_activation_success"); 
+			$this->headTitle($title);
+		} else {
+			$title = $this->translate("useraccount_pagetitle_activation_failure"); 
+			$this->headTitle($title);
+		}
+	} else {
+		if(!isEmptyString($request->act_byphone)){
+			$mobileactivate = true;
+			$title = "Activate Account"; 
+			$this->headTitle($title);
+		}
+	}
+	// $this->result = true;
+
+?>
+<script>
+	$(document).ready(function() {
+		// define the validation rules
+		$("#activateform").validate({		
+			rules: {
+				phone: {
+					required: true, 					
+					validnumber: true,
+					maxlength: 10,
+					minlength: 10,
+					validate_ug: true
+				},
+				actkey: {
+					required: true,
+					maxlength: 6,
+					minlength: 6		
+				}
+			}, 
+			// the messages for each of the fields being validated
+			messages: {	
+				phone: {
+					required: "<?php echo $this->translate("useraccount_phonenumber_error"); ?>", 					
+					maxlength: "Phone Number must have 10 Digits",
+					minlength: "Phone Number must have 10 Digits",
+					validate_ug: "<?php echo $this->translate("globale_phonenumber_format"); ?>"
+				},
+				actkey: {
+					required: "Please enter the activation code",
+					maxlength: "Code must have 6 Characters",
+					minlength: "Code must have 6 Characters"
+				}
+			},
+			// custom error positions
+			errorPlacement: function(error, element) {
+				switch(element.attr("name")){					
+					default:
+						error.appendTo("#"+element.attr("name")+"_error")
+						break;
+				}			
+			}
+		});
+		
+		// add the validation for wholesale price to be less than retail price
+		$.validator.addMethod("validnumber", function(value, element, params) { 
+			if (IsValidAmount(value)) {
+				return true; 
+			}
+			return false;        
+		}, "Please enter a valid Phone Number");
+		$.validator.addMethod("validate_ug", function(value, element, params) { 
+			if(!isUgNumber(value)) {
+				return false; 
+			}
+			return true;        
+		}, "<?php echo $this->translate("globale_phonenumber_format"); ?>");
+	});
+</script>
+<div id="signup_activate">
+	<?php if($hasid){ ?>
+		<?php if($this->result){ ?>
+            <h1><?php echo $title; ?></h1>
+            <div class="alert alert-success"><a class="close" data-dismiss="alert">×</a>Your account on <?php echo getAppName();?> has been successfully activated. </div>
+            <form id="profileform-personal" class="form-horizontal">
+                <table class="table well">    
+                    <tr>
+                        <td><br />
+                            Below are your unique identification credentials. Please note them down or in future visit your profile for more details:<br><br />                
+                            <table class="table table-striped span6">
+                                <tr>
+                                    <td width="35%" class="nowrapping"><label class="control-label controlright">Phone Number:</label></td>
+                                    <td><?php echo getShortPhone($user->getPhone()); ?></td>
+                                </tr>
+                                <tr>
+                                    <td><label class="control-label controlright">Email Address</label></td>
+                                    <td><?php echo $user->getEmail(); ?></td>
+                                </tr>
+                                <tr>
+                                    <td><label class="control-label controlright">Password:</label></td>
+                                    <td>**********</td>
+                                </tr>
+                            </table>
+                            <span style="display:block; width:100%; text-align:center; vertical-align:middle; height:50px;">
+                                You can now click button below to login using either your email or phone.<br /><br />
+                                <a class="positiveaction btn btn-primary btn-large" href="<?php echo $this->baseUrl("user/logout")?>"><i class="icon-lock icon-white"></i> Login</a>
+                            </span>
+                            <br /><br>
+                        </td>
+                    </tr>
+                </table>
+            </form>
+		<?php } else { ?>
+            <h1><?php echo $title; ?></h1>
+            <form id="profileform-personal" class="form-horizontal">
+                <table class="table well">    
+                    <tr>
+                        <td><br /><br />
+                            <div class="alert alert-error" style="height:auto; min-height:30px;"><?php echo $this->message; ?></div>
+                        </td>
+                    </tr>
+                </table> 		
+            </form>
+        <?php } ?>
+	<?php } ?>
+	<?php if($mobileactivate){ ?>
+        <h1><?php echo $title; ?></h1>
+        <form id="activateform" action="<?php echo $this->baseUrl('signup/mobileactivate'); ?>" method="post">
+            <table class="table table-condensed margin0">
+                <?php if(!isEmptyString($request->acterror)) { ?>
+                <tr>			
+                    <td colspan="2">
+                        <div class="alert alert-error">Invalid code or phone number specified for Activation. <br/> Please try again or contact us for assistance.</div>
+                    </td>
+                </tr>
+                <?php } ?>    
+                <tr>
+                    <td colspan="2"><label class="centerblock"><p>Do you have an activation code for an existing <b><?php echo getAppName(); ?></b> Account, enter it below together with your Phone Number to complete the registration process</p></label>
+                </tr>
+                <tr>
+                    <td style="width:30%;"><label class="control-label">Phone Number: <?php echo $this->translate("global_required_field_marker"); ?></label></td>
+                    <td><div class="input-prepend">
+                          <span class="add-on" style="margin-top:-9px;"><?php echo '+'.getCountryCode(); ?></span><input name="phone" id="phone" type="text" maxlength="10" class="span2" value="" /><input type="hidden" name="act_byphone" id="act_byphone" value="1" />
+                       </div><div id="phone_error"></div></td>
+                </tr>
+                <tr>
+                    <td><label class="control-label">Activation Code: <?php echo $this->translate("global_required_field_marker"); ?></label></td>
+                    <td><input type="text" name="actkey" maxlength="6" id="actkey" style="width:100px;" class="" value="" /><div id="actkey_error"></div></td>
+                </tr>
+                <tr>
+                    <td></td><td><button id="activate" class="btn btn-primary" type="submit">Activate</button></td>
+                </tr>
+                <tr>
+                    <td colspan="2"><label class="centerblock"><br /><br />For any assistance please feel free to <a href="<?php echo $this->serverUrl($this->baseUrl('contactus')); ?>" title="Contact us">Contact us</a></label>
+                    </td></td>
+                </tr>
+            </table>       
+        </form>
+    <?php } ?>
+</div>
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

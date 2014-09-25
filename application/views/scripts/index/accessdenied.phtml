@@ -1,0 +1,27 @@
+<?php
+	require_once APPLICATION_PATH.'/includes/header.php';
+	
+	$title = $this->translate("global_access_denied_page_title");	
+	$description = "Permission Denied";
+	
+	$this->headTitle($title.$browserappend); 
+?>
+<script>
+$(document).ready(function() {
+	$('.titlebreadcrumb').html('<?php echo $homedir.''.$title; ?>');
+	$('.titlelabel').html('<?php echo $title; ?>');
+	$('.desclabel').html('<?php echo $description; ?>');
+	$('.pageicon').html('<span class="glyphicon glyphicon-lock"></span>');
+	
+});
+</script>	
+<div class="divider30"></div>
+<div class="alert alert-danger col-md-10">
+	<b><?php echo $title; ?></b><br /><br />
+    <b>You do not have sufficient priviledges to view this page.</b><br /><br />
+    Please contact the System Administrator or Click the 'Back' button below to return to the previous page.<br /><br />
+    <a href="javascript:history.go(-1)" class="btn btn-primary"><i class="glyphicon glyphicon-arrow-left"></i> Back</a><br /><br />
+</div>
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

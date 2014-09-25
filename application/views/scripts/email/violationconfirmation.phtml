@@ -1,0 +1,28 @@
+<?php include(APPLICATION_PATH.'/views/scripts/email/emailheader.phtml'); ?>
+
+    Dear Admin,<br /><br />
+    
+    This is to inform you that a new <?php echo $this->appname; ?> user agreement violation has been reported with the following details;<br /><br />
+    
+    <b>Person Reported;</b><br />
+    <b>Name: </b><?php echo $this->name; ?><br />
+    <b>Country: </b><?php echo isEmptyString($this->country) ? '--' : $this->country; ?><br /><br />
+    
+    <b>Violation Details;</b><br />
+    <b>Type: </b><?php echo $this->type; ?><br />
+    <b>Description: </b><?php echo $this->message; ?><br /><br />
+    
+    <b>Reported By;</b><br />
+    <b>Email: </b><?php echo $this->youremail; ?><br />
+    <b>Country: </b><?php echo isEmptyString($this->yourcountry) ? '--' : $this->yourcountry; ?><br />
+    <b>Report Date: </b><?php echo $this->reportdate; ?><br /><br />
+
+	<?php echo $this->serverUrl($this->baseUrl()); ?>
+    </td>
+</tr>
+<tr>
+    <td colspan="2" style="padding:10px 0 10px 0; text-align:center; border-top: 3px solid #E2E2E2; background:none repeat scroll 0 0 #F4F4F4;">
+       <?php echo sprintf($this->translate("copyright"), date("Y"), getCompanyName()); ?>
+    </td>
+</tr>
+</table>

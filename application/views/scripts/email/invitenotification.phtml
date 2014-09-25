@@ -1,0 +1,12 @@
+<?php include(APPLICATION_PATH.'/views/scripts/email/emailheader.phtml'); ?>
+
+Dear <?php echo $this->firstname; ?>,<br /><br />
+
+You have been invited to activate your Account on the <?php echo $this->companyname; ?> <?php echo $this->appname; ?> platform.<br /><br />
+
+To activate your account, <a href="<?php echo $this->invitelink; ?>">click here</a> <br /><br /> or alternatively copy the activation link below and paste it in the address window of the browser :<br /><br />
+<?php echo $this->invitelink; ?><br /><br />
+
+After activating your account, you will be able to login using the your email address or username and password.
+
+<?php include(APPLICATION_PATH.'/views/scripts/email/emailfooter.phtml'); ?>

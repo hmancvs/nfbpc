@@ -1,0 +1,308 @@
+<?php
+	require_once APPLICATION_PATH.'/includes/header.php';
+	
+	$user = new Member();
+	$id = decode($request->id);
+	if(isEmptyString($id)){
+		$id = $userid;
+	}
+	$user->populate($id); // debugMessage($user->toArray());
+	$isme = true;
+	if($user->getID() != $userid){
+		$isme = false;
+	}
+	
+	$states = getStates();
+	$counties = getAllCounties();
+		
+	$viewurl = $this->baseUrl('profile/view/id/'.encode($user->getID()));
+	$indexurl = $this->baseUrl('profile/index/id/'.encode($user->getID()));
+	$listurl = $this->baseUrl('profile/list');
+	$listitems = $this->translate("profile_list_items");
+	$title = $user->getName();
+	$description = 'Profile Details';	
+	$this->headTitle($title.$browserappend);
+?>
+<script>
+$(document).ready(function() {
+	$('.titlebreadcrumb').html('<?php echo $homedir.'Users / '.$user->getName(); ?>');
+	$('.titlelabel').html('<?php echo $title; ?>');
+	$('.desclabel').html('<?php echo $description; ?>');
+	$('.pageicon').html('<span class="glyphicon glyphicon-list-alt"></span>');
+	
+}); 
+</script>
+<div class="row-fluid margin0 view">
+    <div class="col-md-12 padding0">
+    	<div class="headerbox">
+            <table class="table border0 nohover margin0">                       
+                <tr>		                    
+                    <td class="padding2">
+                        <?php if ($acl->checkPermission('User Account', ACTION_EDIT)) { ?>	
+                            <a class="btn btn-primary btn-sm <?php echo $user->isDeactivated() ? 'alert-dialog' : ''; ?>" message="This Account is deactivated and updates are disabled." href="<?php echo $indexurl; ?>"><i class="glyphicon glyphicon-pencil"></i> Update Profile</a>
+                        <?php } ?>
+						<?php if ($acl->checkPermission('User Account', ACTION_LIST)) { ?>	
+                            <a class="btn btn-default btn-sm" href="<?php echo $listurl; ?>"><i class="glyphicon glyphicon-list"></i> Manage Users</a>
+                        <?php } ?>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    <?php if ($sessionhaserror) { ?>
+        <div class="alert alert-danger"><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
+    <?php } ?>
+    <?php if (!isEmptyString($session->getVar(SUCCESS_MESSAGE))) { ?>
+        <div class="alert alert-success alert-dismissable"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button> <?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
+    <?php } ?>
+    <?php if (!isEmptyString($session->getVar('invitesuccess'))) { ?>
+    	<div class="alert alert-success alert-dismissable"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button><?php echo $session->getVar('invitesuccess'); ?></div>
+	<?php } ?>
+    <?php if (!isEmptyString($session->getVar('custommessage'))) { ?>
+        <div class="alert alert-success alert-dismissable"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button><?php echo $session->getVar('custommessage'); ?></div>
+    <?php } ?>
+    <?php if (!isEmptyString($session->getVar('custommessage1'))) { ?>
+        <div class="alert alert-success alert-dismissable"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button><?php echo $session->getVar('custommessage1'); ?></div>
+    <?php } ?>
+    <div class="contentcontainer clearfix">
+    	<form id="form-profile" class="form-horizontal profile" role="form" method="get">
+        	<div class="row-fluid margin0">
+            	<div class="col-md-12" style="margin-top:10px;">
+                    <fieldset class="fieldsetcontainer">
+                        <legend>About</legend>
+                        <div class="panel-body well-sm">
+                            <div class="col-md-9">
+                            	<div class="row-fluid margin">
+                                	<div class="col-md-6 paddingleft0">
+                                    	<div class="form-group">
+                                            <label class="col-md-5 control-label"><?php echo $this->translate("profile_firstname_label"); ?>:</label>
+                                            <div class="col-md-7">
+                                                <p class="form-control-static nullifempty view"><?php echo $user->getFirstName(); ?></p>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="col-md-5 control-label"><?php echo $this->translate("profile_lastname_label"); ?>:</label>
+                                            <div class="col-md-7">
+                                                <p class="form-control-static nullifempty view"><?php echo $user->getLastName(); ?></p>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="col-md-5 control-label"><?php echo $this->translate("profile_initial_label"); ?>: </label>
+                                            <div class="col-md-7">
+                                                <p class="form-control-static nullifempty view"><?php echo $user->getInitial(); ?></p>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="col-md-5 control-label"><?php echo $this->translate("profile_gender_label"); ?>:</label>
+                                            <div class="col-md-7">
+                                                <p class="form-control-static nullifempty view"><?php echo $user->getGenderText(); ?></p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                    	<div class="form-group">
+                                            <label class="col-md-4 control-label"><?php echo $this->translate("profile_dob_label"); ?>:</label>
+                                            <div class="col-md-8">
+                                                <p class="form-control-static nullifempty view"><?php echo changeMySQLDateToPageFormat($user->getDateofBirth()); ?></p>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="col-md-4 control-label"><?php echo $this->translate("profile_ssn_label"); ?>:</label>
+                                            <div class="col-md-8">
+                                                <p class="form-control-static nullifempty view"><?php echo $user->getSSN(); ?></p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                            	<div id="profileinfo"> 
+                                	<?php if ($acl->checkPermission('User Account', ACTION_EDIT) || $isme) { ?>
+                                        <a href="<?php echo $this->baseUrl('profile/picture/id/'.encode($user->getID())); ?>" class="editpic" title="Update Photo"><img id="profileimage" class="img-thumbnail img-responsive" style="max-width:140px;" src="<?php echo $user->getMediumPicturePath(); ?>" /></a>
+                                    <?php } else { ?>
+                                        <img id="profileimage" class="img-thumbnail img-responsive" style="max-width:140px;" src="<?php echo $user->getMediumPicturePath(); ?>" />
+                                    <?php } ?>
+                                </div>                                                        
+                            </div>
+                        </div>
+                    </fieldset>
+                </div>
+            </div>
+            <div class="row-fluid margin0">
+            	<div class="col-md-6" style="margin-top:10px;">
+                    <fieldset class="fieldsetcontainer clearfix" id="location" style="min-height:280px;">
+                        <legend>Address</legend>
+                        <div class="panel-body well-sm">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <label class="col-md-4 control-label"><?php echo $this->translate("profile_addressline1_label"); ?>:</label>
+                                    <div class="col-md-8">
+                                        <p class="form-control-static nullifempty view"><?php echo $user->getAddressline1(); ?></p>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="col-md-4 control-label"><?php echo $this->translate("profile_addressline2_label"); ?>:</label>
+                                    <div class="col-md-8">
+                                        <p class="form-control-static nullifempty view"><?php echo $user->getAddressline2(); ?></p>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="col-md-4 control-label"><?php echo $this->translate("profile_city_label"); ?>:</label>
+                                    <div class="col-md-8">
+                                        <p class="form-control-static nullifempty view"><?php echo $user->getCity(); ?></p>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="col-md-4 control-label"><?php echo $this->translate("profile_state_label"); ?>:</label>
+                                    <div class="col-md-8">
+                                        <p class="form-control-static nullifempty view"><?php echo isArrayKeyAnEmptyString($user->getState(), $states) ? '': $states[$user->getState()]; ?></p>  
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="col-md-4 control-label"><?php echo $this->translate("profile_zipcode_label"); ?>:</label>
+                                    <div class="col-md-8">
+                                        <p class="form-control-static nullifempty view"><?php echo $user->getZipCode(); ?></p>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="col-md-4 control-label"><?php echo $this->translate("profile_county_label"); ?>:</label>
+                                    <div class="col-md-8">
+                                        <p class="form-control-static nullifempty view"><?php echo isArrayKeyAnEmptyString($user->getCounty(), $counties) ? '': $counties[$user->getCounty()]; ?></p>  
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </fieldset>
+                </div>
+                <div class="col-md-6" style="margin-top:10px;">
+                    <fieldset class="fieldsetcontainer clearfix" id="contact" style="min-height:280px;">
+                        <legend>Contact</legend>
+                        <div class="panel-body well-sm">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <label class="col-md-4 control-label"><?php echo $this->translate("profile_homephone_label"); ?>:</label>
+                                    <div class="col-md-8">
+                                        <p class="form-control-static nullifempty view"><?php echo $user->getHome(); ?></p>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="col-md-4 control-label"><?php echo $this->translate("profile_cellphone_label"); ?>:</label>
+                                    <div class="col-md-8">
+                                        <p class="form-control-static nullifempty view"><?php echo $user->getCell(); ?></p>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="col-md-4 control-label"><?php echo $this->translate("profile_workphone_label"); ?>:</label>
+                                    <div class="col-md-8">
+                                        <p class="form-control-static nullifempty view"><?php echo $user->getWork(); ?></p>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="col-md-4 control-label"><?php echo $this->translate("profile_workext_label"); ?>:</label>
+                                    <div class="col-md-8">
+                                        <p class="form-control-static nullifempty view"><?php echo $user->getExt(); ?></p>  
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="col-md-5 control-label">&nbsp;</label>
+                                    <div class="col-md-7">&nbsp;</div>
+                                </div>
+                            </div>
+                        </div>
+                    </fieldset>
+                </div>
+            </div>
+            <div class="row-fluid margin0">
+            	<div class="col-md-12" style="margin-top:10px;">
+                    <fieldset class="fieldsetcontainer">
+                        <legend>Settings and Prefferences</legend>
+                        <div class="panel-body well-sm">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label class="col-md-4 control-label"><?php echo $this->translate("profile_type_label"); ?>:</label>
+                                    <div class="col-md-8">
+                                        <p class="form-control-static nullifempty view"><?php echo getUserType($user->getType()); ?></p>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="col-md-4 control-label"><?php echo $this->translate("profile_username_label"); ?>:</label>
+                                    <div class="col-md-8">
+                                        <p class="form-control-static nullifempty view"><?php echo $user->getUserName(); ?></p>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="col-md-4 control-label"><?php echo $this->translate("profile_email_label"); ?>:</label>
+                                    <div class="col-md-8">
+                                        <p class="form-control-static nullifempty view"><?php echo $user->getEmail(); ?></p> 
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="col-md-4 control-label"><?php echo $this->translate("profile_password_label"); ?>:</label>
+                                    <div class="col-md-8">
+                                        <p class="form-control-static nullifempty view">******</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label class="col-md-4 control-label"><?php echo $this->translate("profile_dateadded_label"); ?>: </label>
+                                    <div class="col-md-8">
+                                        <p class="form-control-static nullifempty view"><?php echo formatDateAndTime($user->getDateCreated()); ?></p>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="col-md-4 control-label"><?php echo $this->translate("profile_dateactivated_label"); ?>:</label>
+                                    <div class="col-md-8">
+                                        <p class="form-control-static nullifempty view"><?php echo formatDateAndTime($user->getActivationDate()); ?></p>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="col-md-4 control-label"><?php echo $this->translate("profile_addedby_label"); ?>:</label>
+                                    <div class="col-md-8">
+                                        <p class="form-control-static nullifempty view"><?php echo $user->getCreator()->getName(); ?></p>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="col-md-4 control-label"><?php echo $this->translate("profile_status_label"); ?>:</label>
+                                    <div class="col-md-8">
+                                        <p class="form-control-static nullifempty view"><?php echo getUserStatus($user->getIsActive()); ?></p>
+                                        <div class="divider5"></div>
+                                        <?php if(!isEmptyString($user->hasPendingActivation()) && $acl->checkPermission('User Account', ACTION_CREATE)) { ?>
+                                            <div class="alert alert-warning">Activation pending from user</div>
+                                        <?php } ?>
+                                        <?php if($acl->checkPermission('User Account', ACTION_DELETE) && $user->isDeactivated()) { ?>
+                                            <div class="alert alert-warning">User profile was de-activated</div>
+                                        <?php } ?>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <div class="col-md-12">
+                                        <div class="divider5"></div>
+                                        <?php if(isAdmin() || $isme){ ?>
+                                            <a class="btn btn-default btn-xs" href="<?php echo $this->baseUrl('profile/picture/id/'.encode($user->getID())); ?>"><i class="glyphicon glyphicon-upload"></i> Upload Photo</a>
+                                        <?php } ?>
+										<?php if($acl->checkPermission('User Account', ACTION_DELETE) && $user->isUserActive()){ ?>
+                                            <a class="btn btn-default btn-xs confirm-dialog" action="<?php echo $this->baseUrl('profile/resetpassword/id/'.encode($user->getID())); ?>" message="Are you sure you want to reset <?php echo $user->getName() ?>'s Password?"><i class="glyphicon glyphicon-refresh"></i> Reset Password</a>
+                                        <?php } ?>
+                                        <?php if($acl->checkPermission('User Account', ACTION_DELETE) && $user->isDeactivated() && !$isme){ ?>
+                                            <a class="btn btn-success btn-xs confirm-dialog" action="<?php echo $this->baseUrl("profile/updatestatus/id/".encode($user->getID())."/status/1/successmessage/profile_reactivate_success/successurl/".encode($this->viewurl)); ?>" message="<?php echo $this->translate('profile_reactivate_confirmation'); ?>"><i class="glyphicon glyphicon-arrow-up"></i> Re-Activate Account</a>
+                                        <?php } ?>
+                                        <?php if($acl->checkPermission('User Account', ACTION_DELETE) && $user->isUserActive() && !$user->isDeactivated() && !$isme){ ?>
+                                           <a class="btn btn-warning btn-xs confirm-dialog" action="<?php echo $this->baseUrl("profile/updatestatus/id/".encode($user->getID())."/status/2/successmessage/profile_deactivate_success/successurl/".encode($this->viewurl)); ?>" message="<?php echo $this->translate('profile_deactivate_confirmation'); ?>"><i class="glyphicon glyphicon-arrow-down"></i> De-Activate Account</a>
+                                        <?php } ?>
+                                        <?php if($acl->checkPermission('User Account', ACTION_DELETE) && !$user->isUserActive() && !$isme){ ?>
+                                            <a class="btn btn-danger btn-xs confirm-dialog" message="<?php echo $this->translate('global_delete_confirm_message'); ?>" action="<?php echo $this->baseUrl('profile/delete/id/'.encode($user->getID())."/entityname/Member/successurl/".encode($listurl)); ?>"><i class="glyphicon glyphicon-remove-sign"></i> Delete Account</a>
+                                        <?php } ?>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </fieldset>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>    
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

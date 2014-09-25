@@ -1,0 +1,302 @@
+<?php
+	require_once APPLICATION_PATH.'/includes/header.php';
+
+	$user = new Member(); 
+	
+	$button_title = $this->translate("profile_button_signup");
+	$posturl = $this->baseUrl("signup/create"); 
+	$failureurl = $this->baseUrl('signup'); 
+	$successurl = $this->baseUrl('signup/confirm'); 
+	
+	// set all fields to empty string as default
+	$user->setType(DEFAULT_USER_GROUP);
+	$id = decode($request->id);	
+	$useractivate = false;
+	if(!isEmptyString($id)){
+		$user->populate($id);
+		$button_title = $this->translate("profile_button_activate");
+		$posturl = $this->baseUrl("signup/processinvite");
+		$failureurl = $this->baseUrl('signup/index/id/'.$request->id); 
+		$successurl = $this->baseUrl('signup/inviteconfirmation/id/'.$request->id);
+	}
+	
+	// any errors occured in processing
+	if ($sessionhaserror) {
+	    $user->processPost($session->getVar(FORM_VALUES)); 
+	}
+	
+	$title = $this->translate("profile_pagetitle_signup"); 
+	$this->headTitle($title.$browserappend); 
+?>
+<script>
+$(document).ready(function() {			
+	$(".navonlogin, #sidebar, .breadcrumbs li").remove();
+	
+	// define the validation rules
+	$("#signupform").validate({		
+		rules: {
+			gender: {
+				required: true
+			},
+			firstname: {
+				required: true
+			},
+			lastname: {
+				required: true
+			},
+			username: {
+				required: true, 
+				minlength: <?php echo $config->profile->usernameminlength; ?>,
+				maxlength: <?php echo $config->profile->usernamemaxlength; ?>
+			},
+			email: {
+				required: true, 
+				email: true
+			},
+			password: {
+				required: true,
+				minlength: <?php echo $config->profile->passwordminlength; ?>,
+				maxlength: <?php echo $config->profile->passwordmaxlength; ?>
+			},			
+			confirmpassword: {
+				required: true,
+				equalTo: "#password"
+			},
+			agreedtoterms: "required",
+			code: {
+				required: true,
+				validatecode: true					
+			}
+		}, 
+		// the messages for each of the fields being validated
+		messages: {	
+			gender: {
+				"required": "<?php echo $this->translate("profile_gender_error"); ?>"
+			}, 
+			firstname: {
+				"required": "<?php echo $this->translate("profile_firstname_error"); ?>"
+			},
+			lastname: {
+				"required": "<?php echo $this->translate("profile_lastname_error"); ?>"
+			},
+			username: {
+				required: "<?php echo $this->translate("profile_username_error"); ?>",
+				minlength: "<?php echo sprintf($this->translate("profile_username_error_minlength"), $config->profile->usernameminlength); ?>",
+				maxlength: "<?php echo sprintf($this->translate("profile_username_error_maxlength"), $config->profile->usernamemaxlength); ?>"
+			},
+			email: {
+				required: "<?php echo $this->translate("profile_email_error"); ?>", 
+				email: "<?php echo $this->translate("profile_email_invalid_error"); ?>"
+			},
+			password: {
+				required: "<?php echo $this->translate("profile_password_error"); ?>",
+				maxlength: "<?php echo sprintf($this->translate("profile_password_error_maxlength"), $config->profile->passwordmaxlength); ?>",
+				minlength: "<?php echo sprintf($this->translate("profile_password_error_minlength"), $config->profile->passwordminlength); ?>"
+			},
+			confirmpassword: {
+				required: "<?php echo $this->translate("profile_confirmpassword_error"); ?>",
+				equalTo: "<?php echo $this->translate("profile_confirmpassword_error_equalto"); ?>"
+			},
+			agreedtoterms: "<?php echo $this->translate("profile_agreetoterms_error"); ?>",
+			code: {
+				required: "<?php echo $this->translate("profile_captcha_error"); ?>"
+			}
+		},
+		// custom error positions
+		errorPlacement: function(error, element) {
+			switch(element.attr("name")){					
+				default:
+					error.appendTo("#"+element.attr("name")+"_error")
+					break;
+			}			
+		}
+	});
+	
+	// validate captcha
+	$.validator.addMethod("validatecode", function(value, element, params) {
+		//alert('code is '+value); //alert('valid is '+$("#validcode").val());
+		if ($("#code").val().toLowerCase() == $("#validcode").val().toLowerCase()) {
+			return true; 
+		}
+		return false;        
+	}, "Captcha Invalid! <br />Re-enter code or refresh for a new one");
+	
+	$(".hastooltip").change();
+	
+	// prevent copy and paste in password fields
+	$('input.password').bind('copy paste', function (e) {
+	   e.preventDefault();
+	});
+		
+	//when button is clicked  
+	$('#check_username_availability').click(function(){ 
+		check_user_availability();  
+	});
+	$('#username').change(function(){ 
+		check_user_availability();  
+	});  
+	$('#username').keyup(function(){
+		this.value = this.value.toLowerCase();
+	});
+	
+	//function to check username availability  
+	function check_user_availability(){  
+		//get the username
+		var checking_html = 'Checking availability...';   
+		var username = $('#username').val();  
+		if(!isEmptyString(username) && username.length >= 4 && username.length <= 15 && isAlpha(username)){
+			// alert('passed');
+			$('#username_availability_result').html(checking_html); 
+			var userid = '<?php echo $user->getID(); ?>';
+			//use ajax to run the check  
+			$.post("<?php echo $this->baseUrl('signup/checkusername'); ?>", { username: username, userid: userid },  
+				function(result){  
+					//if the result is 1  
+					// alert(result); // return false;
+					if(result == 1){  
+						//show that the username is available
+						$('#username_availability_result').html(username + ' is NOT available!').addClass('alert').addClass('alert-danger').removeClass('alert-success'); 
+					} else {  
+						//show that the username is NOT available  
+						$('#username_availability_result').html(username + ' is available').addClass('alert').addClass('alert-success').removeClass('alert-danger');
+					}  
+			});   
+		}
+	}
+	
+	//when button is clicked  
+	$('#check_email_availability').click(function(){ 
+		check_email_availability();  
+	});
+	$('#email').change(function(){ 
+		check_email_availability();  
+	});  
+	
+	//function to check email availability  
+	function check_email_availability(){  
+		//get the username
+		var checking_html = 'Checking availability...';   
+		var email = $('#email').val();  
+		if(!isEmptyString(email) && validateEmail(email)){
+			$('#email_availability_result').html(checking_html);  
+			var userid = '<?php echo $user->getID(); ?>';
+			//use ajax to run the check  
+			$.post("<?php echo $this->baseUrl('signup/checkemail'); ?>", { email: email, userid: userid},  
+				function(result){  
+					//if the result is 1  
+					// alert(result); // return false;
+					if(result == 1){  
+						//show that the email is available
+						$('#email_availability_result').html(email + ' is NOT available!').addClass('alert').addClass('alert-danger').removeClass('alert-success fade in'); 
+					} else {  
+						//show that the email is NOT available  
+						$('#email_availability_result').html(email + ' is available').addClass('alert').addClass('alert-success').removeClass('alert-danger fade in');
+					}  
+			});  
+		}
+	}
+	
+});	
+</script>
+<style>
+.breadcrumbs li, .pageheader, #headercontainer #headermenu, #headercontainer #headerright {
+	display:none;
+}
+#contentcontainer {
+	margin-left:0;
+}
+.breadcrumbs {
+	padding:30px 0 4px 10px;	
+}
+.headerwrapper {
+	margin:0 auto;
+	margin-left:550px;
+}
+</style>
+<div id="publiccontainer" class="index">
+	<!--<h3 class="centeralign">Account Activation</h3>-->
+    <div class="divider15"></div>
+	<?php if($sessionhaserror) { ?>
+    	<div class="alert alert-error clear"><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
+    <?php } ?>
+    <?php if(!isEmptyString($session->getVar(SUCCESS_MESSAGE)) ){ ?>
+    	<div class="alert alert-success clear"><?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
+    <?php } ?>
+    <form id="signupform" class="form-horizontal" role="form" action="<?php echo $posturl; ?>" method="post">
+        <fieldset class="fieldsetcontainer">
+            <legend><h4>Account Activation</h4></legend>
+            <div class="panel-body well-sm">
+                <div class="col-md-12">
+                    <div class="form-group">
+                        <label class="col-sm-4 control-label"><?php echo $this->translate("profile_firstname_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                        <div class="col-sm-8">
+                            <input type="text" class="form-control input-sm" id="firstname" name="firstname" value="<?php echo $user->getFirstName(); ?>" /><div id="firstname_error"></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="col-sm-4 control-label"><?php echo $this->translate("profile_lastname_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                        <div class="col-sm-8">
+                            <input type="text" class="form-control input-sm" id="lastname" name="lastname" value="<?php echo $user->getLastName(); ?>" /><div id="lastname_error"></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="col-sm-4 control-label"><?php echo $this->translate("profile_gender_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                        <div class="col-sm-8">
+                            <label class="radio-inline"><input type="radio" name="gender" id="male" value="1" class="xform-control <?php echo $user->isMale() ? 1 : 0; ?>"> Male</label>
+                            <label class="radio-inline"><input type="radio" name="gender" id="female" value="2" class="xform-control <?php echo $user->isFemale() ? 1 : 0; ?>"> Female</label>
+                            <div id="gender_error"></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="col-sm-4 control-label"><?php echo $this->translate("profile_username_label"); ?>: <?php echo isEmptyString($user->getID()) ? '' : $this->translate("global_required_field_marker"); ?></label>
+                        <div class="col-sm-8">
+                            <input type="text" class="form-control input-sm blocked" id="username" name="username" value="<?php echo $user->geUserName(); ?>" /> <a class="btn btn-xs btn-default gonowhere" id='check_username_availability' style="margin-top:2px;" title="Check Availability">Check</a>
+                            
+                            <div id="username_availability_result" style="margin-top:4px"></div>
+                            <div id="username_error"></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="col-sm-4 control-label"><?php echo $this->translate("profile_email_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                        <div class="col-sm-8">
+                            <input type="hidden" name="oldemail" id="oldemail" value="<?php echo $user->getEmail(); ?>" />
+                            <input type="text" class="form-control input-sm blocked" id="email" name="email" value="<?php echo $user->getEmail(); ?>" />
+                            <a class="btn btn-xs btn-default gonowhere" id='check_email_availability' style="margin-top:2px;" title="Check Availability">Check</a>
+                            <div id="email_availability_result" style="margin-top:4px"></div>
+                            <div id="email_error"></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="col-sm-4 control-label"><?php echo $this->translate("profile_password_label"); ?>: <?php echo $this->translate("required_field_marker"); ?></label>
+                        <div class="col-sm-8 paddingright0">
+                             <input type="password" name="password" id="password" class="form-control password input-sm xwidth200" autocomplete="off" onkeyup="passwordStrength(this.value)" />
+                            <p style="display:inline-block; float:right;">
+                                <label for="passwordStrength" class="hidden">Password strength</label>
+                                <div id="passwordDescription" style="width:100px;">strength</div>
+                                <div id="passwordStrength" class="strength0"></div>
+                            </p>
+                            <div id="password_error"></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="col-sm-4 control-label blocked"><?php echo $this->translate("profile_password_confirm_label"); ?>: <?php echo $this->translate("required_field_marker"); ?></label>
+                        <div class="col-sm-8 paddingright0">
+                            <input type="password" name="confirmpassword" id="confirmpassword" class="form-control password input-sm xwidth200" /><div id="confirmpassword_error"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-12">
+                <button type="submit" class="btn btn-primary floatright" style="margin-top:10px;"><i class="glyphicon glyphicon-ok icon-white"></i> Activate</button>
+                <input type="hidden" name="usecustomsave" id="usecustomsave" value="true" />
+                <input type="hidden" name="id" id="id" value="<?php echo encode($user->getID()); ?>" />
+                <input type="hidden" name="createdby" id="createdby" value="<?php echo $user->getCreatedBy(); ?>" />
+                <input type="hidden" name="type" id="type" value="<?php echo $user->getType(); ?>" />
+        	</div>
+            <div class="divider15"></div>
+        </fieldset> 
+    </form>
+</div>             
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

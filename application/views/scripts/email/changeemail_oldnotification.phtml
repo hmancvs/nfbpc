@@ -1,0 +1,14 @@
+<?php include(APPLICATION_PATH.'/views/scripts/email/emailheader.phtml'); ?>
+
+Dear <?php echo $this->firstname; ?>,<br /><br />
+
+You recently requested to change your <?php echo $this->appname; ?> Email Address to '<?php echo $this->toemail; ?>'.<br /><br />
+
+To confirm this request, please follow the instructions sent to the above address.<br /><br />
+
+On confirmation, you will no longer be able to login using '<?php echo $this->fromemail; ?>'.<br />
+
+If you need any further assistance or have any question, please feel free to <a href="<?php echo $this->serverUrl($this->baseUrl('contactus')); ?>" title="Contact us">Contact us</a><br /><br />
+
+<?php include(APPLICATION_PATH.'/views/scripts/email/emailfooter.phtml'); ?>
+            

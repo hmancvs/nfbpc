@@ -1,0 +1,46 @@
+<?php
+	require_once APPLICATION_PATH.'/includes/header.php';
+	
+	$user = new Member();
+	$user->populate(decode($request->id));
+	
+	$title = "Activation Confirmation"; 
+	$this->headTitle($title.$browserappend); 
+	
+?>
+<script>
+$(document).ready(function() {			
+	$(".navonlogin, #sidebar, .breadcrumbs li").remove();
+	
+});	
+</script>
+<style>
+.breadcrumbs li, .pageheader, #headercontainer #headermenu, #headercontainer #headerright {
+	display:none;
+}
+#contentcontainer {
+	margin-left:0;
+}
+.breadcrumbs {
+	padding:30px 0 4px 10px;	
+}
+.headerwrapper {
+	margin:0 auto;
+	margin-left:550px;
+}
+</style>
+<div id="publiccontainer" class="index">
+	<h3 class="centeralign"><?php echo $title; ?></h3>
+    <div class="divider15"></div>
+    <form class="form-horizontal" role="form">
+    	<?php if($sessionhaserror) { ?>
+            <div class="alert alert-error clear"><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
+        <?php } ?>
+        <?php if(!isEmptyString($session->getVar(SUCCESS_MESSAGE)) ){ ?>
+            <div class="alert alert-success clear"><?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
+        <?php } ?>
+    </form>
+</div>    
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

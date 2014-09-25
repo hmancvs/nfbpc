@@ -1,0 +1,74 @@
+<?php 
+	require_once APPLICATION_PATH.'/includes/header.php';
+	$request = Zend_Controller_Front::getInstance()->getRequest();
+	
+	$resource = "User Account";	
+	$action = ACTION_VIEW;
+	
+	#create object
+	$useraccount = new Member;
+	
+	#Populate or retrive the entry using the above id. 
+	$useraccount->populate(decode($request->id));
+	
+	$title = $useraccount->getName()."'s Profile";
+	$this->headTitle($title); 
+?>
+<h2><?php echo $title; ?></h2>
+<table class="formtable">
+	<tr>
+    	<td colspan="2">
+        	<a href="#" class="negativeaction" title="Deactivate User Details">Deactivate</a>&nbsp;&nbsp;
+            <a href="#" class="positiveaction" title="Update User Details">Update</a>&nbsp;&nbsp;
+        </td>
+    </tr>	
+    <tr class="sectionheading">
+      <td colspan="2"><?php echo $this->translate("useraccount_section_general"); ?></td>
+    </tr>
+	<tr>
+    	<td class="label"><?php echo $this->translate("useraccount_firstname_label"); ?>:</td>
+        <td width="99%"><?php echo $useraccount->getFirstName(); ?></td>
+    </tr>
+    <tr>
+    	<td class="label"><?php echo $this->translate("useraccount_lastname_label"); ?>:</td>
+        <td><?php echo $useraccount->getLastName(); ?></td>
+    </tr>
+    <tr>
+   	  <td class="label"><?php echo $this->translate("useraccount_othername_label"); ?>:</td>
+        <td><?php echo isEmptyString($useraccount->getOtherName()) ? "---" : $useraccount->getOtherName(); ?></td>
+    </tr>
+    <tr>
+    	<td class="label"><?php echo $this->translate("useraccount_email_label"); ?>:</td>
+        <td><?php echo $useraccount->getEmail(); ?></td>
+    </tr>
+    <tr>
+    	<td class="label"><?php echo $this->translate("useraccount_phonenumber_label"); ?>:</td>
+        <td><?php echo isEmptyString($useraccount->getPhoneNumber()) ? "---" : $useraccount->getPhoneNumber(); ?></td>
+    </tr>
+    <tr>
+      <td class="label"><?php echo $this->translate("useraccount_password_label"); ?>:</td>
+      <td><a href="#" title="Reset User Password">Reset Password</a></td>
+    </tr>
+    <tr>
+    	<td colspan="2">&nbsp;</td>
+    </tr>    
+    <tr class="sectionheading">
+      <td colspan="2"><?php echo $this->translate("useraccount_section_bank"); ?></td>
+    </tr>
+     <tr>
+      <td class="label"><?php echo $this->translate("useraccount_bankname_label"); ?>:</td>
+      <td><?php echo isEmptyString($useraccount->getBankName()) ? "---": $useraccount->getBankName(); ?></td>
+    </tr>
+     <tr>
+      <td class="label"><?php echo $this->translate("useraccount_routingnumber_label"); ?>:</td>
+      <td><?php echo isEmptyString($useraccount->getRoutingNumber()) ? "---": $useraccount->getRoutingNumber(); ?></td>
+    </tr>
+    <tr>
+      <td class="label"><?php echo $this->translate("useraccount_accountnumber_label"); ?>:</td>
+      <td><?php echo isEmptyString($useraccount->getAccountNumber()) ? "---": $useraccount->getAccountNumber(); ?></td>
+    </tr>
+</table> 
+<?php
+	$pageid = 11025;
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

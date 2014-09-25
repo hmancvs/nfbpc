@@ -1,0 +1,11 @@
+<?php include(APPLICATION_PATH.'/views/scripts/email/emailheader.phtml'); ?>
+Dear <?php echo $this->firstname; ?>,<br /><br />
+
+You recently created an account on <?php echo $this->appname; ?>. To activate your account, click on the activation link below:<br />
+<?php echo $this->activationurl; ?><br /><br />
+
+If the page fails to open, copy the activation link and paste it in the address window of the browser.<br />
+
+After activation, you can login using the your email address or username and the password you provided.<br /><br />
+
+<?php include(APPLICATION_PATH.'/views/scripts/email/emailfooter.phtml'); ?>

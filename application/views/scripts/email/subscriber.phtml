@@ -1,0 +1,36 @@
+<?php include(APPLICATION_PATH.'/views/scripts/email/emailheader.phtml'); ?>
+            Dear <?php echo $this->firstname; ?>,<br /><br />
+            
+            You are receiving this email because you registered for <a href="<?php echo $this->infotrade_url; ?>" target="_blank">Infotrade Uganda</a> <b>Market Information Services.</b><br /><br />
+            
+            <p style="line-height:25px;">We at <a href="<?php echo $this->infotrade_url; ?>" target="_blank">Infotrade</a> have enhanced the <a href="<?php echo $this->agmis_url; ?>" target="_blank">Agricultural Market Information System (AGMIS)</a> and we would like to take this opportunity to invite you to become a <b>Beta user/tester</b> for our new platform that is going to answer all your day to day Market Information needs for Uganda's Agribusiness sector.</p><br />
+            
+            <b>Among the benefits and features highlighted in the new AGMIS Version 2.0 include;</b><br /> 
+            <ul style="padding-left:15px;">
+                <li style="line-height:25px; padding-left:10px;">Weather conditions and forecasts for select locations/districts in Uganda.</li>
+                <li style="line-height:25px; padding-left:10px;">Online Trading platform where you can list your classified adds for agricultural commodity offers on sell.</li>
+                <li style="line-height:25px; padding-left:10px;">A community forum where you can interact with Agri-sector experts on various topics.</li>
+                <li style="line-height:25px; padding-left:10px;">The Infotrade business directory has been enhanced and broken down into categories for you to list your business free on the platform. Premium advertising plans are also available.</li>
+                <li style="line-height:25px; padding-left:10px;">Commodity prices have been repackaged with tools to analyse and compare prices for commodities from different locations/markets in Uganda.</li>
+                <li style="line-height:25px; padding-left:10px;">Fuel prices for select fuel stations are now readily available.</li>
+                <li style="line-height:25px; padding-left:10px;">District and market profiles that are searchable with location specific variables including weather, trading opportunities, etc are a just a click away.</li>
+                <li style="line-height:25px; padding-left:10px;">All the Infotrade Weekly Analysis reports at your disposable for downloading and referencing when needed.</li>
+            </ul>
+            
+            We invite you to try these features and <a href="<?php echo $this->feedbackurl; ?>" target="_blank">drop us some feedback</a> any time.<br /><br /> 
+            
+            To login and access your account <a href="<?php echo $this->activationurl; ?>" target="_blank">click here</a> or copy the link below and paste it in your browser window.<br />
+            <?php echo $this->activationurl; ?><br /><br /><br />
+            <!--If you do not have an Infotrade account, here is a free opportunity to create one by clicking the link below;<br /><br /> -->
+            
+            We really hope you like the new <a href="<?php echo $this->agmis_url; ?>">Infotrade AGMIS!</a><br />
+            
+            <?php echo "<br /><b>AGMIS Team</b><br /> support@fituganda.com"; ?>
+		</td>
+	</tr>
+</table>
+<table style="width:800px; margin:0;">	
+    <tr>
+    	<td style="padding:0; margin:0; background-color:#82CA39; color:#ffffff; padding-top:10px; padding-bottom:10px; padding-left:10px; font-family: Arial, Helvetica, Tahoma, sans-serif; font-size:15px;"><a style="color:#ffffff;" href="<?php echo $this->agmis_url; ?>" target="_blank"><?php echo $this->agmis_url; ?></a></td>
+    </tr>
+</table>

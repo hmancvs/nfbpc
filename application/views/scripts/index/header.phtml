@@ -1,0 +1,151 @@
+<?php
+	include APPLICATION_PATH.'/includes/header.php';
+
+	$userid = $session->getVar("userid"); // debugMessage($userid);
+	$user->populate($userid);
+	
+	$thecontroller = $request->getControllerName();
+	$theaction = $request->getActionName();
+	$publiccontrollers = array("signup","user"); 
+	if(isEmptyString($userid)){
+		$publiccontrollers[] = 'contactus';
+	}
+	if(($thecontroller == 'index' && $theaction == 'accessdenied')){
+		unset($publiccontrollers['0']);
+	}
+	
+	$toggled = $session->getVar('toggled');
+	$toggledclass = '';
+	// $toggled = 1;
+	if($toggled == '1'){
+		$toggledclass = ' toggled';
+	}
+	
+?>
+<!-- Header -->
+<header class="navbar" id="headercontainer">
+    <nav class="navbar-wrapper navbar-default navbar-fixed-top" role="navigation">
+        <div class="container-fluid headerwrapper"> 
+            <!-- Brand and toggle get grouped for better mobile display -->
+            <div class="navbar-header margin0 padding0">
+                <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse"> 
+                    <span class="sr-only">Toggle navigation</span> 
+                    <span class="icon-bar"></span> 
+                    <span class="icon-bar"></span> 
+                    <span class="icon-bar"></span> 
+                </button>
+       			<!--<div class="divider10"></div>-->
+        		<a class="navbar-brand margin0 padding0 hidden-xs" href="#" id="homelink">
+                    <img class="img-responsive" id="logoimg" src="<?php echo $this->baseUrl('images/logo.png'); ?>" />		
+                    <span class="paddingleft0" id="appname">
+                    	<?php if(in_array($thecontroller, $publiccontrollers)){ ?>
+							<?php echo getAppName(); ?>
+                        <?php } else { ?>
+                        	<?php echo getCompanyName(); ?> <br><label style="font-weight:normal;">Web Portal</label>
+                        <?php } ?>
+                    </span>
+       			</a> 
+        	</div>
+            <!-- Collect the nav links, forms, and other content for toggling -->
+            <div class="collapse navbar-collapse navonlogin" style="height:100px;">
+                <ul class="nav navbar-nav" id="headermenu">
+					<?php if ($acl->checkPermission('Dashboard', ACTION_VIEW)) { ?>
+                    	<li class="<?php echo $controller == 'dashboard' ? 'active' : ''; ?>"><a href="<?php echo $this->baseUrl('dashboard'); ?>"><span class="glyphicon xglyphicon-home"><i class="icon-large icon-home"></i></span><span class="menutext">Dashboard</span></a></li> 
+                    <?php } ?>
+                    <?php if ($acl->checkPermission('Member', ACTION_LIST)) { ?>
+                    	<li class="<?php echo $controller == 'member' ? 'active' : ''; ?>"><a href="<?php echo $this->baseUrl('member/list'); ?>"><span class="glyphicon xglyphicon-user"><i class="icon-large icon-group"></i></span><span class="menutext">Members</span></a></li>
+                    <?php } ?>
+                    <?php if ($acl->checkPermission('Organisation', ACTION_LIST)) { ?>
+                    	<li class="<?php echo $controller == 'organisation' ? 'active' : ''; ?>"><a href="<?php echo $this->baseUrl('church/list'); ?>" class="blanklink"><span class="glyphicon"><i class="icon-large icon-temple-christianity-church"></i></span><span class="menutext">Churches</span></a></li>
+                    <?php } ?>
+                    <?php if ($acl->checkPermission('User Account', ACTION_LIST)) { ?>
+                    	<li class="<?php echo $controller == 'profile' ? 'active' : ''; ?>"><a href="<?php echo $this->baseUrl('profile/list'); ?>" class="blanklink"><span class="glyphicon"><i class="icon-large icon-user"></i></span><span class="menutext">System Users</span></a></li>
+                    <?php } ?>
+                    <?php if ($acl->checkPermission('Report Dashboard', ACTION_VIEW)) { ?>
+                    	<li class="<?php echo $controller == 'report' ? 'active' : ''; ?>"><a href="<?php echo $this->baseUrl('report/dashboard'); ?>" class="blanklink"><span class="glyphicon"><i class="icon-large icon-signal"></i></span><span class="menutext"> Reports</span></a></li>
+                    <?php } ?>
+                </ul>
+                <ul class="nav navbar-nav navbar-right" id="headerright">
+                    <!-- User Login Dropdown -->
+                    <?php if(false){ ?>
+                    <li class="dropdown user">
+                        <a href="<?php echo $this->baseUrl('profile/view/id/'.encode($user->getID())); ?>" class="dropdown-toggle" data-toggle="dropdown">
+                            <i class="icon-male"></i>
+                            <span class="username"><?php echo $user->getName(); ?></span>
+                            <i class="icon-caret-down small"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                            <?php if(isLoggedIn()){ ?>
+                                <li><a href="<?php echo $this->baseUrl('profile/view/id/'.encode($user->getID())); ?>"><i class="icon-user"></i> My Profile</a></li>
+                                <li><a href="<?php echo $this->baseUrl('profile/view/id/'.encode($user->getID()).'/tab/settings'); ?>"><i class="icon-tasks"></i> Preferences</a></li>
+                                <li><a href="<?php echo $this->baseUrl('profile/view/id/'.encode($user->getID()).'/tab/settings'); ?>"><i class="icon-cog"></i> Settings</a></li>
+                                <li class="divider"></li>
+                                <li><a href="<?php echo $this->baseUrl('user/logout'); ?>"><i class="icon-key"></i> Log Out</a></li>
+                            <?php } else { ?>
+                                <li class="divider"></li>
+                                <li><a href="<?php echo $this->baseUrl('user/login'); ?>"><i class="icon-key"></i> Login</a></li>
+                            <?php } ?>
+                        </ul>
+                    </li>
+                    <?php } ?>
+                    <li class="userloggedinfo">
+                    	<?php if($isloggedin){ ?>
+                        <div class="row margin0 padding0">
+                            <ul style="background-color:#999;">
+                            	<li class="dropdown user">
+                                    <a href="<?php echo $this->baseUrl('profile/view/id/'.encode($user->getID())); ?>" class="dropdown-toggle" data-toggle="dropdown">
+                                        <i class="icon-male"></i>
+                                        <span class="glyphicon glyphicon-chevron-down"></span>
+                                    </a>
+                                    <ul class="dropdown-menu">
+                                        <?php if(isLoggedIn()){ ?>
+                                            <li><a href="<?php echo $this->baseUrl('profile/view/id/'.encode($user->getID())); ?>"><i class="icon-user"></i> My Profile</a></li>
+                                            <li><a href="<?php echo $this->baseUrl('profile/view/id/'.encode($user->getID()).'/tab/settings'); ?>"><i class="glyphicon glyphicon-tasks"></i> Preferences</a></li>
+                                            <li><a href="<?php echo $this->baseUrl('profile/view/id/'.encode($user->getID()).'/tab/settings'); ?>"><i class="glyphicon glyphicon-cog"></i> Settings</a></li>
+                                            <li class="divider"></li>
+                                            <li><a href="<?php echo $this->baseUrl('user/logout'); ?>"><i class="icon-key"></i> Log Out</a></li>
+                                        <?php } else { ?>
+                                            <li class="divider"></li>
+                                            <li><a href="<?php echo $this->baseUrl('user/login'); ?>"><i class="icon-key"></i> Login</a></li>
+                                        <?php } ?>
+                                    </ul>
+                                </li>
+                            </ul>
+                            <a id="userinfolink" href="<?php echo $this->baseUrl("profile/view/id/".encode($user->getID())); ?>"><img src="<?php echo $user->getMediumPicturePath(); ?>" /></a>
+                            <?php if(false){ ?>
+                                <ul>
+                                    <li class="btn-default"><a class="blanklink" href="<?php echo $this->baseUrl("profile/view/id/".encode($user->getID())); ?>"><?php echo $user->getName(); ?></a></li>
+                                    <li class="btn-default"><a class="blanklink" href="<?php echo $this->baseUrl("profile/index/id/".encode($user->getID())); ?>">Update Profile</a></li>
+                                    <li class="btn-default"><a class="blanklink" href="<?php echo $this->baseUrl("profile/index/id/".encode($user->getID())); ?>">Account Settings</a></li>
+                                    <li class="btn-default"><a href="<?php echo $this->baseUrl("user/logout"); ?>">Sign Out</a></li>
+                                </ul>
+                            <?php } ?>
+                        </div>
+                        <?php } ?>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="publicnav">
+            <?php if($isloggedin){ ?>
+                <div class="breadcrumbs <?php echo $toggledclass; ?>">
+                    <div class="titlebreadcrumb"></div>
+                    <div class="right">
+                        <div class="contentArea searchbar">
+                            <div class="input-group">
+                                <input type="text" placeholder="Search <?php echo getCompanyName(); ?>..." id="inputSearch" class="search" tabindex="1">
+                                <span class="input-group-btn">
+                                    <button type="submit" class="searchsubmit"><img src="<?php echo $this->baseUrl('images/search.png'); ?>" /></button>
+                                </span>
+                            </div>
+                            <ul id="divResult"></ul>
+                        </div>
+                    </div>
+                </div>
+            <?php } ?>
+        </div>
+    </nav>
+</header>
+<?php if($isloggedin){ ?>
+	<div style="height:86px;"></div>
+<?php } ?>

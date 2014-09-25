@@ -1,0 +1,238 @@
+<?php
+	require_once APPLICATION_PATH.'/includes/header.php';
+	// debugMessage($request);
+	
+	$isfunder = false;
+	if($request->lookupid == '43'){
+		$isfunder = true;
+		$states = getStates();
+		$counties = getAllCounties();
+	}
+?>
+<script>
+	$(document).ready(function() {
+		<?php if(!$isfunder){ ?>
+			$("#configform").validate({		
+				// define the validation rules one field at a time
+				rules: {
+					value: "required",
+					alias: "required"
+				}, 
+				// the messages for each of the fields being validated
+				messages: {		
+					value: "Please enter Value",
+					alias: "Please enter Alias"
+				},
+				// custom error positions
+				errorPlacement: function(error, element) {
+					switch(element.attr("name")){					
+						default:
+							error.appendTo("#"+element.attr("name")+"_error")
+							break;
+					}			
+				}
+			});
+		<?php } ?>
+		<?php if($isfunder){ ?>
+			// validation 
+			$("#configform").validate({		
+				// define the validation rules one field at a time
+				rules: {
+					name: "required",
+					alias: "required",
+					contactperson: "required",
+					phone: "required",
+					state: "required",
+					city: "required",
+					zipcode: "required",
+					addressline1: "required"
+				}, 
+				// the messages for each of the fields being validated
+				messages: {
+					name: "<?php echo $this->translate("company_companyname_error"); ?>",
+					alias: "<?php echo $this->translate("company_alias_error"); ?>",
+					contactperson: "<?php echo $this->translate("company_contactperson_error"); ?>",
+					phone: "<?php echo $this->translate("company_contactphone_error"); ?>",
+					state: "<?php echo $this->translate("global_state_error"); ?>",
+					city: "<?php echo $this->translate("global_city_error"); ?>",
+					zipcode: "<?php echo $this->translate("global_zipcode_error"); ?>",
+					addressline1: "<?php echo $this->translate("global_address_error"); ?>"
+				},
+				// custom error positions
+				errorPlacement: function(error, element) {
+					switch(element.attr("name")){					
+						default:
+							if(element.hasClass("useid_error")){
+								error.appendTo("#"+element.attr("id")+"_error");
+							} else {
+								error.appendTo("#"+element.attr("name")+"_error");
+							}
+							break;
+					}			
+				}
+			});
+		<?php } ?>
+	}); 
+</script>
+<?php if($isfunder){ ?>
+<style>
+.modal-dialog {
+	padding-top:70px;
+	width:850px;
+}
+</style>
+<?php } ?>
+
+<div class="popupwindow">
+    <form class="form-horizontal padding0 margin0" id="configform" method="post">
+        <input type="hidden" id="id" name="id" value="" />
+        <input type="hidden" id="lookupid" name="lookupid" value="<?php echo $request->lookupid; ?>" />
+        <input type="hidden" id="noreload" name="noreload" value="1" />
+        <input type="hidden" id="fieldid" name="fieldid" value="<?php echo $request->fieldid; ?>" />
+        <input type="hidden" id="hasalias" name="hasalias" value="<?php echo $request->hasalias; ?>" />
+        <input type="hidden" id="doubleappendid" name="doubleappendid" value="<?php echo $request->doubleappendid; ?>" />
+        <input type="hidden" id="formid" name="formid" value="configform" />
+        <input type="hidden" id="checkclasses" name="checkclasses" value="<?php echo $request->checkclasses; ?>" />
+        <input type="hidden" id="checkname" name="checkname" value="<?php echo $request->checkname; ?>" />
+        <input type="hidden" id="checkid" name="checkid" value="<?php echo $request->checkid; ?>" />
+        <input type="hidden" id="appendclass" name="appendclass" value="<?php echo $request->appendclass; ?>" />
+        <input type="hidden" id="createdby" name="createdby" value="<?php echo $session->getVar('userid'); ?>" />
+		<?php if(!$isfunder){ ?>
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="form-group">
+                        <label class="col-md-3 control-label">Value: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                        <div class="col-md-8 padding0">
+                            <input type="text" name="value" id="value" class="form-control input-sm" value="" />
+                        </div>
+                        <div id="value_error" class="col-md-offset-3"></div>
+                    </div>
+                    <?php if($request->hasalias == '1'){ ?>
+                        <div class="form-group" id="aliasrow">
+                            <label class="col-md-3 control-label">Alias: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                            <div class="col-md-8 padding0">
+                                <input type="text" name="alias" id="alias" class="form-control input-sm width150" value="" />
+                            </div>
+                            <div id="alias_error" class="col-md-offset-3"></div>
+                        </div>
+                    <?php } ?>
+                </div>
+            </div>
+        <?php } ?>    
+        <?php if($isfunder){ ?>
+            <input type="hidden" id="type" name="type" value="1" />
+            <fieldset class="fieldsetcontainer">
+                <!--<legend>Funder Details</legend>-->
+                <div class="panel-body well-sm">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="col-md-4 control-label"><?php echo $this->translate("company_name_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                            <div class="col-md-8">
+                                <input type="text" class="form-control input-sm" id="name" name="name" value="" />
+                                <div id="name_error"></div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="col-md-4 control-label"><?php echo $this->translate("company_alias_label"); ?> <small>(Shortname)</small>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                            <div class="col-md-8">
+                                <input type="text" class="form-control input-sm" id="alias" name="alias" value="" />
+                                <div id="alias_error"></div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="col-md-4 control-label"><?php echo $this->translate("company_contactperson_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                            <div class="col-md-8">
+                                <input type="text" class="form-control input-sm" id="contactperson" name="contactperson" value="" />
+                                <div id="contactperson_error"></div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="col-md-4 control-label"><?php echo $this->translate("company_contactphone_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                            <div class="col-md-8">
+                                <input type="text" class="form-control input-sm" id="phone" name="phone" value="" />
+                                <div id="phone_error"></div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="col-md-4 control-label"><?php echo $this->translate("company_contactemail_label"); ?>:</label>
+                            <div class="col-md-8">
+                                <input type="text" class="form-control input-sm" id="email" name="email" value="" />
+                                <div id="email_error"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="col-md-4 control-label"><?php echo $this->translate("global_addressline1_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                            <div class="col-md-8">
+                                <input type="text" class="form-control input-sm" id="addressline1" name="addressline1" value="" />
+                                <div id="addressline1_error"></div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="col-md-4 control-label"><?php echo $this->translate("global_addressline2_label"); ?>:</label>
+                            <div class="col-md-8">
+                                <input type="text" class="form-control input-sm" id="addressline2" name="addressline2" value="" />
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="col-md-4 control-label"><?php echo $this->translate("global_city_label"); ?>/<?php echo $this->translate("global_town_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                            <div class="col-md-8">
+                                <div class="edit">
+                                    <input type="text" class="form-control input-sm" id="city" name="city" value="" />
+                                    <div id="city_error"></div>
+                                </div>
+                            </div>
+                        </div>
+                         <div class="form-group">
+                            <label class="col-md-4 control-label"><?php echo $this->translate("global_state_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                            <div class="col-md-8">
+                                <?php
+                                    $dropdown = new Zend_Form_Element_Select('state',
+                                                        array(
+                                                            'multiOptions' => array_merge_maintain_keys(array('' => '<Select One>'), $states),
+                                                            'view' => new Zend_View(),
+                                                            'decorators' => array('ViewHelper'),
+                                                            'class' => array('form-control','input-sm')
+                                                        )
+                                    );  
+                                    $dropdown->setValue('NJ'); 
+                                    echo $dropdown->render();
+                                ?>
+                                <div id="state_error"></div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="col-md-4 control-label"><?php echo $this->translate("global_zipcode_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                            <div class="col-md-8">
+                                <input type="text" class="form-control input-sm width100" id="zipcode" name="zipcode" value="" />
+                                <div id="zipcode_error"></div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="col-md-4 control-label"><?php echo $this->translate("global_county_label"); ?>:</label>
+                            <div class="col-md-8">
+                                <?php
+                                    $dropdown = new Zend_Form_Element_Select('county',
+                                                        array(
+                                                            'multiOptions' => array_merge_maintain_keys(array('' => '<Select One>'), $counties),
+                                                            'view' => new Zend_View(),
+                                                            'decorators' => array('ViewHelper'),
+                                                            'class' => array('form-control','input-sm',)
+                                                        )
+                                    );  
+                                    $dropdown->setValue(''); 
+                                    echo $dropdown->render();
+                                ?><input type="hidden" class="form-control" name="county_old" id="county_old" value="" />
+                                <div id="county_error"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </fieldset>
+      	<?php } ?>
+    </form>
+</div>    
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

@@ -1,0 +1,281 @@
+<?php
+	require_once APPLICATION_PATH.'/includes/header.php';
+	
+	$paginate = new Pagination();	
+	$paginate->setView($this);
+	# set the search columns to be used on this list
+	$paginate->setSearchColumns(array("u.firstname","u.lastname","u.othername","u.username","u.email","u.home","u.work","u.cell"));
+	$paginate->setFilterColumns(array());
+	$paginate->setDefaultSortBy("u.datecreated");	
+	$paginate->setDefaultSortOrder("DESC");
+	// $paginate->setStartAndEndDateFilterColumn("u.datecreated"); 
+	$paginate->setItemCountPerPage("25");
+	
+	$startdate = $request->startdate;
+	$enddate = $request->enddate;
+	if(!isEmptyString($startdate)){
+		$startdate = changeDateFromPageToMySQLFormat($startdate);
+		$allowclear = true;
+	}
+	$enddate = $request->getParam('enddate');
+	if(!isEmptyString($enddate)){
+		$enddate = changeDateFromPageToMySQLFormat($enddate);
+		$allowclear = true;
+	}
+	
+	# define the letter to be clicked to ease navigation 
+	$where_query = " WHERE u.id <> '' ";
+	$allowclear = false;
+	
+	if(!isEmptyString($startdate)){
+		$where_query .= " AND (TO_DAYS(u.datecreated) >= TO_DAYS('".$startdate."')) ";
+	}
+	if(!isEmptyString($enddate)){
+		$where_query .= " AND (TO_DAYS(u.datecreated) <= TO_DAYS('".$enddate."')) ";
+	}
+		
+	if(!isEmptyString($request->letter)){
+		$where_query .= " AND (u.`firstname` LIKE '".$request->letter."%' OR u.`lastname` LIKE '".$request->letter."%') ";
+		$allowclear = true;
+	}
+	
+	$status = trim($request->status);
+	if(!isEmptyString($status)){
+		$where_query .= " AND (u.`isactive` = ".$status.") ";
+		$allowclear = true;
+	}
+	
+	# user type filter
+	$type = trim($request->type);
+	$role = '';
+	$allroles = getUserType();
+	if(!isEmptyString($type)){
+		$where_query .= " AND (u.type = ".$type." || g.groupid = ".$type.") ";
+		$allowclear = true;
+	}
+	
+	$order = trim($request->order);
+	$order_query = " ";
+	if(isEmptyString($order)){
+		$order = 1;
+	}
+	if($order == 1){
+		$order_query = " ORDER BY u.datecreated DESC ";
+	}
+	if($order == 2){
+		$order_query = " ORDER BY u.datecreated ASC ";
+	}
+	if($order == 3){
+		$order_query = " ORDER BY u.firstname ASC ";
+	}
+	if($order == 4){
+		$order_query = " ORDER BY u.lastname ASC ";
+	}
+	
+	$paginate->processPost($request->getParams());
+	$all_results_query = "SELECT u.id as userid, u.firstname, u.lastname, u.username, u.type as usertype, u.email as email, u.home as home, u.cell as cell, u.work as work, u.addressline1, u.addressline2, u.profilephoto, u.gender, u.isactive, concat(a.firstname, ' ', a.lastname) as name, u.username as addedby, g.groupid as groupid, acg.name as `Group`, u.isactive as `Status`, u.datecreated as datecreated FROM useraccount u left join useraccount a on (u.createdby = a.id) left join aclusergroup as g ON (u.id = g.userid) left join aclgroup as acg ON (g.groupid = acg.id) ".$where_query." ".$paginate->getSearchAndFilterSQL()." GROUP BY u.id ".$order_query;
+	
+	// debugMessage($all_results_query);
+	$paginate->setItemCountFromSQLQuery($all_results_query);
+	$current_results_query = $all_results_query." ".$paginate->getSQLLimit();
+	
+	$conn = Doctrine_Manager::connection(); 
+	$result = $conn->fetchAll($current_results_query);
+	$has_no_data = (count($result) == 0) ? true : false;
+	
+	$listurl = $this->baseUrl('profile/list');
+	$addurl = $this->baseUrl('profile');
+	$title = "User Profiles";
+	$listitems = "Users";
+	$moduleitem = "User";
+	$description = '';
+	
+	$allstatus = getUserStatus();
+	
+	$this->headTitle($title.$browserappend);
+?>
+<script>
+	$(document).ready(function() {
+		$('.titlebreadcrumb').html('<?php echo $homedir.$title; ?>');
+		$('.titlelabel').html('<?php echo $title; ?>');
+		$('.desclabel').html('<?php echo $description; ?>');
+		$('.pageicon').html('<span class="glyphicon glyphicon-user"></span>');
+		
+		var dateofbirthOpts = datepickerOpts;
+		var startfrom = '<?php echo date('Y'); ?>';
+		dateofbirthOpts.yearRange = "-<?php echo date('Y')-2010; ?>:-0"; 
+		dateofbirthOpts.minDate = "-<?php echo date('Y'); ?>Y";
+		datepickerOpts.maxDate = new Date("Dec 31, "+startfrom);	
+		$("#startdate, #enddate").datepicker(dateofbirthOpts);
+	});
+</script>
+
+<div class="row margin0">
+    <div class="col-md-12 padding0">
+    <form class="form margin0 listform" action="<?php echo $this->baseUrl("profile/listsearch"); ?>" method="get" id="listform">
+		<?php if ($sessionhaserror) { ?>
+            <div class="alert alert-danger"><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
+        <?php } ?>
+        <?php if (!isEmptyString($session->getVar(SUCCESS_MESSAGE))) { ?>
+            <div class="alert alert-success alert-dismissable"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button> <?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
+        <?php } ?>
+        <div class="row-fluid clearfix">
+        	<div class="col-md-9 paddingleft0">
+            	<ul class="listfilter">
+					<?php if ($acl->checkPermission('Client', ACTION_CREATE)) { ?>
+                        <li><a title="New <?php echo $moduleitem; ?>" class="btn btn-primary btn-sm" href="<?php echo $addurl; ?>"><i class="glyphicon glyphicon-plus"></i> New <?php echo $moduleitem; ?></a></li>
+                    <?php } ?>
+                    <li>
+                    	<?php
+							$dropdown = new Zend_Form_Element_Select('type',
+												array(
+													'multiOptions' => array_merge_maintain_keys(array('' => 'All Types'), $allroles),
+													'view' => new Zend_View(),
+													'decorators' => array('ViewHelper'),
+													 'class' => array("autofilter", "form-control", 'width150', 'chosen-select')
+												)
+							);  
+							$dropdown->setValue($request->getParam('type')); 
+							echo $dropdown->render();
+						?>                    
+                    </li>
+                    <li>
+                    	<?php
+							$dropdown = new Zend_Form_Element_Select('status',
+												array(
+													'multiOptions' => array_merge_maintain_keys(array('' => 'All Statuses'), $allstatus),
+													'view' => new Zend_View(),
+													'decorators' => array('ViewHelper'),
+													'class' => array("autofilter", "form-control", 'width150', 'chosen-select')
+												)
+							);  
+							$dropdown->setValue($request->getParam('status')); 
+							echo $dropdown->render();
+						?>                    
+                    </li>
+                    <li>
+						<?php
+                            $allorders = array('1' => 'Latest First', '2'=>'Earliest First', '3'=>'Order By First Name','4'=>'Order By Last Name');
+                            $ordersdropdown = new Zend_Form_Element_Select('order',
+                                                array(
+                                                    'multiOptions' => $allorders,
+                                                    'view' => new Zend_View(),
+                                                    'decorators' => array('ViewHelper'),
+                                                   'class' => array("autofilter", "form-control", 'width150', 'chosen-select')
+                                                )
+                            );  
+                            $ordersdropdown->setValue($request->getParam('order')); 
+                            echo $ordersdropdown->render();
+                        ?>
+                    </li>
+               	</ul>
+                <ul class="listfilter">
+                    <li><input type="text" name="startdate" id="startdate" class="form-control input-sm datefield readonly width100" value="<?php echo $request->startdate; ?>" placeholder="From:" /></li>
+                    <li><input name="enddate" id="enddate" type="text" class="form-control input-sm datefield readonly width100" placeholder="To:" value="<?php echo $request->enddate; ?>" /></li>
+                    <li><button type="submit" class="btn btn-default btn-sm blockanchor"><i class="glyphicon glyphicon-filter"></i> Filter</button></li>
+               	</ul>
+			</div>
+            <div class="col-md-3 padding0">
+            	<div class="col-md-12 padding0"><input name="searchterm" id="searchterm" class="form-control form-search" value="<?php echo $request->searchterm; ?>" type="text" placeholder="Search..." /><button type="submit" class="btn btn-default blockanchor searchbtn"><i class="glyphicon glyphicon-search"></i></button></div>
+            	<input type="hidden" name="letter" id="letter" value="<?php echo $request->getParam('letter'); ?>" />
+                <?php if($allowclear){ ?>
+                    <a href="<?php echo $listurl; ?>" title="Clear Search and Filters" class="reset close button btn resetlink blockanchor">&times;</a>
+                <?php } ?>
+            </div>
+		</div>
+        <?php echo $paginate->getAlphabetString(); ?>
+		<?php if ($has_no_data) { ?>
+            <div class="divider30"></div>
+            <div style="clear:both;" class="alert alert-warning margin5"><?php echo $this->translate("global_list_noentries"); ?></div>
+        <?php } else { ?>
+        	<div class="row-fluid peoplelist clearfix">
+            	<div class="divider10"></div>
+            	<?php
+					$counter = 1; 				  		
+					foreach($result as $line){
+						$id = $line['userid'];	
+						$phone = $line['work']; $phone2 = $line['cell'];
+						$addressline1 = $line['addressline1']; 
+						$addressline1 = $line['addressline2'];
+						
+						$hasprofileimage = false;
+						$real_path = APPLICATION_PATH.DIRECTORY_SEPARATOR."..".DIRECTORY_SEPARATOR."public".DIRECTORY_SEPARATOR."uploads".DIRECTORY_SEPARATOR."users".DIRECTORY_SEPARATOR."user_";
+						$real_path = $real_path.$id.DIRECTORY_SEPARATOR."avatar".DIRECTORY_SEPARATOR."medium_".$line['profilephoto'];
+						if(file_exists($real_path) && !isEmptyString($line['profilephoto'])){
+							$hasprofileimage = true;
+						}
+						$baseUrl = Zend_Controller_Front::getInstance()->getBaseUrl();
+						$photo_path = $baseUrl.'/uploads/default/default_medium_male.jpg';
+						
+						if($line['gender'] == 2){
+							$photo_path = $baseUrl.'/uploads/default/default_thumbnail_female.jpg'; 
+						}
+						if($hasprofileimage){
+							$photo_path = $baseUrl.'/uploads/users/user_'.$id.'/avatar/medium_'.$line['profilephoto'];
+						}
+						
+						$viewurl = $this->baseUrl('profile/view/id/'.encode($id));
+						
+						$statustext = ''; $statusclass = 'bg-info';
+						if(isArrayKeyAnEmptyString($line['isactive'], $allstatus)){
+							$statustext = $allstatus[$line['isactive']];
+							if($line['isactive'] == 0){
+								$statusclass = 'bg-default'; 
+							}
+							if($line['isactive'] == 1){
+								$statusclass = 'bg-success'; 
+							}
+							if($line['isactive'] == 2){
+								$statusclass = 'bg-warning'; 
+							}
+						}
+					?>
+                    	 <div class="col-xs-12 col-sm-6 xpaddingleft0">
+                            <div class="peoplewrapper">
+                                <div class="thumb img-thumbnail">
+                                	<a href="<?php echo $viewurl; ?>"><img class="imagecontainer" src="<?php echo $photo_path; ?>" /></a>
+                                </div>
+                                <div class="peopleinfo">
+                                    <h4><a href="<?php echo $viewurl; ?>"><?php echo $line['firstname']." ".$line['lastname']; ?></a></h4>
+                                    <div class="row-fluid margin0">
+                                    	<div class="col-md-9 padding0">
+                                        	<ul>
+                                                <li><span class="bolded">Type:</span> <?php echo $line['Group']; ?></li>
+                                                <li><span class="bolded">Username:</span> <?php echo $line['username']; ?></li>
+                                                <li><span class="bolded">Email:</span> <?php echo $line['email']; ?></li>
+                                                <li><span class="bolded">Status:</span> <?php echo isArrayKeyAnEmptyString($line['isactive'], $allstatus) ? '--' : $allstatus[$line['isactive']]; ?></li>
+                                                <li><span class="bolded">Date Added:</span> <?php echo formatDateAndTime($line['datecreated'], false); ?></li></li>            
+                                            </ul>
+                                        </div>
+                                        <div class="col-md-3 padding0">
+                                            <ul>
+                                            	
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                   <?php } ?> 
+            </div>
+            <div class="row-fluid">
+                <div class="table-footer">
+                    <div class="col-md-6 padding0" style="margin-bottom:10px;">
+                        <div class="table-actions">
+                            <div class="row col-md-12 margin0 padding0 clearfix">
+                                <div class="col-md-6 padding0 floatleft"><?php echo $paginate->getListCountDropDown(); ?></div>
+                                <div class="col-md-6 paddingleft5 rightalign" style="margin-bottom:5px;"><?php echo sprintf($this->translate("global_list_counter"), $paginate->getItemCounterText()); ?></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 padding0">
+                        <?php echo $paginate->getPaginationLinks(); ?>
+                    </div>
+                </div>
+            </div>
+        <?php } ?>
+	</form>
+</div>                                        
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

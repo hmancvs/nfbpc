@@ -1,0 +1,27 @@
+<div class="modal" id="dialog">
+	<div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+          <h4 class="modal-title">title</h4>
+        </div>
+        <div class="modal-body" id="dialogbody">
+        	<a id="loading" class="hidden"><img style="margin-left:50%;" src="<?php echo $this->baseUrl('images/loader.gif'); ?>" /></a>
+        	<div id="dialogcontent"></div>
+        </div>
+        <div class="modal-footer">
+   			<div id="new">
+            	<a href="javascript:doNothing();" class="btn modelcancel" data-dismiss="modal" title="<?php echo $this->translate('global_button_cancel'); ?>"><i class="icon-remove"></i> <?php echo $this->translate('global_button_cancel'); ?></a>
+            	<button type="submit" class="btn btn-primary" id="save" onclick="javascript:doNothing();"><i class="glyphicon glyphicon-ok"></i> <?php echo $this->translate('global_button_save'); ?></button>
+        	</div>
+       		<div id="view" class="hide">
+                <a href="javascript:doNothing();" class="btn modelcancel" data-dismiss="modal" title="<?php echo $this->translate('global_button_close'); ?>"><i class="glyphicon glyphicon-remove"></i> <?php echo $this->translate('global_button_close'); ?></a>
+                <button type="submit" class="btn btn-primary" id="save" onclick="javascript:doNothing();"><i class="glyphicon glyphicon-pencil"></i> <?php echo $this->translate('global_button_edit'); ?></button>
+            </div>
+        </div>
+      </div>
+    </div>
+</div>
+<a id="wait" class="hidden blocked centeralign"><img src="<?php echo $this->baseUrl('images/loader.gif'); ?>" /></a>
+<div id="imgareaselectcontainer"></div>
+

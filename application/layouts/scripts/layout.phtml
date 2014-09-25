@@ -1,0 +1,54 @@
+<?php
+	require_once APPLICATION_PATH.'/includes/commonfunctions.php';
+?>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head>
+	<meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+	<meta content="utf-8" http-equiv="encoding">		
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="<?php echo $this->baseUrl('favicon.ico'); ?>" rel="shortcut icon" type="image/x-icon" />
+    <?php echo $this->headTitle(); ?>
+	<?php echo $this->headMeta(); ?>
+    <?php
+		# <!-- Include application stylesheets and minify  -->		
+		$this->headLink()->appendStylesheet($this->baseUrl('stylesheets/bootstrap-3.1.1.min.css')); 
+		$this->headLink()->appendStylesheet($this->baseUrl('stylesheets/bootstrap.icon-large.css')); 
+		echo $this->headLink();
+		
+		$cssfiles = getStyleIncludes();
+		foreach ($cssfiles as $css) {
+			// use baseURL() to output the full URL of the cached file and use it as normal with headLink()
+			$this->minifyHeadLink()->appendStylesheet($css);
+		}
+		echo $this->minifyHeadLink(); 
+		
+		# <!-- Include application javascript and minify -->
+		$jsfiles = getJsIncludes();
+		foreach ($jsfiles as $js) {
+			// use baseURL() to output the full URL of the cached file and use it as normal with headLink(). also use setFile so that each file is added
+			$this->minifyHeadScript()->appendFile($js);
+		}  
+		echo $this->minifyHeadScript();
+		
+		$session = SessionWrapper::getInstance();
+		$toggled = $session->getVar('toggled'); // $toggled = 1;
+		$toggledclass = '';
+		if($toggled == '1'){
+			$toggledclass = ' toggled';
+		}
+	?>
+    
+	<?php require_once APPLICATION_PATH.'/views/scripts/index/layoutjs.phtml'; ?>
+</head>
+<body class="body">
+	<?php require_once APPLICATION_PATH.'/views/scripts/index/header.phtml'; ?> <!-- Include header -->
+	<div id="container-fluid">
+        <div id="sidebar" class="hidden-sm<?php echo $toggledclass; ?>"><?php require_once APPLICATION_PATH.'/views/scripts/index/leftcolumn.phtml'; ?></div>
+        <div id="contentcontainer" class="container-fluid <?php echo $toggledclass; ?>">
+        	<?php require_once APPLICATION_PATH.'/views/scripts/index/breadcrumb.phtml'; ?> <!-- Breadcrumbs line -->
+            <div id="centercolumn" class="container-fluid padding5"><?php echo $this->layout()->content; ?></div> <!-- Application content -->
+        </div>
+    </div>
+</body>
+<?php require_once APPLICATION_PATH.'/views/scripts/index/hiddenbydefault.phtml'; ?> <!-- Breadcrumbs line -->
+</html>    

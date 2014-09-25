@@ -1,0 +1,33 @@
+<?php
+	require_once APPLICATION_PATH.'/includes/header.php';
+	
+	$title = "About ".getAppName();
+	$this->headTitle(getAppName()." | About"); 
+
+?>
+<div class="row marginleft0">
+    <div class="span8 pull-left marginleft0 public_leftcolumn">
+        <div class="content">
+        	<h1><?php echo $title; ?></h1>
+            <h2>Mission</h2>
+            <p class="themedlabel bolded">To reinvent the way Farmers carry out record keeping.</p>
+            
+            <h2>Vision</h2>
+            <p class="themedlabel bolded">To be the leading provider of ICT business solutions for Farmers in East Africa.</p>
+            
+            <h2>History and Project Background</h2>
+            <p>Agriculture plays a major role in the livelihood of over 70% of Uganda's population and we continuously design innovative solutions to make farming activities as easy to manage as possible.</p>
+			<p>Farmis is designed and managed by a team of creative and passionate people offering a solution that will help farmers not only store records for their own planning and forecasting purposes, but by referring to the records, they can profit from all the benefits that come with proper record keeping in agriculture.</p> 
+            
+            <h2>The Business</h2>
+            <p>As a business, we deal with both Farmers and Farm Groups in extending different programs geared to assist the farmer automate their business processes. We avail the different stakeholders with market information that relates to specific areas of specialty. These include commodity market prices, marketing offers and opportunities, advisory services, credit and financial tracking mechanisms, etc.</p>
+            <p>Currently with more than 2,000 farmers distributed throughout Uganda, TBD as a product has grown tremendously with a self sustaining business model and is continuously improving from the great feedback that we receive from the different clients and stakeholders. Farmers and Farm Groups have different subscription plans that have been studied carefully to ensure that the end TBD user receives value for their money.</p>
+            <p>For more information on how TBD works, <a href="<?php echo $this->baseUrl('howitworks'); ?>">click here...</a>
+          
+        </div>
+    </div>
+    <?php require APPLICATION_PATH."/views/scripts/index/righthandband.phtml"; ?>
+</div>
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

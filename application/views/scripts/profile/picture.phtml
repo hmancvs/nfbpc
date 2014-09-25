@@ -1,0 +1,154 @@
+<?php
+	require_once APPLICATION_PATH.'/includes/header.php';
+	
+	$id = decode($request->id);
+	if(isEmptyString($id)){
+		$id = $userid;
+	}
+	
+	$user = new Member();
+	$user->populate($id);
+	
+	# profile for one viewing
+	$isme = false;
+	if($userid == $user->getID()){
+		$isme = true;
+	}
+	
+	$title = $user->getName(); $subtitle = "Upload Profile Photo";
+	if(!isEmptyString($request->crop)){
+		$subtitle = "Crop Profile Photo"; 
+	}
+	// debugMessage($user->getMediumPicturePath());
+	$posturl = $this->baseUrl("profile/processpicture");
+	$this->headTitle($title.$browserappend);
+	$description = 'Upload a profile Image';
+	
+	$this->headScript()->appendFile($this->baseUrl('javascript/plugins/jquery.imgareaselect.min.js'));
+	echo $this->headScript(); 
+?>
+<script>
+$(document).ready(function() {
+	$('.titlebreadcrumb').html('<?php echo $homedir.'Users / '.$user->getName()." / Upload Photo"; ?>');
+	$('.titlelabel').html('<?php echo $title; ?>');
+	$('.desclabel').html('<?php echo $description; ?>');
+	$('.pageicon').html('<span class="glyphicon glyphicon-user"></span>');
+	
+	<?php if(isEmptyString($request->crop)){ ?>
+		// form validation
+		$("#indexform").validate({		
+			// define the validation rules one field at a time
+			rules: {
+				profileimage: "required"
+			}, 
+			// the messages for each of the fields being validated
+			messages: {		
+				profileimage: "Please browse for image on computer"
+			},
+			// custom error positions
+			errorPlacement: function(error, element) {
+				switch(element.attr("name")){					
+					default:
+						if(element.hasClass("useid_error")){
+							error.appendTo("#"+element.attr("id")+"_error");
+						} else {
+							error.appendTo("#"+element.attr("name")+"_error");
+						}
+						break;
+				}			
+			}
+		});
+	<?php } else { ?>
+		$('#photo').imgAreaSelect({ 
+			aspectRatio: '1:1', 
+			handles: true,
+			fadeSpeed: 200, 
+			minWidth: 100,
+			maxWidth: 350,
+			x1: 0, y1: 0, x2: 200, y2: 200,
+			/*onSelectChange: preview,*/
+			onSelectEnd: function (img, selection) {
+				$('input[name="x1"]').val(selection.x1);
+				$('input[name="y1"]').val(selection.y1);
+				$('input[name="x2"]').val(selection.x2);
+				$('input[name="y2"]').val(selection.y2);
+				$('input[name="h"]').val(selection.height);
+				$('input[name="w"]').val(selection.width);            
+			}
+		});
+	<?php } ?>
+	
+}); 
+</script>
+<div class="row-fluid margin0 view">
+    <?php if ($sessionhaserror) { ?>
+        <div class="alert alert-danger"><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
+    <?php } ?>
+    <?php if (!isEmptyString($session->getVar(SUCCESS_MESSAGE))) { ?>
+        <div class="alert alert-success alert-dismissable"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button> <?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
+    <?php } ?>
+    <div class="contentcontainer clearfix">
+        	<div class="row-fluid margin0">
+            	<div class="col-md-12" style="margin-top:10px;">
+                    <fieldset class="fieldsetcontainer">
+                        <legend><?php echo $subtitle; ?></legend>
+                        <div class="panel-body well-sm">
+                            <div class="col-md-3">
+                            	<h6 class="well-legend">Current Photo</h6>
+                                <div id="profileinfo" style="margin-top:15px;">
+                                    <img id="xprofileimage" src="<?php echo $user->getMediumPicturePath(); ?>" />
+                                </div>
+                            </div>
+                            <div class="col-md-9">
+                            	<?php if(isEmptyString($request->crop)){ ?>
+                                    <form id="indexform" class="form-horizontal" role="form" action="<?php echo $posturl; ?>" method="post" enctype="multipart/form-data">
+                                        <div class="divider30"></div>
+                                        <label class="blocked small">Upload new Photo. (Max size <?php echo formatBytes($config->uploads->photomaximumfilesize); ?>)</label>
+                                        <div class="width200">
+                                            <div class="fileinput-holder input-group col-md-12 padding0" id="theresume">
+                                                <div id="filenamedisplay" class="fileinput-preview uneditable-input form-control">No file selected..</div>
+                                                <div class="input-group-btn">
+                                                    <span class="fileinput-btn btn btn-default">Browse
+                                                        <input type="file" name="profileimage" id="profileimage" class="form-control file input-sm inline" data-style="fileinput" />
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <input type="hidden" id="id" name="id" value="<?php echo encode($user->getID()); ?>" />
+                                        <input type="hidden" class="successurl" id="<?php echo URL_SUCCESS; ?>" name="<?php echo URL_SUCCESS; ?>" value="<?php echo $this->baseUrl('profile/view/id/'.encode($user->getID())); ?>" />
+                                        <input type="hidden" class="failureurl" id="<?php echo URL_FAILURE; ?>" name="<?php echo URL_FAILURE; ?>" value="<?php echo $this->baseUrl('profile/picture/id/'.encode($user->getID())); ?>" />
+                                        <div id="profileimage_error"></div>
+                                        <div class="divider30"></div>
+                                        <button style="" type="submit" class="btn btn-primary" id="upload" name="submit"><i class="glyphicon glyphicon-upload"></i>&nbsp; Upload</button> or <a href="<?php echo $this->baseUrl("profile/view/id/".encode($user->getID())); ?>"><?php echo $this->translate('global_button_cancel'); ?></a>&nbsp;
+                                	</form>  
+                              	<?php } else { ?>
+                                	<form action="<?php echo $this->baseUrl("profile/croppicture"); ?>" id="indexform" method="post" role="form">
+                                    	<div class="divider30"></div>
+                                        <h4>Resize/Crop Photo</h4>
+                                        <div class="divider10"></div>
+                                        <img src="<?php echo $user->getLargePicturePath(); ?>" id="photo" />
+                                        <input type="hidden" name="x1" value="0" />
+                                        <input type="hidden" name="y1" value="0" />
+                                        <input type="hidden" name="x2" value="200" />
+                                        <input type="hidden" name="y2" value="200" />
+                                        <input type='hidden' name='w' value='200' />
+                                        <input type='hidden' name='h' value='200' />
+                                        <input type="hidden" id="id" name="id" value="<?php echo encode($user->getID()); ?>" />
+                                        <input type="hidden" id="type" name="type" value="<?php echo $type; ?>" />
+                                        <div class="divider30"></div>
+                                        <button type="submit" id="startcrop" class="btn btn-primary"><i class="glyphicon glyphicon-ok"></i> Crop Photo</button>
+                                    </form>
+                                <?php } ?>
+                            </div>
+                            
+                       	</div>
+                   	</fieldset>
+                </div>
+         	</div>
+		</form>
+	</div>
+</div>                        
+<?php
+	$session->setVar(SUCCESS_MESSAGE, '');
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

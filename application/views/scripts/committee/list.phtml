@@ -1,0 +1,205 @@
+<?php
+	require_once APPLICATION_PATH.'/includes/header.php';
+	
+	$type = $request->type;
+	$style = '1';
+	if(!isEmptyString($request->style)){
+		$style = $request->style;
+		$session->setVar('style', $request->style);
+	}
+	if(isEmptyString($request->style) && !isEmptyString($session->getVar('style'))){
+		$style = $session->getVar('style');
+	}
+		
+	$title = "Committees";
+	$description = 'Lorem ipsum description here';
+	$listitems = "Committees";
+	$moduleitem = "Committee";
+	$listurl = $this->baseUrl("committee/list");
+	$addurl = $this->baseUrl("committee");
+
+	$paginate = new Pagination();	
+	$paginate->setView($this);
+	# set the search columns to be used on this list
+	$paginate->setSearchColumns(array("c.name"));
+	$paginate->setFilterColumns(array());
+	$paginate->setDefaultSortBy("c.name");	
+	$paginate->setItemCountPerPage('ALL');
+	
+	# define the letter to be clicked to ease navigation 
+	$where_query = " WHERE c.id <> '' ";
+	$allowclear = false;
+
+	if(!isEmptyString($request->searchterm)){
+		$allowclear = true;
+	}
+	
+	$order = trim($request->order);
+	$order_query = " ORDER BY c.name ASC ";
+	if(isEmptyString($order)){
+		$order = 1;
+	}
+	
+	$sortcolumn = $request->sortby;
+	$sortorder = $request->sortorder;
+	if(!isEmptyString($sortcolumn) && !isEmptyString($sortorder)){
+		$order_query = " ORDER BY " . $sortcolumn. " " .$sortorder. " ";
+	}
+	// f.orgname as fundername, concat(u.firstname,' ',u.lastname) as supervisorname
+	$paginate->processPost($request->getParams());
+	$all_results_query = "SELECT c.id as id, c.code as Code, c.name as `Name`, c.description as `Description`, c.abbr FROM committee c
+		".$where_query." ".$paginate->getSearchAndFilterSQL()." GROUP BY c.id ".$order_query;
+	// debugMessage($all_results_query); exit;
+	
+	// determine total number of records found
+	$conn = Doctrine_Manager::connection(); 
+	$count_query = "SELECT count(c.id) as total FROM committee c ".$where_query." ".$paginate->getSearchAndFilterSQL(); // debugMessage($count_query); 
+	$total = $conn->fetchOne($count_query);
+	$paginate->setItemCount($total); //debugMessage('>> '.$total);	
+	$current_results_query = $all_results_query." ".$paginate->getSQLLimit();
+	
+	$conn = Doctrine_Manager::connection(); 
+	$result = $conn->fetchAll($current_results_query);
+	$has_no_data = (count($result) == 0) ? true : false;
+	
+	$this->headTitle($title.$browserappend);
+?>
+<script>
+	$(document).ready(function() {
+		$('.titlebreadcrumb').html('<?php echo $homedir.$title; ?>');
+		$('.titlelabel').html('<?php echo $title; ?>');
+		$('.desclabel').html('<?php echo $description; ?>');
+		$('.pageicon').html('<span class="glyphicon glyphicon-th-large"></span>');
+		
+	});
+</script>
+<style>
+.peoplelist .peoplewrapper {
+	height:150px;
+}
+</style>
+<div class="row margin0">
+    <div class="col-md-12 padding0">
+    <form class="form margin0 listform makerelative" action="<?php echo $this->baseUrl("committee/listsearch"); ?>" method="get" id="listform">
+		<?php if ($sessionhaserror) { ?>
+            <div class="alert alert-danger"><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
+        <?php } ?>
+        <?php if (!isEmptyString($session->getVar(SUCCESS_MESSAGE))) { ?>
+            <div class="alert alert-success alert-dismissable"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button> <?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
+        <?php } ?>
+        <div class="row-fluid clearfix">
+        	<div class="col-md-9 paddingleft0">
+            	<ul class="listfilter">
+					<?php if ($acl->checkPermission('Committee', ACTION_CREATE)) { ?>
+                        <li><a class="btn btn-primary btn-sm blockanchor" href="<?php echo $addurl; ?>"><i class="glyphicon glyphicon-plus"></i> Setup <?php echo $moduleitem; ?></a></li>
+                    <?php } ?>
+                </ul>
+            </div>
+            <div class="col-md-3 padding0">
+            	<div class="col-md-12 padding0"><input name="searchterm" id="searchterm" class="form-control form-search" value="<?php echo $request->searchterm; ?>" type="text" placeholder="Search..." /><button type="submit" class="btn btn-default blockanchor searchbtn"><i class="glyphicon glyphicon-search"></i></button></div>
+                <input type="hidden" name="type" id="type" value="<?php echo $type; ?>" />
+                <input type="hidden" name="style" id="style" value="<?php echo $style; ?>" />
+                <?php if($allowclear){ ?>
+                    <a href="<?php echo $listurl; ?>" title="Clear Search and Filters" class="reset close button btn resetlink blockanchor">&times;</a>
+                <?php } ?>
+            </div>
+        </div>
+        <div class="divider10"></div>
+        <div class="stylewidget">
+            <a class="gonowhere btn btn-default btn-xs noround styletrigger <?php echo $style == 1 ? 'active' : ''; ?>" id="style1" rel='1'><i class="glyphicon glyphicon-th-large"></i> Grid</a>
+            <a class="gonowhere btn btn-default btn-xs noround styletrigger <?php echo $style == 2 ? 'active' : ''; ?>" id="style2" rel='2'><i class="glyphicon glyphicon-list-alt"></i> Table</a>
+        </div>
+		<?php if ($has_no_data) { ?>
+            <div class="divider30"></div>
+            <div style="clear:both;" class="alert alert-warning margin5"><?php echo $this->translate("global_list_noentries"); ?></div>
+        <?php } else { ?>
+        	<div class="row-fluid peoplelist clearfix makerelative whitebg">
+            	<div class="divider10"></div>
+                <?php if($style == 1){ ?>
+                	<?php
+						foreach($result as $line){
+							$viewurl = $this->baseUrl('committee/view/id/'.encode($line['id']));
+                            $indexurl = $this->baseUrl('committee/index/id/'.encode($line['id']));
+					?>
+						<div class="col-xs-12 col-sm-6 xpaddingleft0">
+							<div class="peoplewrapper makerelative">
+                            	<div class="btn-group gridactions">
+                                    <button type="button" class="btn btn-default btn-xs dropdown-toggle noround" data-toggle="dropdown">Action <span class="caret"></span></button>
+                                    <ul class="dropdown-menu" role="menu" style="left:-102px;">
+										<?php if ($acl->checkPermission('Committee', ACTION_VIEW)) { ?>
+                                       		<li><a class="blockanchor" href="<?php echo $viewurl; ?>"><i class="glyphicon glyphicon-list"></i> View Details</a></li>
+                                        <?php } ?>
+                                        <?php if ($acl->checkPermission('Committee', ACTION_EDIT)) { ?>
+                                        	<li><a class="blockanchor" href="<?php echo $indexurl; ?>"><i class="glyphicon glyphicon-pencil"></i> Update</a></li>
+                                        <?php } ?>
+                                    </ul>
+                                </div>
+								<div class="peopleinfo" style="margin-left:0;">
+									<h4><a href="<?php echo $viewurl; ?>" class="blockanchor"><?php echo $line['Name']; ?></a></h4>
+									<div class="col-md-12 padding0">
+										<div class="divider5"></div>
+										<span class="bolded blocked" style="font-size:12px; text-decoration:underline;">Description</span>
+										<?php echo nl2br(snippet($line['Description'],250,'<a href="'.$viewurl.'">...more</a>')); ?>
+									</div>
+								</div>
+							</div>
+						</div>
+					<?php } ?>
+                <?php } ?>
+				<?php if($style == 2){ ?>
+                	<table class="table list table-bordered table-striped data-table" id="datatable">
+						<thead class="paginationheader">
+                        	<th style="width:10%;">Code#</th>
+                            <th style="width:20%;">Name</th>
+                            <th>Description</th>
+                            <th style="width:15%;">Abbreviation</th>
+                            <th style="width:10%;">Actions</th>
+                        </thead>
+                        <tbody>
+							<?php
+                                foreach($result as $line){
+									$viewurl = $this->baseUrl('committee/view/id/'.encode($line['id']));
+                           			$indexurl = $this->baseUrl('committee/index/id/'.encode($line['id']));
+                            ?>
+                                <tr>
+                                    <td class="nullifmpty"><?php echo $line['Code']; ?></td>
+                                    <td class="nullifmpty"><a href="<?php echo $viewurl; ?>" class="blockanchor"><?php echo $line['Name']; ?></a></td>
+                                    <td class="nullifmpty"><?php echo nl2br(snippet($line['Description'],250,'<a href="'.$viewurl.'">...more</a>')); ?></td>
+                                    <td class="nullifmpty"><?php echo $line['abbr']; ?></td>
+                                    <td>
+                                    	<ul class="nav listactions">
+											<?php if ($acl->checkPermission('Position', ACTION_VIEW)) { ?>
+                                                <li><a class="blockanchor" href="<?php echo $viewurl; ?>" title="View"><i class="glyphicon glyphicon-list"></i></a></li>
+                                            <?php } ?>
+                                            <?php if ($acl->checkPermission('Position', ACTION_EDIT)) { ?>
+                                                <li><a class="blockanchor" href="<?php echo $indexurl; ?>" title="Update"><i class="glyphicon glyphicon-pencil"></i> </a></li>
+                                            <?php } ?>
+                                        </ul>
+                                    </td>
+                                </tr>
+                            <?php } ?>
+                        </tbody>
+                 	</table>
+                <?php } ?>        
+            </div>
+            <div class="row-fluid">
+                <div class="table-footer">
+                    <div class="col-md-6 padding0" style="margin-bottom:10px;">
+                        <div class="table-actions">
+                            <div class="row col-md-12 margin0 padding0 clearfix">
+                                <div class="col-md-6 padding0 floatleft"><?php echo $paginate->getListCountDropDown(); ?></div>
+                                <div class="col-md-6 paddingleft5 rightalign" style="margin-bottom:5px;"><?php echo sprintf($this->translate("global_list_counter"), $paginate->getItemCounterText()); ?></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 padding0">
+                        <?php echo $paginate->getPaginationLinks(); ?>
+                    </div>
+                </div>
+            </div>
+        <?php } ?>
+	</form>
+</div>            
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

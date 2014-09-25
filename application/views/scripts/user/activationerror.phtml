@@ -1,0 +1,12 @@
+<?php
+	require_once APPLICATION_PATH.'/includes/header.php';
+	$title = $this->translate("useraccount_pagetitle_resetpassword_invalid_activationkey"); 
+		$this->headTitle($title);
+?>
+		<h2><?php echo $title;?></h2>
+		<?php echo $this->translate("useraccount_recoverpassword_invalid_actkey_error"); ?><br><br>
+		<a href="<?php echo $this->baseUrl("user/recoverpassword"); ?>">Click here</a> to request for a new password reset code
+<?php 
+	$clearsessionformvalues = true; 
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

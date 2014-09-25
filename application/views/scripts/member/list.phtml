@@ -1,0 +1,401 @@
+<?php
+	require_once APPLICATION_PATH.'/includes/header.php';
+	
+	$style = '1';
+	if(!isEmptyString($request->style)){
+		$style = $request->style;
+		$session->setVar('style', $request->style);
+	}
+	if(isEmptyString($request->style) && !isEmptyString($session->getVar('style'))){
+		$style = $session->getVar('style');
+	}
+	
+	$startdate = $request->startdate;
+	$enddate = $request->enddate;
+	if(!isEmptyString($startdate)){
+		$startdate = changeDateFromPageToMySQLFormat($startdate);
+		$allowclear = true;
+	}
+	$enddate = $request->getParam('enddate');
+	if(!isEmptyString($enddate)){
+		$enddate = changeDateFromPageToMySQLFormat($enddate);
+		$allowclear = true;
+	}
+	
+	$paginate = new Pagination();	
+	$paginate->setView($this);
+	# set the search columns to be used on this list
+	$paginate->setSearchColumns(array("m.firstname","m.lastname","m.email","m.phone","m.phone2","m.othername","m.displayname"));
+	$paginate->setFilterColumns(array());
+	$paginate->setItemCountPerPage("50");
+	
+	# define the letter to be clicked to ease navigation 
+	$where_query = " WHERE m.id <> '' ";
+	$allowclear = false;
+	
+	if(!isEmptyString($startdate)){
+		$where_query .= " AND (TO_DAYS(m.startdate) >= TO_DAYS('".$startdate."')) ";
+	}
+	if(!isEmptyString($enddate)){
+		$where_query .= " AND (TO_DAYS(m.startdate) <= TO_DAYS('".$enddate."')) ";
+	}
+		
+	if(!isEmptyString($request->letter)){
+		$where_query .= " AND (m.`firstname` LIKE '".$request->letter."%' OR m.`lastname` LIKE '".$request->letter."%') ";
+		$allowclear = true;
+	}
+	
+	if(!isEmptyString($request->searchterm)){
+		$allowclear = true;
+	}
+	
+	$order = trim($request->order);
+	$order_query = " ";
+	if(isEmptyString($order)){
+		$order = 1;
+	}
+	if($order == 1){
+		$order_query = " ORDER BY m.datecreated DESC, m.id desc ";
+	}
+	if($order == 2){
+		$order_query = " ORDER BY m.datecreated ASC, m.id desc ";
+	}
+	if($order == 3){
+		$order_query = " ORDER BY m.firstname ASC ";
+	}
+	if($order == 4){
+		$order_query = " ORDER BY m.lastname ASC ";
+	}
+	
+	$sortcolumn = $request->sortby;
+	$sortorder = $request->sortorder;
+	if(!isEmptyString($sortcolumn) && !isEmptyString($sortorder)){
+		$order_query = " ORDER BY " . $sortcolumn. " " .$sortorder. " ";
+	}
+	// f.orgname as fundername, concat(u.firstname,' ',u.lastname) as supervisorname
+	$paginate->processPost($request->getParams());
+	$all_results_query = "SELECT 
+		m.id as mid, m.firstname, m.lastname, m.othername, m.displayname as Member, 
+		m.phone, m.phone2, m.email, 
+		m.profilephoto, m.gender, m.dateofbirth, m.bio, 
+		m.datecreated as mdatecreated, m.createdby as mcreatedby,
+		m.nationality, m.country,m.address1 as address1,o.name as church,
+		m.status,m.salutation, m.profession, 
+		r.name as region,p.name as province,d.name as district,c.name as county,s.name as subcounty,ps.name as parish, v.name as village,
+		m.website, m.dateofbirth, m.dateofbirth, m.spouseid, m.noofchildren,
+		ms.displayname as spousetext, mc.displayname as addedby
+	 FROM member m
+	 left join organisation o on (m.organisationid = o.id)
+	 left join region r on (m.regionid = r.id) 
+	 left join province p on (m.provinceid = p.id) 
+	 left join location d on (m.districtid = d.id and d.locationtype = 2)
+	 left join location c on (m.countyid = c.id and c.locationtype = 3)
+	 left join location s on (m.subcountyid = s.id and s.locationtype = 4)
+	 left join location ps on (m.parishid = ps.id and ps.locationtype = 5)
+     left join location v on (m.subcountyid = v.id and v.locationtype = 6)
+	 left join member mc on (m.createdby = mc.id)
+	 left join member ms on (m.spouseid = ms.id)
+	 ".$where_query." ".$paginate->getSearchAndFilterSQL()." GROUP BY m.id ".$order_query;
+	
+	// debugMessage($all_results_query); // exit;
+	
+	// determine total number of records found
+	$conn = Doctrine_Manager::connection(); 
+	$count_query = "SELECT count(m.id) as total FROM member m
+	 left join organisation o on (m.organisationid = o.id)
+	 left join region r on (m.regionid = r.id) 
+	 left join province p on (m.provinceid = p.id) 
+	 left join location d on (m.districtid = d.id and d.locationtype = 2)
+	 left join location c on (m.countyid = c.id and c.locationtype = 3)
+	 left join location s on (m.subcountyid = s.id and s.locationtype = 4)
+	 left join location ps on (m.parishid = ps.id and ps.locationtype = 5)
+     left join location v on (m.subcountyid = v.id and v.locationtype = 6)
+	 left join member mc on (m.createdby = mc.id)
+	 left join member ms on (m.spouseid = ms.id)
+	".$where_query." ".$paginate->getSearchAndFilterSQL(); // debugMessage($count_query); 
+	$total = $conn->fetchOne($count_query);
+	$paginate->setItemCount($total); //debugMessage('>> '.$total);	
+	$current_results_query = $all_results_query." ".$paginate->getSQLLimit();
+	
+	$conn = Doctrine_Manager::connection(); 
+	$result = $conn->fetchAll($current_results_query);
+	$has_no_data = (count($result) == 0) ? true : false;
+	
+	$listurl = $this->baseUrl('member/list');
+	$addurl = $this->baseUrl('member');
+	$title = "Member Directory";
+	$listitems = "Members";
+		
+	$moduleitem = "Member";
+	$description = '';
+	$icon = $this->baseUrl('images/icon_home.png');
+	
+	$this->headTitle($title.$browserappend);
+?>
+<script>
+	$(document).ready(function() {
+		$('.titlebreadcrumb').html('<?php echo $homedir.$title; ?>');
+		$('.titlelabel').html('<?php echo $title; ?>');
+		$('.desclabel').html('<?php echo $description; ?>');
+		$('.pageicon').html('<span class="icon-large icon-group"></span>');
+		
+		var dateoptions = datepickerOpts;
+		var startfrom = '<?php echo date('Y'); ?>';
+		dateoptions.yearRange = "-<?php echo date('Y')-2010; ?>:-0"; 
+		dateoptions.minDate = "-<?php echo date('Y'); ?>Y";
+		dateoptions.maxDate = new Date("Dec 31, "+startfrom);	
+		$("#startdate, #enddate").datepicker(dateoptions);
+		
+	});
+</script>
+<div class="row margin0">
+    <div class="col-md-12 padding0">
+    <form class="form margin0 listform makerelative" action="<?php echo $this->baseUrl("member/listsearch"); ?>" method="get" id="listform">
+		<?php if ($sessionhaserror) { ?>
+            <div class="alert alert-danger"><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
+        <?php } ?>
+        <?php if (!isEmptyString($session->getVar(SUCCESS_MESSAGE))) { ?>
+            <div class="alert alert-success alert-dismissable"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button> <?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
+        <?php } ?>
+        <div class="row-fluid clearfix">
+        	<div class="col-md-9 paddingleft0">
+            	<ul class="listfilter blocked">
+					<?php if ($acl->checkPermission('Member', ACTION_CREATE)) { ?>
+                        <li><a title="New <?php echo $moduleitem; ?>" class="btn btn-primary btn-sm xblockanchor gonowhere" href="<?php echo $addurl; ?>"><i class="glyphicon glyphicon-plus"></i> New <?php echo $moduleitem; ?></a></li>
+                    <?php } ?>
+                    <li>
+						<?php
+                           /* $allorders = array('1' => 'Latest First', '2'=>'Earliest First', '3'=>'Order By First Name','4'=>'Order By Last Name');
+                            $ordersdropdown = new Zend_Form_Element_Select('order',
+                                                array(
+                                                    'multiOptions' => $allorders,
+                                                    'view' => new Zend_View(),
+                                                    'decorators' => array('ViewHelper'),
+                                                   'class' => array("autofilter", "form-control", 'width150', 'chosen-select')
+                                                )
+                            );  
+                            $ordersdropdown->setValue($request->getParam('order')); 
+                            echo $ordersdropdown->render();*/
+                        ?>
+                    </li>
+                </ul>
+                <div class="divider1"></div>
+                <ul class="listfilter">
+                    <!--<li><input type="text" name="startdate" id="startdate" class="form-control input-sm datefield readonly width100" value="<?php echo $request->startdate; ?>" placeholder="From:" /></li>
+                    <li><input name="enddate" id="enddate" type="text" class="form-control input-sm datefield readonly width100" placeholder="To:" value="<?php echo $request->enddate; ?>" /></li>
+                    <li><button type="submit" class="btn btn-default btn-sm blockanchor"><i class="glyphicon glyphicon-filter"></i> Filter</button></li>-->
+               	</ul>
+            </div>
+            <div class="col-md-3 padding0">
+            	<div class="col-md-12 padding0"><input name="searchterm" id="searchterm" class="form-control form-search" value="<?php echo $request->searchterm; ?>" type="text" placeholder="Search..." /><button type="submit" class="btn btn-default blockanchor searchbtn"><i class="glyphicon glyphicon-search"></i></button></div>
+            	<input type="hidden" name="letter" id="letter" value="<?php echo $request->getParam('letter'); ?>" />
+                <input type="hidden" name="style" id="style" value="<?php echo $style; ?>" />
+                <?php if($allowclear){ ?>
+                    <a href="<?php echo $listurl; ?>" title="Clear Search and Filters" class="reset close button btn resetlink blockanchor">&times;</a>
+                <?php } ?>
+            </div>
+        </div>
+        <div class="stylewidget">
+            <a class="gonowhere btn btn-default btn-xs noround styletrigger <?php echo $style == 1 ? 'active' : ''; ?>" id="style1" rel='1'><i class="glyphicon glyphicon-th-large"></i> Grid</a>
+            <a class="gonowhere btn btn-default btn-xs noround styletrigger <?php echo $style == 2 ? 'active' : ''; ?>" id="style2" rel='2'><i class="glyphicon glyphicon-list-alt"></i> Table</a>
+        </div>
+        <?php echo $paginate->getAlphabetString(); ?>
+		<?php if ($has_no_data) { ?>
+            <div class="divider30"></div>
+            <div style="clear:both;" class="alert alert-warning margin5"><?php echo $this->translate("global_list_noentries"); ?></div>
+        <?php } else { ?>
+        	<div class="row-fluid peoplelist clearfix <?php echo $style == '2' ? 'whitebg' : ''; ?>">
+            	<?php if($style == 1){ ?>		
+                	<div class="divider10"></div>
+					<?php
+						foreach($result as $line){
+							$viewurl = $this->baseUrl('member/view/id/'.encode($line['mid']));
+							$indexurl = $this->baseUrl('member/index/id/'.encode($line['mid']));
+					?>
+                    	 <div class="col-xs-12 col-sm-6">
+                            <div class="peoplewrapper makerelative">
+                                <div class="btn-group gridactions">
+                                    <button type="button" class="btn btn-default btn-xs dropdown-toggle noround" data-toggle="dropdown">Action <span class="caret"></span></button>
+                                    <ul class="dropdown-menu" role="menu" style="left:-102px;">
+										<?php if ($acl->checkPermission('Member', ACTION_VIEW)) { ?>
+                                       		<li><a class="xblockanchor gonowhere" href="<?php echo $viewurl; ?>"><i class="glyphicon glyphicon-list"></i> View Profile</a></li>
+                                        <?php } ?>
+                                        <?php if ($acl->checkPermission('Member', ACTION_EDIT)) { ?>
+                                        	<li><a class="xblockanchor gonowhere" href="<?php echo $indexurl; ?>"><i class="glyphicon glyphicon-pencil"></i> Update</a></li>
+                                        <?php } ?>
+                                        <?php if(!isEmptyString($line['email'])){ ?>
+                                        	<li><a><i class="glyphicon glyphicon-envelope"></i> Send Email</a></li>
+                                        <?php }?>
+                                        <?php if(!isEmptyString($line['phone'])){ ?>
+                                        	<li><a><i class="glyphicon glyphicon-phone"></i> Send SMS</a></li>
+                                        <?php } ?>
+                                    </ul>
+                                </div>
+                                <div class="thumb img-thumbnail">
+                                	<a href="<?php echo $viewurl; ?>" class="blockanchor"><img class="imagecontainer" src="<?php echo getImagePath($line['mid'], $line['profilephoto'], $line['gender']); ?>" /></a>
+                                </div>
+                                <div class="peopleinfo">
+                                    <h4><a href="<?php echo $viewurl; ?>" class="blockanchor"><?php echo $line['Member']; ?></a></h4>
+                                    <div class="row-fluid margin0">
+                                    	<div class="col-md-7 padding0">
+                                        	<ul>
+                                                <li><span class="bolded">Phone:</span> <span class="nullifempty"><?php echo $line['phone']; ?></span></li>
+                                                <li><span class="bolded">Email:</span> <span class="nullifempty"><?php echo $line['email']; ?></span></li> 
+                                                <li><span class="bolded">Church:</span> <span class="nullifempty"><a><?php echo $line['church']; ?></a></span></li>
+                                                <li><span class="bolded">Regn Date:</span> <span class="nullifempty"><?php echo formatDateAndTime($line['mdatecreated'], false); ?></span></li>
+                                            </ul>
+                                        </div>
+                                        <div class="col-md-5 padding0">
+                                            <ul>
+                                                <li><span class="bolded">Region:</span> <span class="nullifempty"><?php echo $line['region']; ?></span></li>
+                                                <li><span class="bolded">Province:</span> <span class="nullifempty"><?php echo $line['province']; ?></span></li>
+                                                <li><span class="bolded">District:</span> <span class="nullifempty"><?php echo $line['district']; ?></span></li>
+                                                <li><span class="bolded">Sub-county:</span> <span class="nullifempty"><?php echo $line['subcounty']; ?></span></li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    
+                                </div>
+                            </div>
+                        </div>
+                   <?php } ?> 
+               	<?php } ?>
+                <?php if($style == 2){ ?>
+                	<div class="wrapper1">
+                        <div class="div1" style="width:5800px;"></div>
+                    </div>
+                    <div class="wrapper2">
+                        <div class="div2" style="width:5800px;">
+                			<table class="table list table-bordered table-striped data-table" id="datatable">
+                                <thead class="paginationheader">
+                                    <th class="nowrapping">Actions <img style="width:10px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /> </th>
+                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.id',  'ID#'); ?>
+                                        <img style="width:55px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /> </th>
+                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.firstname',  'Fist Name'); ?>
+                                        <img style="width:50px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
+                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.lastname',  'Last Name'); ?>
+                                        <img style="width:50px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
+                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.othername',  'Other Names'); ?>
+                                        <img style="width:30px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
+                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.othername',  'Display Name'); ?>
+                                        <img style="width:150px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
+                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.phone', 'Phone'); ?>
+                                    	<img style="width:50px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
+                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.email', 'Email'); ?>
+                                    	<img style="width:150px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
+                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.gender', 'Gender'); ?></th>
+                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('o.name', 'Church'); ?>
+                                        <img style="width:250px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
+                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.nationality', 'Nationality'); ?>
+                                        <img style="width:15px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
+                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.country', 'Country'); ?>
+                                        <img style="width:30px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
+                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.nfbpcregionid', 'Region'); ?>
+                                        <img style="width:150px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
+                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.provinceid', 'Province'); ?>
+                                        <img style="width:80px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
+                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.districtid', 'District'); ?>
+                                        <img style="width:100px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
+                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.countyid', 'County'); ?>
+                                        <img style="width:100px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
+                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.subcountyid', 'Sub-county'); ?>
+                                        <img style="width:100px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
+                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.parishid', 'Parish'); ?>
+                                        <img style="width:100px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
+                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.villageid', 'Village'); ?>
+                                        <img style="width:100px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
+                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.address1', 'Address'); ?>
+                                        <img style="width:200px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
+                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.website', 'Website'); ?>
+                                        <img style="width:150px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
+                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.salutation', 'Salutation'); ?>
+                                        <img style="width:30px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
+                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.profession', 'Profession'); ?>
+                                        <img style="width:60px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
+                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.dateofbirth', 'Date of Birth'); ?>
+                                        <img style="width:60px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
+                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.spouseid', 'Spouse'); ?>
+                                        <img style="width:150px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
+                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.nofchildren', 'No of Children'); ?></th>
+                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.datecreated', 'Registration Date'); ?>
+                                        <img style="width:50px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
+                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.createdby', 'Registered By'); ?>
+                                        <img style="width:100px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
+                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('', 'Current Committees'); ?>
+                                        <img style="width:500px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
+                                </thead>
+                                <tbody>
+                                    <?php
+                                        foreach($result as $line){
+                                            $viewurl = $this->baseUrl('member/view/id/'.encode($line['mid']));
+                                            $indexurl = $this->baseUrl('member/index/id/'.encode($line['mid']));
+                                    ?>
+                                        <tr>
+                                            <td class="padding2">
+                                            	<ul class="nav listactions">
+													<?php if ($acl->checkPermission('Member', ACTION_VIEW)) { ?>
+                                                        <li><a class="xblockanchor gonowhere" href="<?php echo $viewurl; ?>" title="View"><i class="glyphicon glyphicon-list"></i></a></li>
+                                                    <?php } ?>
+                                                    <?php if ($acl->checkPermission('Member', ACTION_EDIT)) { ?>
+                                                        <li><a class="xblockanchor gonowhere" href="<?php echo $indexurl; ?>" title="Update"><i class="glyphicon glyphicon-pencil"></i> </a></li>
+                                                    <?php } ?>
+                                                </ul>
+                                            </td>
+                                            <td class="nullifmpty"><a href="<?php echo $viewurl; ?>" class="blockanchor"><?php echo 'M'.number_pad($line['mid'], 4); ?></a></td>
+                                            <td class="nullifmpty"><?php echo $line['firstname']; ?></a></td>
+                                            <td class="nullifmpty"><?php echo $line['lastname']; ?></td>
+                                            <td class="nullifmpty"><?php echo $line['othername']; ?></td>
+                                            <td class="nullifmpty"><?php echo $line['Member']; ?></td>
+                                            <td class="nullifmpty"><?php echo $line['phone']; ?></td>
+                                            <td class="nullifmpty"><?php echo $line['email']; ?></td>
+                                            <td class="nullifmpty"><?php echo getGenderText($line['gender']); ?></td>
+                                            <td class="nullifmpty"><a><?php echo $line['church']; ?></a></td>
+                                            <td class="nullifmpty"><?php echo $line['nationality'] == '1' ? 'Ugandan': 'xx'; ?></td>
+                                            <td class="nullifmpty"><?php echo $line['country'] == 'UG' ? 'Uganda': 'xx'; ?></td>
+                                            <td class="nullifmpty"><?php echo $line['region']; ?></td>
+                                            <td class="nullifmpty"><?php echo $line['province']; ?></td>
+                                            <td class="nullifmpty"><?php echo $line['district']; ?></td>
+                                            <td class="nullifmpty"><?php echo $line['county']; ?></td>
+                                            <td class="nullifmpty"><?php echo $line['subcounty']; ?></td>
+                                            <td class="nullifmpty"><?php echo $line['parish']; ?></td>
+                                            <td class="nullifmpty"><?php echo $line['village']; ?></td>
+                                            <td class="nullifmpty"><?php echo $line['address1']; ?></td>
+                                            <td class="nullifmpty"><?php echo $line['website']; ?></td>
+                                            <td class="nullifmpty"><?php echo $line['salutation']; ?></td>
+                                            <td class="nullifmpty"><?php echo $line['profession']; ?></td>
+                                            <td class="nullifmpty"><?php echo $line['dateofbirth']; ?></td>
+                                            <td class="nullifmpty"><?php echo $line['spousetext']; ?></td>
+                                            <td class="nullifmpty"><?php echo $line['noofchildren']; ?></td>
+                                            <td class="nullifmpty"><?php echo $line['mdatecreated']; ?></td>
+                                            <td class="nullifmpty"><?php echo $line['addedby']; ?></td>
+                                            <td class="nullifmpty"><?php // echo $line['']; ?></td>
+                                        </tr>
+                                    <?php } ?>
+                                </tbody>
+                            </table>
+                  		</div>
+                    </div>
+                <?php } ?> 
+            </div>
+            <div class="row-fluid">
+                <div class="table-footer">
+                    <div class="col-md-6 padding0" style="margin-bottom:10px;">
+                        <div class="table-actions">
+                            <div class="row col-md-12 margin0 padding0 clearfix">
+                                <div class="col-md-6 padding0 floatleft"><?php echo $paginate->getListCountDropDown(); ?></div>
+                                <div class="col-md-6 paddingleft5 rightalign" style="margin-bottom:5px;"><?php echo sprintf($this->translate("global_list_counter"), $paginate->getItemCounterText()); ?></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 padding0">
+                        <?php echo $paginate->getPaginationLinks(); ?>
+                    </div>
+                </div>
+            </div>
+        <?php } ?>
+                                                                      
+	</form>
+</div>            
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

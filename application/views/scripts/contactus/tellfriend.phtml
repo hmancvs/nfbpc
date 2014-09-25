@@ -1,0 +1,171 @@
+<?php
+	require_once APPLICATION_PATH.'/includes/header.php';
+	
+	$posturl = $this->baseUrl("contactus/processtellfriend");
+	
+	#in case of errors in session, populate the fields from session
+	if(!isEmptyString($session->getVar(ERROR_MESSAGE))){ 
+		$formvalues = $session->getVar(FORM_VALUES);
+	}
+	
+	$title = "Tell a Friend about ".getAppName();
+	$subtitle = getAppName()." | Tell a Friend";
+	$this->headTitle($subtitle);
+	
+?>
+<script>
+	$(document).ready(function() {
+		$("#indexform").validate({
+			// define the validation rules one field at a time
+			rules: {
+				name: "required",
+				youremail: {
+					required: true, 
+					email: true
+				},
+				email: {
+					required: true
+				},
+				subject: "required",
+				message: "required"
+			}, 
+			// the messages for each of the fields being validated
+			messages: {	
+				name: "Please enter your Name",
+				youremail: {
+					"required": "Please enter your email", 
+					"email": "Please enter a valid Email Address"
+				},
+				email: {
+					"required": "Please enter one or more emails"
+				},
+				subject: "Please select a Subject",
+				message: "Please enter your message"
+			},
+			// custom error positions
+			errorPlacement: function(error, element) {
+				switch(element.attr("name")){					
+					default:
+						error.appendTo("#"+element.attr("name")+"_error")
+						break;
+				}			
+			}
+		});
+		
+		$.validator.addMethod("validatecode", function(value, element, params) {
+			//alert('code is '+value); //alert('valid is '+$("#validcode").val());
+			if ($("#code").val().toLowerCase() == $("#validcode").val().toLowerCase()) {
+				return true; 
+			}
+			return false;        
+		}, "Captcha Invalid! <br />Re-enter code or refresh for a new one");
+		
+		// refresh captcha
+		$('img#refresh').click(function() { 			
+			change_captcha();
+		});
+		
+		$('img#refresh').click();
+		function change_captcha(){
+			$("#code").val(''); 
+			$.get("<?php echo $this->baseUrl('signup/getcaptcha'); ?>", 
+				// parameters for the request along with a cachebuster to stop IE from caching the request
+				{cachebuster: new Date().getTime()}, 			   
+				function(data){			
+					//alert(data);
+					$("#validcode").val(data); 
+					$("#captcha").html(data).css({'font-size':'14px'});			
+				}
+			);
+		}
+  
+	}); 
+</script>
+<style>
+.form-horizontal .control-label {
+	font-size:16px;
+	color:#333333;
+	width:auto;
+}
+.public_leftcolumn .content p {
+	font-size:16px;
+}
+</style>
+<div class="row marginleft0">
+    <div class="span8 pull-left marginleft0 public_leftcolumn">
+        <div class="content">
+        	<div class="well row span8" style="margin:0 auto; display:block; width:91%;">
+            <form class="form-horizontal " id="indexform" action="<?php echo $posturl; ?>" method="post">
+            	<h3 class="well-legend" style="text-align:center;"><?php echo $title; ?></h3></legend>
+                <table class="table">
+                    <?php if($sessionhaserror) { ?>
+                        <tr>
+                            <td colspan="2"><div class="alert alert-error"><?php echo $session->getVar(ERROR_MESSAGE); ?></div></td>
+                        </tr>
+                    <?php } ?>
+                    <?php if(!isEmptyString($session->getVar(SUCCESS_MESSAGE))){ ?>
+                        <tr>
+                            <td colspan="2">
+                                <div class="alert alert-success" style="text-align:left; display:block;">Message successfully sent</div>
+                                <span class="pagedescription" style="font-size:18px; font-style:normal;">
+                                    Thank you for your interest in TBD.
+                                </span>
+                            </td>
+                        </tr>
+                    <?php } else { ?>	
+                    <tr>
+                        <td colspan="2">
+                            <span class="pagedescription" style="font-size:18px; font-style:normal;">
+                                <p>Please use the form below to tell one or more friends about the TBD program. Use commas to separate their emails.</p>
+                                <p>All fields marked with <?php echo $this->translate("global_required_field_marker"); ?> are mandatory.</p>
+                            </span>
+                        <td>
+                    </tr>
+                    <tr>
+                        <td width="30%"><label class="control-label leftalign">Your Name: <?php echo $this->translate("global_required_field_marker"); ?></label></td>
+                        <td><input name="name" id="name" type="text" class="span4" style="padding:8px;" value="" /><div id="name_error"></div></td>
+                    </tr>
+                    <tr>
+                        <td><label class="control-label leftalign">Your Email: <?php echo $this->translate("global_required_field_marker"); ?></label></td>
+                        <td><input class="span4" name="youremail" id="youremail" type="text" value="" style="padding:8px;" /><div id="youremail_error"></div></td>
+                    </tr>
+                    <tr>
+                        <td style="vertical-align:top;"><label class="control-label leftalign">Friends' Email(s): <?php echo $this->translate("global_required_field_marker"); ?></label><span class="pagedescription">(comma separated)</span></td>
+                        <td><textarea class="span4 expanding" style="min-height:35px; width:291px;" name="email" id="email" type="text"></textarea><div id="email_error"></div></td>
+                    </tr>
+                    <tr>
+                        <td><label class="control-label leftalign">Subject: <?php echo $this->translate("global_required_field_marker"); ?></label></td>
+                        <td><input class="span4" name="subject" id="subject" type="text" value="" style="padding:8px;" /><div id="subject_error"></div></td>
+                    </tr>
+                    <tr>
+                        <td><label class="control-label">Message: <?php echo $this->translate("global_required_field_marker"); ?></label></td>
+                        <td><textarea name="message" id="message" class="span4 expanding xhastooltip" style="min-height:100px; width:291px;"></textarea><div id="message_error"></div></td>
+                    </tr>
+                    <tr>
+                        <td><label class="control-label captcha">Captcha: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                        <span class="pagedescription">(enter the codes you see)</span></td>
+                        <td>
+                            <div id="wrap" class="public" align="center">
+                                <label id="captcha"></label>
+                                <input name="code" type="text" id="code" style="width:80px;" value="" />
+                                <input name="validcode" type="hidden" id="validcode" value="" />
+                            </div>
+                            <img src="<?php echo $this->baseUrl('images/refresh.jpg'); ?>" width="25" alt="Refresh Captcha Code" id="refresh" />                        
+                            <div id="code_error"></div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td><button type="submit" id="submit" class="btn btn-primary btn-gold btn-large bolded">Send Message</button></td>
+                    </tr>
+                    <?php } ?>
+              </table>
+            </form>
+   			</div>
+		</div>
+	</div>                    
+    <?php require APPLICATION_PATH."/views/scripts/index/righthandband.phtml"; ?>
+</div>
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

@@ -1,0 +1,160 @@
+<?php
+	require_once APPLICATION_PATH.'/includes/header.php';
+	
+	$title = sprintf($this->translate("profile_pagetitle_login"), getAppName());
+	$this->headTitle($title.$browserappend);
+	
+	$useraccount = new Member();
+	if ($sessionhaserror) {
+	    $useraccount->processPost($session->getVar(FORM_VALUES)); 
+	}
+	
+?>
+<script>
+$(document).ready(function() {
+	$("#logintable #email").focus();
+	$("#logintable #loginform").validate({		
+		// define the validation rules one field at a time
+		rules: {
+			email: {
+				"required": true
+			},
+			password: "required"
+		}, 
+		messages: {
+			email: {
+				"required": "<?php echo $this->translate("profile_credential_error"); ?>"
+			},
+			password: "<?php echo $this->translate("profile_password_error"); ?>"
+		}
+	});
+	
+	$(".navonlogin, #sidebar, .breadcrumbs").remove();
+		
+}); 
+</script>
+<style>
+.breadcrumbs li, .pageheader, #headercontainer #headermenu, #headercontainer #headerright {
+	display:none;
+}
+
+/*Login Page Styles */
+#logincontainer {
+	width:350px;
+	margin:0 auto;
+	padding:0 20px;
+	border:solid 2px #cacaca;
+	background-color:#fff;
+	height:auto;
+	-webkit-box-shadow: 0 6px 8px rgba(0, 0, 0, 0.25), inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+ 	-moz-box-shadow: 0 6px 8px rgba(0, 0, 0, 0.25), inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+ 	box-shadow: 0 6px 8px rgba(0, 0, 0, 0.25), inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+}
+#loginleft {
+	list-style:none;
+	margin:10px 0 0 0;
+	padding:0;
+}
+#loginleft li {
+	display:block;
+	margin:0;
+	padding:0 5px 5px 50px;
+	height:auto;
+	position:relative;
+	border-bottom:solid 1px #ebebeb;
+}
+#loginleft li:last-child {
+	border-bottom:none;
+}
+#loginleft li img {
+	position:absolute;
+	left:0;
+	top:10px;
+}
+#loginleft li span {
+	display:block;
+	padding-left:20px;
+}
+#loginleft li span h2 {
+	font-size:16px;
+}
+#loginleft li span label {
+	display:block;
+	font-size:16px;
+	color:#848282;
+	width:100%;
+}
+#logintable {
+	/*width:100%; */
+}
+#loginform {
+	width:100%; 
+	background-color:#f4f4f4; 
+	height:auto;
+	khtml-border-radius: 4px; 
+	-moz-border-radius: 4px; 
+	-opera-border-radius: 4px; 
+	-webkit-border-radius: 4px; 
+	border-radius: 4px;
+	border:solid 1px #e4e4e4;
+	padding-left:15px;
+	padding-bottom:30px;
+}
+#loginform input {
+	width:250px;
+	padding:6px 8px;
+	margin-top:5px;
+}
+
+</style>
+<div class="divider10"></div>
+<div id="logincontainer">
+	<h1 class="calfont" style="font-weight:bold; font-size:20px; border-bottom:1px solid #bdbdbd; color:#00436D; padding:5px;">LOGIN</h1>
+	<?php if($sessionhaserror) { ?>
+    	<div class="alert alert-error clear"><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
+    <?php } ?>
+    <?php if(!isEmptyString($session->getVar(SUCCESS_MESSAGE)) ){ ?>
+    	<div class="alert alert-success clear"><?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
+    <?php } ?>
+    <?php if(!isEmptyString($request->redirecturl)){ ?>
+    	<div style="padding:5px 5px;" class="alert alert-info clear margin0 centeralign">Please login to continue</div>
+    <?php } ?>
+    <table style="width:100%;">
+    	<tr>
+            <td>
+            	<table id="logintable">
+                	<tr>
+                    	<td class="bottompaddinglogin">
+                        	<form class="form-horizontal" id="loginform" action="<?php echo $this->baseUrl('user/checklogin'); ?>" method="post" style="padding-bottom:0;">	
+                               <table class="table maxwidth noborder nohover">
+                                   <tr>
+                                       <td style="padding-top:15px;">
+                                       		<label class="control-label pull-left" for="email">Username or Email: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                       		<input name="email" id="email" />
+                                       </td>
+                                   </tr>
+                                   <tr>
+                                       <td style="">
+                                       		<label class="control-label" for="email">Password: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                       		<input name="password" id="password" type="password" title="" />
+                                       </td>
+                                   </tr> 
+                                   <tr>
+                                       <td style="padding:10px 0 10px 0;">
+                                       		<button id="login" class="btn btn-primary xbtn-large blockanchor" type="submit" title="Login"><i class="glyphicon glyphicon-lock"></i> Login</button> &nbsp;&nbsp;&nbsp;or &nbsp;&nbsp;
+                                            <input name="redirecturl" type="hidden" value="<?php echo $request->redirecturl;  ?>" />
+                                           	<a href="<?php echo $this->baseUrl("user/recoverpassword")?>" class="gonowhere" style="font-size:12px;">Forgot your password?</a>
+                                       </td>
+                                   </tr>                    
+                               </table>
+                            </form>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</div>
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

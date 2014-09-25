@@ -1,0 +1,16 @@
+<?php include(APPLICATION_PATH.'/views/scripts/email/emailheader.phtml'); ?>
+
+   	Hullo,<br /><br />
+    
+	<b><?php echo $this->sendername; ?></b> has sent you the message below via <?php echo $this->appname; ?>;<br />
+	"<?php echo $this->themessage; ?>"<br /><br />
+    
+    <?php echo $this->serverUrl($this->baseUrl()); ?>
+    </td>
+</tr>
+<tr>
+    <td colspan="2" style="padding:10px 0 10px 0; text-align:center; border-top: 3px solid #E2E2E2; background:none repeat scroll 0 0 #F4F4F4;">
+       <?php echo sprintf($this->translate("copyright"), date("Y"), getCompanyName()); ?>
+    </td>
+</tr>
+</table>

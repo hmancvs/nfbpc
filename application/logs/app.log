@@ -1,0 +1,4 @@
+2011-12-15T10:53:38+03:00 INFO (6): Validation Error for UserAccount - <label class="error">The following errors occured:<ul style="list-style:none;"><li><label class='error'>enum</label></li><li><label class='error'>email</label></li></ul></label>
+2011-12-15T10:56:46+03:00 INFO (6): Validation Error for UserAccount - <label class="error">The following errors occured:<ul style="list-style:none;"><li><label class='error'>enum field gender</label></li><li><label class='error'>email field email2</label></li></ul></label>
+2011-12-15T11:04:20+03:00 INFO (6): Validation Error for UserAccount - <label class="error">The following errors occured:<ul style="list-style:none;"><li><label class='error'>enum field gender</label></li></ul></label>
+2011-12-15T11:04:46+03:00 INFO (6): Validation Error for UserAccount - <label class="error">The following errors occured:<ul style="list-style:none;"><li><label class='error'>enum field gender</label></li></ul></label>

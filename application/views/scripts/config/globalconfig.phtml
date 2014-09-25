@@ -1,0 +1,168 @@
+<?php
+	require_once APPLICATION_PATH.'/includes/header.php';
+	
+	$listurl = $this->baseUrl('config/globalconfig');
+	$title = "System Global Configurations";
+	$listitems = "Variables";
+	$this->headTitle($title.$browserappend);
+	$description = 'Application settings';
+	
+	$showsearch = true;
+	$section = $request->getParam('section'); // debugMessage('>> '.$section);
+	
+	if($request->type == 'logo'){ 
+		$this->headScript()->appendFile($this->baseUrl('javascript/custom/5.jquery.imgareaselect.min.js'));
+		echo $this->headScript();
+	}
+?>
+<script>
+$(document).ready(function() {
+	// breadcrumb config
+	$("#levelone_icon").addClass('icon-settings');
+	$("#levelone_link").attr('href', '').html('System');
+	$("#leveltwo_link").attr('href', '<?php echo $listurl; ?>').html('Global Config');
+
+});
+</script>
+<!--=== Page Header ===-->
+<div class="page-header makerelative">
+    <div class="page-title">
+        <h3><?php echo $title; ?></h3>
+        <span><?php echo $description; ?></span>
+    </div>
+    
+</div>
+<?php if(!isEmptyString($session->getVar(SUCCESS_MESSAGE))){ ?>
+    <div class="alert alert-success clear"><a class="close" data-dismiss="alert">×</a><?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
+<?php } ?>
+<?php if($sessionhaserror) { ?>
+    <div class="alert alert-error"><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
+<?php } ?>
+    
+<!--=== Responsive DataTable ===-->
+<div class="row">					
+	<div class="col-md-3">
+		<div class="widget box">
+			<div class="widget-header">
+				<h4><i class="icon-reorder"></i> Parameters</h4>
+			</div>
+			<div class="widget-content">
+				<div style="height:460px; overflow:scroll;">
+                    <ul class="nav nav-tabs nav-stacked margin5 listnavigation">
+                        <?php 
+                            $lists = getConfigLookups();
+                            // debugMessage($lists);
+                        ?>
+                        <?php foreach($lists as $key => $value){ ?>
+                            <li class="filtertyppe <?php echo $value['section'] == $section ? 'active': ''; ?>"><a style="font-weight:normal; font-size:15px;" href="<?php echo $this->baseUrl('config/globalconfig/section/'.$value['section']); ?>"><?php echo $value['sectiondisplay']; ?></a></li>
+                        <?php } ?>
+                    </ul>
+                </div>
+			</div> 
+		</div>
+	</div>
+	<div class="col-md-9">
+    	<?php
+			$columnheading = "Settings";
+			if(!isEmptyString($section)){
+				$currentlookup = new AppConfig();
+				$current = $currentlookup->getCurrentSection($section);
+				// debugMessage($current->toArray());
+				
+				$appconfig = new AppConfig();
+				$variables = $appconfig->getOptions($current->getSection());
+				// debugMessage($variables->toArray());
+				$columnheading = $current->getSectionDisplay();
+				if($request->type == 'logo'){
+					$columnheading = "Upload Logo Image";
+				}
+			}
+		?>
+		<div class="widget box">
+			<div class="widget-header">
+				<h4><i class="icon-reorder"></i> <?php echo $columnheading; ?></h4>
+			</div>
+			<div class="widget-content">
+				<div style="width:100%; border:1px solid #bababa; height:auto; min-height:460px; overflow:scroll; position:relative;">
+					<?php if(isEmptyString($section)){ ?>
+                    	<div class="divider20"></div>
+                        <div class="alert alert-info clear padding10 margin10">Select a Parameter to show values</div>
+                    <?php } else { ?>
+                    	 <?php if(in_array($current->getSection(), array('api','system','sms'))){ ?>
+                         	<div class="alert alert-warning clear">These are very sensitive settings. Be sure you know the implication of commiting any updates.</div>
+                         <?php } ?>
+                         <form id="indexform" name="indexform" action="<?php echo $this->baseUrl('config/processglobalconfig'); ?>" method="post">
+                            <div class="divider5"></div>
+                            <button type="submit" class="btn btn-primary pull-right"><i class="icon-ok icon-white"></i> Save Changes</button>
+                            <div class="divider5"></div>
+                          	<!--  <table class="table table-stripped table-bordered hasheader" style="margin:5px; width:98%;">-->
+                            <table class="table table-hover table-bordered commodities" style="margin:5px; width:98%;">
+                                <thead>
+                                    <tr>
+                                        <td style="width:15px;" class="centeralign">#</td>
+                                        <td>Description</td>
+                                        <td style="width:35%;">Actual Value</td>
+                                        <td style="width:20%;">System Value</td>
+                                    </tr>
+                                </thead>
+                                <tbody id="querycategories">
+                                    <?php
+                                        $t = 1;
+                                        foreach($variables as $option){
+                                            $id = $option->getID();
+                                            
+                                    ?>
+                                        <tr id="lookup_<?php echo $t; ?>" class="editable">
+                                            <td class="centeralign"><?php echo $t; ?>
+                                                <input type="hidden" name="t_<?php echo $t; ?>" id="t_<?php echo $t; ?>" value="<?php echo $t; ?>" />
+                                            </td>
+                                            <td>
+                                                <?php if($option->isEditable()){ ?>		
+                                                    <input type="text" name="displayname_<?php echo $t; ?>" id="displayname_<?php echo $t; ?>" class="form-control" style="width:95%; padding:4px;" value="<?php echo $option->getDisplayName(); ?>" />
+                                                <?php } else { ?>    
+                                                    <?php echo $option->getDisplayName(); ?>
+                                                    <div class="alert alert-info" style="margin:10px;">Updates to this option are currently disabled.</div>
+                                                <?php } ?>
+                                                <input type="hidden" name="id_<?php echo $t; ?>" id="id_<?php echo $t; ?>" value="<?php echo $option->getID(); ?>" />
+                                                <div id="displayname_<?php echo $t; ?>_error"></div>
+                                            </td>
+                                            <td>
+                                                <?php if($option->getOptionName() == 'logotype'){ ?>
+                                                    <span class="blocked" style="margin-bottom:5px;"><input type="radio" name="optionvalue_<?php echo $t; ?>" id="optionvalue_<?php echo $t; ?>_1" value="1" class="<?php echo $option->getOptionValue() == 1 ? '1' : '0'; ?>" /> Use Application Name (Default)</span>
+                                                    <span class="blocked" style="margin-bottom:5px;"><input type="radio" name="optionvalue_<?php echo $t; ?>" id="optionvalue_<?php echo $t; ?>_1" value="2" class="<?php echo $option->getOptionValue() == 2 ? '1' : '0'; ?>" /> Use Company Name</span>
+                                                <?php } ?>
+                                                <?php if($option->getOptionName() != 'logotype'){ ?>
+                                                    <?php if($option->isEditable()){ ?>		
+                                                        <input type="text" name="optionvalue_<?php echo $t; ?>" id="optionvalue_<?php echo $t; ?>" class="form-control"  style="width:95%; padding:4px;" value="<?php echo $option->getOptionValue(); ?>" />
+                                                    <?php } else { ?>    
+                                                        <?php echo $option->getOptionValue(); ?>
+                                                        <div class="alert alert-info" style="margin:10px;">Updates to this option are currently disabled.</div>
+                                                    <?php } ?>
+                                                    <div id="optionvalue_<?php echo $t; ?>_error"></div>
+                                                <?php } ?>
+                                            </td>
+                                            <td><?php echo $option->getOptionName(); ?></td>
+                                        </tr>
+                                    <?php $t++; } ?>
+                                    <input type="hidden" name="t" value="<?php echo $variables->count(); ?>" />
+                                    <input type="hidden" name="entityname" value="AppConfig" />
+                                    <input type="hidden" id="section" name="section" value="<?php echo $current->getSection(); ?>" />
+                                    <input type="hidden" id="<?php echo SUCCESS_MESSAGE; ?>" name="<?php echo SUCCESS_MESSAGE; ?>" value="Successfully updated" /> 
+                                    <input type="hidden" id="<?php echo URL_SUCCESS; ?>" name="<?php echo URL_SUCCESS; ?>" value="<?php echo encode($this->baseUrl('config/globalconfig/section/'.$current->getSection())); ?>" /> 
+                                </tbody>
+                            </table>
+                            <div class="divider5"></div>
+                            <button type="submit" class="btn btn-primary pull-right" style="margin-right:10px;"><i class="icon-ok icon-white"></i> Save Changes</button>
+                            <div class="divider5"></div>
+                        </form>  
+                        
+                    <?php } ?>
+                    
+                </div>
+			</div>
+		</div>
+	</div>
+</div>  
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

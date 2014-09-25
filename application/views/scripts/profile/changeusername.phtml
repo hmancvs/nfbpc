@@ -1,0 +1,122 @@
+<?php
+	require_once APPLICATION_PATH.'/includes/header.php';
+	
+	$title = "Change Username";
+	$this->headTitle($title); 
+	
+	$useraccount = new Member(); 	
+	$useraccount->populate(decode($request->id));
+	// debugMessage($useraccount->toArray());
+	
+	#in case of errors in session, populate the fields from session
+	if(!isEmptyString($session->getVar(ERROR_MESSAGE))){ 
+		$useraccount->processPost($session->getVar(FORM_VALUES));	
+	}
+
+	$this->headTitle($title);
+?>
+<script>
+	$(document).ready(function() {		
+		
+		$("#indexform").validate({		
+			// define the validation rules one field at a time
+			rules: {
+				username: {
+					required: true, 
+					minlength: 4,
+					maxlength: 15,
+					new_not_old: true
+				}
+			}, 
+			// the messages for each of the fields being validated
+			messages: {				
+				username: {
+					required: "<?php echo $this->translate("useraccount_username_error"); ?>", 					
+					minlength: "Username must have atleast 4 characters",
+					maxlength: "Username must not exceed 15 characters",
+					new_not_old: "New Username should be different from current one"
+				}
+			},
+			// custom error positions
+			errorPlacement: function(error, element) {
+				switch(element.attr("name")){					
+					default:
+						error.appendTo("#"+element.attr("name")+"_error")
+						break;
+				}			
+			}
+		});
+		
+		$.validator.addMethod("new_not_old", function(value, element) {
+			var old = $("#oldusername").val();
+			if(old != "" && value == old){
+				return false;
+			}		
+			return true
+		}, "New Username should be different from current one");
+		
+		//when button is clicked  
+        $('#check_username_availability').click(function(){ 
+			check_user_availability();  
+        });
+		$('#username').change(function(){ 
+			check_user_availability();  
+        });  
+		$('#username').keyup(function(){
+			this.value = this.value.toLowerCase();
+		});
+		
+		//function to check username availability  
+		function check_user_availability(){  
+			//get the username
+			var checking_html = 'Checking availability...';   
+			var username = $('#username').val();  
+			if(!isEmptyString(username) && username.length >= 4 && username.length <= 15 && isAlpha(username)){
+				// alert('passed');
+				$('#username_availability_result').html(checking_html); 
+				var userid = "<?php echo $useraccount->getID(); ?>";
+				//use ajax to run the check  
+				$.post("<?php echo $this->baseUrl('signup/checkusername'); ?>", { username: username},  
+					function(result){  
+						//if the result is 1  
+						// alert(result); return false;
+						if(result == 1){  
+							//show that the username is available
+							$('#username_availability_result').html(username + ' is NOT available!').addClass('alert').addClass('alert-error').removeClass('alert-success'); 
+						} else {  
+							//show that the username is NOT available  
+							$('#username_availability_result').html(username + ' is available').addClass('alert').addClass('alert-success').removeClass('alert-error');
+						}  
+				});   
+			}
+		}  
+		
+	}); 
+</script>
+<div class="popupdiv">
+<form class="form-horizontal well span6" id="indexform" method="post">
+    <table class="table">
+		<?php if($sessionhaserror) { ?>
+	        <tr>
+	        	<td colspan="2"><div class="alert alert-error"><?php echo $session->getVar(ERROR_MESSAGE); ?></div></td>
+	        </tr>
+        <?php } ?>
+		<tr>
+            <td width="30%"><label class="control-label pull-left">Current Username: </label></td>
+            <td><input name="oldusername" id="oldusername" type="hidden" value="<?php echo $useraccount->getUsername(); ?>" /><?php echo $useraccount->getUsername(); ?>
+            	<input type="hidden" name="entityname" value="Member" />
+                <input type="hidden" id="id" name="id" value="<?php echo encode($useraccount->getID()); ?>" />
+            </td>
+        </tr>
+        <tr>
+            <td><label class="control-label pull-left">New Username: <?php echo $this->translate("global_required_field_marker"); ?></label></td>
+            <td><input name="username" id="username" type="text" class="strictalpha span2 hastooltip" style="width:150px;" />
+            	<label class='lineblocked'><a href="javascript: void(0);" class="btn btn-primary btn-mini" id='check_username_availability' title="Check Availability">Check</a></label><div id="username_error"></div><div id="username_availability_result" style="margin-top:5px;"></div>
+            </td>
+        </tr>
+	</table>
+</form>
+<?php
+	$clearsessionformvalues = true; 
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>
