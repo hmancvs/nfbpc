@@ -156,8 +156,8 @@ $(document).ready(function() {
 	
 	<?php if(!$isregion){ ?>
 		$('#regionid').change(function() {
-			autoPopulateSelectChain('regionid', 'provinceid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/region_provinces/regionid/'); ?>', '<?php echo $regionid; ?>');
-			autoPopulateSelectChain('regionid', 'districtid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/region_districts/regionid/'); ?>', '<?php echo $regionid; ?>');
+			autoPopulateSelectChain('regionid', 'provinceid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/region_provinces/regionid/'); ?>', '<?php echo $location->getProvinceID(); ?>');
+			autoPopulateSelectChain('regionid', 'districtid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/region_districts/regionid/'); ?>', '<?php echo $location->getDistrictID(); ?>');
 		});
 		$('#regionid').trigger('change');
 		
@@ -170,7 +170,7 @@ $(document).ready(function() {
 			$('#countyid').change(function() {
 				autoPopulateSelectChain('countyid', 'subcountyid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/county_subcounties/countyid/'); ?>', '<?php echo $location->getSubCountyID(); ?>');
 			});
-			$('#countyid').trigger('change');
+			$('#countyid').change();
 			
 			$('#subcountyid').change(function() {
 				autoPopulateSelectChain('subcountyid', 'parishid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/subcounty_parishes/subcountyid/'); ?>', '<?php echo $location->getParishID(); ?>');

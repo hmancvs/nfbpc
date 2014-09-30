@@ -82,8 +82,8 @@
 		m.nationality, m.country,m.address1 as address1,o.name as church,
 		m.status,m.salutation, m.profession, 
 		r.name as region,p.name as province,d.name as district,c.name as county,s.name as subcounty,ps.name as parish, v.name as village,
-		m.website, m.dateofbirth, m.dateofbirth, m.spouseid, m.noofchildren,
-		ms.displayname as spousetext, mc.displayname as addedby
+		m.website, m.dateofbirth, m.dateofbirth, m.contactid, m.noofchildren,
+		ms.contactname as contactname, mc.displayname as addedby
 	 FROM member m
 	 left join organisation o on (m.organisationid = o.id)
 	 left join region r on (m.regionid = r.id) 
@@ -92,9 +92,9 @@
 	 left join location c on (m.countyid = c.id and c.locationtype = 3)
 	 left join location s on (m.subcountyid = s.id and s.locationtype = 4)
 	 left join location ps on (m.parishid = ps.id and ps.locationtype = 5)
-     left join location v on (m.subcountyid = v.id and v.locationtype = 6)
+     left join location v on (m.villageid = v.id and v.locationtype = 6)
 	 left join member mc on (m.createdby = mc.id)
-	 left join member ms on (m.spouseid = ms.id)
+	 left join member ms on (m.contactid = ms.id)
 	 ".$where_query." ".$paginate->getSearchAndFilterSQL()." GROUP BY m.id ".$order_query;
 	
 	// debugMessage($all_results_query); // exit;
@@ -111,7 +111,7 @@
 	 left join location ps on (m.parishid = ps.id and ps.locationtype = 5)
      left join location v on (m.subcountyid = v.id and v.locationtype = 6)
 	 left join member mc on (m.createdby = mc.id)
-	 left join member ms on (m.spouseid = ms.id)
+	 left join member ms on (m.contactid = ms.id)
 	".$where_query." ".$paginate->getSearchAndFilterSQL(); // debugMessage($count_query); 
 	$total = $conn->fetchOne($count_query);
 	$paginate->setItemCount($total); //debugMessage('>> '.$total);	
@@ -148,6 +148,11 @@
 		
 	});
 </script>
+<style>
+.peoplelist .peoplewrapper {
+	height:160px;
+}
+</style>
 <div class="row margin0">
     <div class="col-md-12 padding0">
     <form class="form margin0 listform makerelative" action="<?php echo $this->baseUrl("member/listsearch"); ?>" method="get" id="listform">
@@ -161,7 +166,7 @@
         	<div class="col-md-9 paddingleft0">
             	<ul class="listfilter blocked">
 					<?php if ($acl->checkPermission('Member', ACTION_CREATE)) { ?>
-                        <li><a title="New <?php echo $moduleitem; ?>" class="btn btn-primary btn-sm xblockanchor gonowhere" href="<?php echo $addurl; ?>"><i class="glyphicon glyphicon-plus"></i> New <?php echo $moduleitem; ?></a></li>
+                        <li><a title="New <?php echo $moduleitem; ?>" class="btn btn-primary btn-sm blockanchor" href="<?php echo $addurl; ?>"><i class="glyphicon glyphicon-plus"></i> New <?php echo $moduleitem; ?></a></li>
                     <?php } ?>
                     <li>
 						<?php
@@ -218,10 +223,10 @@
                                     <button type="button" class="btn btn-default btn-xs dropdown-toggle noround" data-toggle="dropdown">Action <span class="caret"></span></button>
                                     <ul class="dropdown-menu" role="menu" style="left:-102px;">
 										<?php if ($acl->checkPermission('Member', ACTION_VIEW)) { ?>
-                                       		<li><a class="xblockanchor gonowhere" href="<?php echo $viewurl; ?>"><i class="glyphicon glyphicon-list"></i> View Profile</a></li>
+                                       		<li><a class="blockanchor" href="<?php echo $viewurl; ?>"><i class="glyphicon glyphicon-list"></i> View Profile</a></li>
                                         <?php } ?>
                                         <?php if ($acl->checkPermission('Member', ACTION_EDIT)) { ?>
-                                        	<li><a class="xblockanchor gonowhere" href="<?php echo $indexurl; ?>"><i class="glyphicon glyphicon-pencil"></i> Update</a></li>
+                                        	<li><a class="blockanchor" href="<?php echo $indexurl; ?>"><i class="glyphicon glyphicon-pencil"></i> Update</a></li>
                                         <?php } ?>
                                         <?php if(!isEmptyString($line['email'])){ ?>
                                         	<li><a><i class="glyphicon glyphicon-envelope"></i> Send Email</a></li>
@@ -237,20 +242,23 @@
                                 <div class="peopleinfo">
                                     <h4><a href="<?php echo $viewurl; ?>" class="blockanchor"><?php echo $line['Member']; ?></a></h4>
                                     <div class="row-fluid margin0">
-                                    	<div class="col-md-7 padding0">
+                                    	<div class="col-md-6 padding0">
                                         	<ul>
                                                 <li><span class="bolded">Phone:</span> <span class="nullifempty"><?php echo $line['phone']; ?></span></li>
                                                 <li><span class="bolded">Email:</span> <span class="nullifempty"><?php echo $line['email']; ?></span></li> 
-                                                <li><span class="bolded">Church:</span> <span class="nullifempty"><a><?php echo $line['church']; ?></a></span></li>
+                                                <li><span class="bolded">Church:</span> <span class="nullifempty"><a><?php echo snippet($line['church'], '25','...'); ?></a></span></li>
                                                 <li><span class="bolded">Regn Date:</span> <span class="nullifempty"><?php echo formatDateAndTime($line['mdatecreated'], false); ?></span></li>
-                                            </ul>
-                                        </div>
-                                        <div class="col-md-5 padding0">
-                                            <ul>
                                                 <li><span class="bolded">Region:</span> <span class="nullifempty"><?php echo $line['region']; ?></span></li>
                                                 <li><span class="bolded">Province:</span> <span class="nullifempty"><?php echo $line['province']; ?></span></li>
+                                            </ul>
+                                        </div>
+                                        <div class="col-md-6 padding0">
+                                            <ul>
                                                 <li><span class="bolded">District:</span> <span class="nullifempty"><?php echo $line['district']; ?></span></li>
+                                                <li><span class="bolded">County:</span> <span class="nullifempty"><?php echo $line['county']; ?></span></li>
                                                 <li><span class="bolded">Sub-county:</span> <span class="nullifempty"><?php echo $line['subcounty']; ?></span></li>
+                                                <li><span class="bolded">Parish:</span> <span class="nullifempty"><?php echo $line['parish']; ?></span></li>
+                                                <li><span class="bolded">Village:</span> <span class="nullifempty"><?php echo $line['village']; ?></span></li>
                                             </ul>
                                         </div>
                                     </div>
@@ -314,7 +322,7 @@
                                         <img style="width:60px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
                                     <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.dateofbirth', 'Date of Birth'); ?>
                                         <img style="width:60px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
-                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.spouseid', 'Spouse'); ?>
+                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.contactid', 'Spouse'); ?>
                                         <img style="width:150px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
                                     <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.nofchildren', 'No of Children'); ?></th>
                                     <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.datecreated', 'Registration Date'); ?>
@@ -334,10 +342,10 @@
                                             <td class="padding2">
                                             	<ul class="nav listactions">
 													<?php if ($acl->checkPermission('Member', ACTION_VIEW)) { ?>
-                                                        <li><a class="xblockanchor gonowhere" href="<?php echo $viewurl; ?>" title="View"><i class="glyphicon glyphicon-list"></i></a></li>
+                                                        <li><a class="blockanchor" href="<?php echo $viewurl; ?>" title="View"><i class="glyphicon glyphicon-list"></i></a></li>
                                                     <?php } ?>
                                                     <?php if ($acl->checkPermission('Member', ACTION_EDIT)) { ?>
-                                                        <li><a class="xblockanchor gonowhere" href="<?php echo $indexurl; ?>" title="Update"><i class="glyphicon glyphicon-pencil"></i> </a></li>
+                                                        <li><a class="blockanchor" href="<?php echo $indexurl; ?>" title="Update"><i class="glyphicon glyphicon-pencil"></i> </a></li>
                                                     <?php } ?>
                                                 </ul>
                                             </td>
@@ -364,7 +372,7 @@
                                             <td class="nullifmpty"><?php echo $line['salutation']; ?></td>
                                             <td class="nullifmpty"><?php echo $line['profession']; ?></td>
                                             <td class="nullifmpty"><?php echo $line['dateofbirth']; ?></td>
-                                            <td class="nullifmpty"><?php echo $line['spousetext']; ?></td>
+                                            <td class="nullifmpty"><?php echo $line['contactname']; ?></td>
                                             <td class="nullifmpty"><?php echo $line['noofchildren']; ?></td>
                                             <td class="nullifmpty"><?php echo $line['mdatecreated']; ?></td>
                                             <td class="nullifmpty"><?php echo $line['addedby']; ?></td>

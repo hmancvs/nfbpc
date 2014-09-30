@@ -495,9 +495,9 @@ function isAlpha(value){
 }
 function isUgNumber(number){
 	var valid=true;
-	var first3chars = number.substring(0, 3);
-	var allowed = new Array("077","078","070","071","075","079","073");
-	if($.inArray(first3chars, allowed) == -1) {
+	var firstchars = number.substring(0, 5);
+	var allowed = new Array("25677","25678","25670","25671","25675","25679","25673");
+	if($.inArray(firstchars, allowed) == -1) {
 		valid=false;
 	}
 	return valid;

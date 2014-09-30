@@ -122,7 +122,7 @@ class Location extends BaseEntity {
 		if (isArrayKeyAnEmptyString('villageid', $formvalues)) {
 			$formvalues['villageid'] = NULL;
 		}
-		debugMessage($formvalues);
+		// debugMessage($formvalues);
 		parent::processPost($formvalues);
 	}
 	/*
@@ -145,7 +145,14 @@ class Location extends BaseEntity {
 		$conn = Doctrine_Manager::connection();
 		
 		// query for check if location exists
-		$unique_query = "SELECT id FROM location WHERE name = '".$this->getName()."' AND locationtype = '".$this->getLocationType()."' AND id <> '".$this->getID()."' ";
+		$unique_query = "SELECT id FROM location WHERE name = '".$this->getName()."'
+		AND districtid = '".$this->getDistrictID()."'
+		AND countyid = '".$this->getCountyID()."'
+		AND subcountyid = '".$this->getSubCountyID()."'
+		AND parishid = '".$this->getParishID()."'
+		AND locationtype = '".$this->getLocationType()."'
+		AND id <> '".$this->getID()."' ";
+		
 		$result = $conn->fetchOne($unique_query);
 		//debugMessage($unique_query);
 		//debugMessage($result);

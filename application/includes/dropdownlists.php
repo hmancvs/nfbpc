@@ -894,4 +894,88 @@
 		$query = "SELECT id as optionvalue, name as optiontext FROM committee WHERE id <> '' AND isfeatured = 1 ORDER BY optiontext ";
 		return getOptionValuesFromDatabaseQuery($query);
 	}
+	
+	# determine the marital statuses
+	function getAllMaritalStatuses($value = '', $checkempty = false){
+		$query = "SELECT l.lookuptypevalue as optionvalue, l.lookupvaluedescription as optiontext FROM lookuptypevalue AS l INNER JOIN lookuptype AS v ON l.lookuptypeid = v.id WHERE v.name = 'MARITAL_STATUS_VALUES'";
+		// debugMessage($query); exit();
+		$array = getOptionValuesFromDatabaseQuery($query);
+		if(!isEmptyString($value)){
+			if(!isArrayKeyAnEmptyString($value, $array)){
+				return $array[$value];
+			} else {
+				return '';
+			}
+		}
+		if($checkempty && isEmptyString($value)){
+			return '';
+		}
+		return $array;
+	}
+	# determine the salutation values
+	function getSalutations($value = '', $checkempty = false){
+		$query = "SELECT l.lookuptypevalue as optionvalue, l.lookupvaluedescription as optiontext FROM lookuptypevalue AS l INNER JOIN lookuptype AS v ON l.lookuptypeid = v.id WHERE v.name = 'SALUTATION'";
+		// debugMessage($query); exit();
+		$array = getOptionValuesFromDatabaseQuery($query);
+		if(!isEmptyString($value)){
+			if(!isArrayKeyAnEmptyString($value, $array)){
+				return $array[$value];
+			} else {
+				return '';
+			}
+		}
+		if($checkempty && isEmptyString($value)){
+			return '';
+		}
+		return $array;
+	}
+	# determine the salutation values
+	function getProfessions($value = '', $checkempty = false){
+		$query = "SELECT l.lookuptypevalue as optionvalue, l.lookupvaluedescription as optiontext FROM lookuptypevalue AS l INNER JOIN lookuptype AS v ON l.lookuptypeid = v.id WHERE v.name = 'PROFESSIONS'";
+		// debugMessage($query); exit();
+		$array = getOptionValuesFromDatabaseQuery($query);
+		if(!isEmptyString($value)){
+			if(!isArrayKeyAnEmptyString($value, $array)){
+				return $array[$value];
+			} else {
+				return '';
+			}
+		}
+		if($checkempty && isEmptyString($value)){
+			return '';
+		}
+		return $array;
+	}
+	# determine the next of keen relationship options
+	function getRelationshipTypes($value = '', $checkempty = false){
+		$query = "SELECT l.lookuptypevalue as optionvalue, l.lookupvaluedescription as optiontext FROM lookuptypevalue AS l INNER JOIN lookuptype AS v ON l.lookuptypeid = v.id WHERE v.name = 'CONTACT_RELATIONSHIPS'";
+		// debugMessage($query); exit();
+		$array = getOptionValuesFromDatabaseQuery($query);
+		if(!isEmptyString($value)){
+			if(!isArrayKeyAnEmptyString($value, $array)){
+				return $array[$value];
+			} else {
+				return '';
+			}
+		}
+		if($checkempty && isEmptyString($value)){
+			return '';
+		}
+		return $array;
+	}
+	# determine the churches
+	function getChurches($value = ''){
+		$query = "SELECT o.id as optionvalue, o.name as optiontext FROM organisation AS o WHERE o.id <> '' ";
+		// debugMessage($query); exit();
+		$array = getOptionValuesFromDatabaseQuery($query);
+		if(!isEmptyString($value)){
+			if(!isArrayKeyAnEmptyString($value, $array)){
+				return $array[$value];
+			} else {
+				return '';
+			}
+		}
+		return $array;
+	}
+	
 ?>

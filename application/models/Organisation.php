@@ -28,7 +28,7 @@ class Organisation extends BaseEntity  {
 		$this->hasColumn('gpslat', 'string', 15);
 		$this->hasColumn('gpslng', 'string', 15);
 		$this->hasColumn('vision', 'string', 255);
-		$this->hasColumn('mision', 'string', 255);
+		$this->hasColumn('mission', 'string', 255);
 		$this->hasColumn('bio', 'string', 1000);
 		$this->hasColumn('profilephoto', 'string', 50);
 		$this->hasColumn('leadid', 'integer', null);

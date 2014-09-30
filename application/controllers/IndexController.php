@@ -66,8 +66,9 @@ class IndexController extends Zend_Controller_Action  {
     }
     
    public function createAction() {
-    	// debugMessage($this->_getAllParams()); // exit(); 
-   		$this->_setParam('id', NULL); // exit();
+    	// debugMessage($this->_getAllParams()); // exit();
+    	$this->_setParam('entityname', 'Member');
+   		// $this->_setParam('id', NULL); // exit();
    		$session = SessionWrapper::getInstance(); 
     	// the name of the class to be instantiated
     	$classname = $this->_getParam("entityname");
@@ -217,7 +218,7 @@ class IndexController extends Zend_Controller_Action  {
     	$this->createAction();
     }
     
-public function deleteAction() {
+	public function deleteAction() {
     	$this->_setParam("action", ACTION_DELETE);
     
     	$session = SessionWrapper::getInstance();
@@ -416,8 +417,6 @@ public function deleteAction() {
 				$result = getVillagesInParishes($this->_getParam('parishid'));
 				$result = json_encode($result);
 				echo ($result);
-				# get all the villages in a parishes
-				echo generateJSONStringForSelectChain(getVillagesInParishes($this->_getParam('parishid')), $this->_getParam('currentvalue'));
 				break;
 			default:
 				# get all the villages in a parishes
@@ -551,8 +550,20 @@ public function deleteAction() {
 		$session->setVar(SUCCESS_MESSAGE, "Successfully updated");
 		if(!isArrayKeyAnEmptyString('successmessage', $formvalues)){
 			$session->setVar(SUCCESS_MESSAGE, decode($formvalues['successmessage']));
+		}
     }
-}    
-    
-    
+	
+	public function leftcolumnAction(){
+		$session = SessionWrapper::getInstance(); 
+     	$this->_helper->layout->disableLayout();
+		$this->_helper->viewRenderer->setNoRender(TRUE);
+		$formvalues = $this->_getAllParams();
+    	// debugMessage($formvalues);
+		
+		if($this->_getParam('value') == 1){
+			 $session->setVar('toggled', "1");
+		} else {
+			 $session->setVar('toggled', "");
+		}
+	}
 }

@@ -100,6 +100,7 @@ ul, ol {
 
 #headercontainer #headerright {
 	margin:0;
+	margin-right:5px;
 }
 .navbar-header #homelink {
 	width:100%;
@@ -132,38 +133,35 @@ ul, ol {
     margin-top: 0;
 	display:block;
 }
+.nav .open > a, .nav .open > a:hover, .nav .open > a:focus {
+	background-color:#63ABDB;
+}
+#headercontainer .userloggedinfo ul#menupulldown li a {
+	padding:6px 5px 6px 25px;
+}
 
 /* Left Navigation */
 #sidebar {
+	position: fixed;
     display: block;
     float: left;
-    position: fixed;
+    background:url("../images/sidebarBg_over.png") repeat-y scroll 0 0 rgba(0, 0, 0, 0);
     width: 260px;
-	height:460px;	
-	background:url("../images/sidebarBg_over.png") repeat-y scroll 0 0 rgba(0, 0, 0, 0);
+	height:490px;	
 	overflow: auto;
-	-webkit-box-sizing: border-box; 
-	-moz-box-sizing: border-box; 
-	box-sizing: border-box;
 }
-.sidebarBox {
-    color: #FFFFFF;
-    margin-bottom: 2em;
-    padding: 0 20px;
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
-}
-#sidebar hr {
-    border-bottom: 1px solid #858585;
-    border-top: 1px solid #4A4A4A;
-    margin-bottom: 2em;
+#sidebar.hidden { 
+	display: none;
 }
 #mainNav {
     border-bottom: 1px solid #4e72af;
 	margin:0;
     padding: 0;
+	margin-bottom:10px;
     width: 100%;
-	height:100%;
+	height:auto;
 	overflow:visible;
+	visibility:visible;
 }
 #mainNav li.nav {
     /*border-bottom: 1px solid #4A4A4A;
@@ -298,8 +296,16 @@ ul, ol {
 	width:30px; 
 	padding:5px; 
 }
-#sidebar.toggled #mainNav li.nav a {
-	padding: 18px 18px 18px 16px;
+#sidebar.toggled #mainNav li .subNav.open {
+	left:50px;
+	width:260px;
+	z-index:1000;
+	position:fixed;
+	max-height:300px;
+	margin-top:-50px;
+}
+#sidebar.toggled #mainNav li.nav > a {
+	/*padding: 18px 18px 18px 16px;*/
 }
 /*#sidebar.toggled #mainNav > li.dropdown ul.subNav {
 	width:250px;
@@ -973,4 +979,26 @@ ul.listactions li a {
     color: #404040;
 	/*font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
     font-size: 13px;*/
+}
+.formactions {
+	/*float: left;*/
+	float:right; 
+	position:absolute; 
+	right:16px;
+}
+.nav-tabs > li > a {
+	background-color:#f2f2f2;
+}
+.nav-tabs > li > a:hover {
+	background-color:#FDD8DA;
+}
+.form-horizontal .locations .control-label {
+	padding-top:0;
+}
+.img-thumbnail {
+	padding:1px;
+}
+.peoplelist .thumb {
+	height:82px;
+	width:83px;
 }

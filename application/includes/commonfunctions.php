@@ -157,7 +157,7 @@ function formatDateAndTime($mysqldate, $ignoretime = true){
 		$timestr = '  H:i';
 	}
 	$oDate = new DateTime($mysqldate);
-	$sDate = $oDate->format("m/d/Y".$timestr);
+	$sDate = $oDate->format("d/m/Y".$timestr);
 	return $sDate;
 }
 function formatTime($timestring){
@@ -736,7 +736,7 @@ function getImagePath($id, $filename, $gender){
 		$photo_path = $baseUrl.'/uploads/default/default_thumbnail_female.jpg';
 	}
 	if($hasprofileimage){
-		$photo_path = $baseUrl.'/uploads/members/member_'.$$id.'/avatar/medium_'.$filename;
+		$photo_path = $baseUrl.'/uploads/members/member_'.$id.'/avatar/medium_'.$filename;
 	}
 	
 	return $photo_path;
@@ -949,10 +949,12 @@ function getStyleIncludes(){
 		# major css to run application
 		// 'stylesheets/bootstrap-3.1.1.css', ## due to breaking of minificaition, this file is appended directly in the layout script
 		'stylesheets/bootstrap-theme.css',
-		'stylesheets/jquery.ui.1.8.14.css',
+		// 'stylesheets/jquery.ui.1.8.14.css',
+		'stylesheets/jquery-ui.1.11.1.css',
 			
 		# append all plugins and extensions styles to end of plugins.css so as to keep includes to minimal
 		'stylesheets/plugins.css',
+		'stylesheets/jquery.mCustomScrollbar.css',
 		
 		# application specific
 		'stylesheets/custom.css', // templated styles
@@ -965,7 +967,7 @@ function getJsIncludes(){
 		# major javascript to run application
 		'javascript/jquery-1.11.1.min.js',
 		'javascript/bootstrap-3.1.1.min.js',
-		'javascript/plugins/jquery-ui-1.8.14.custom.min.js',
+		// 'javascript/plugins/jquery-ui-1.11.1.min.js',
 		'javascript/jquery-migrate-1.0.0.js',
 		
 		# include here all plugins and extensions
@@ -977,7 +979,10 @@ function getJsIncludes(){
 		'javascript/plugins/jquery.placeholder.min.js',				
 		'javascript/plugins/bootbox-4.2.0.min.js',
 		'javascript/plugins/jquery.blockUI.js',
-			
+		
+		'javascript/plugins/table2CSV.js',
+		'javascript/plugins/jquery.mCustomScrollbar.concat.min.js',
+		// 'javascript/plugins/jquery.doubleScroll.js',
 		//'javascript/jquery.form.min.js',
 		//'javascript/pdfobject.js',
 		//'javascript/jquery.qtip.min.js',
@@ -986,7 +991,7 @@ function getJsIncludes(){
 		//'javascript/jquery.slimscroll.min.js',
 		//'javascript/jquery.slimscroll.horizontal.min.js',
 		//'javascript/jquery.doubleScroll.js',
-		//'javascript/table2CSV.js',
+		
 		//'javascript/tagmanager.js',
 		//'javascript/highcharts.js',
 		//'javascript/exporting.js',
@@ -1206,5 +1211,20 @@ function fileUploaded() {
 		return false;
 	}
 	return true;
+}
+function getGoogleMapsUrl(){
+	$config = Zend_Registry::get("config"); 
+	$value = $config->api->google_disablemaps; 
+	return "https://maps.google.com/maps/api/js?sensor=true&key=".getGoogleMapsKey();
+}
+function getGoogleMapsKey(){
+	$config = Zend_Registry::get("config"); 
+	$value = $config->api->google_mapsapikey; 
+	return $value;
+}
+function loadMaps(){
+	$config = Zend_Registry::get("config"); 
+	$value = $config->api->google_disablemaps; 
+	return $value == 1 || $value == 'on' || $value == 'yes' || $value == 'true' ? true : false;
 }
 ?>

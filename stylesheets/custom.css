@@ -69,6 +69,9 @@
 .paddingleft0 {
 	padding-left:0;
 }
+.paddingtop0 {
+	padding-top:0;
+}
 .paddingleft5 {
 	padding-left:5px;
 }
@@ -481,6 +484,10 @@ li.display_box.selected {
 /*
  * imgAreaSelect style to be used with deprecated options
  */
+
+/*
+ * imgAreaSelect style to be used with deprecated options
+ */
 .imgareaselect-border1, .imgareaselect-border2,
 .imgareaselect-border3, .imgareaselect-border4 {
     filter: alpha(opacity=50);
@@ -512,6 +519,21 @@ li.display_box.selected {
 	background-color: #fff;
     filter: alpha(opacity=0);
 	opacity: 0;
+}
+.imagecontainer, #imagecontainer {
+	border: 1px solid #eee;
+	border: 1px solid rgba(0, 0, 0, 0.05);
+	background-color:#fff;
+	height:auto;
+	-webkit-border-radius: 3px;
+	-moz-border-radius: 3px;
+	border-radius: 3px;
+	padding:1px;
+}
+.imagecontainer.shadowround {
+	box-shadow: 0 0 0 1px #F5F5F5, 0 0 0 2px #EBEBEB, 0 0 0 3px #E0E0E0, 0 0 0 4px #D6D6D6;
+	-moz-box-shadow: 0 0 0 1px #F5F5F5, 0 0 0 2px #EBEBEB, 0 0 0 3px #E0E0E0, 0 0 0 4px #D6D6D6;
+	-webkit-shadow: 0 0 0 1px #F5F5F5, 0 0 0 2px #EBEBEB, 0 0 0 3px #E0E0E0, 0 0 0 4px #D6D6D6;
 }
 
 /*Profile image*/
@@ -560,6 +582,8 @@ li.display_box.selected {
 }
 #profileinfo #profileimage, .profileinfo .profileimage {
 	margin-top:0;
+	width:200px;
+	height:200px;
 }
 .editpicture {
 	background: none repeat scroll 0 0 #F1F1F1;
@@ -639,7 +663,7 @@ li.display_box.selected {
     background: none repeat scroll 0 0 #FFFFFF;
     border: 1px solid #CCCCCC;
     height: 130px;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
     padding: 15px;
 }
 .peoplelist .thumb {
@@ -650,7 +674,7 @@ li.display_box.selected {
     width: 80px;
 }
 .peoplelist .peopleinfo {
-    margin-left: 110px;
+    margin-left: 100px;
 	margin-top:-15px;
 }
 .peoplelist .peopleinfo h4 {
@@ -945,8 +969,7 @@ img.ui-datepicker-trigger {
 	text-overflow: ellipsis; 
 	padding:4px 0 0px 8px; 
 	height:28px;
-	min-width:140px;
-	max-width:145px;
+	width:250px;
 	z-index:1;
 	overflow:hidden;
 }

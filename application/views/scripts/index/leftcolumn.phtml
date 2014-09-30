@@ -20,10 +20,10 @@
     <?php if($acl->checkPermission('Member', ACTION_LIST)) { ?>	
         <li class="nav dropdown <?php echo $controller == 'member' ? 'active' : ''; ?>">
             <a class="gonowhere"><span class="glyphicon glyphicon-user"></span> <span class="hideontoggle">Member Directory</span></a>
-            <ul class="subNav" <?php echo $controller == 'member' ? 'style="display:block;"' : ''; ?>>
-                <li class="<?php echo $controller == 'member' && $action == 'list' ? 'active' : ''; ?>"><a class="blockanchor" href="<?php echo $this->baseUrl('member/list'); ?>">Manage Members</a></li>
+            <ul class="subNav" id="member" <?php echo $controller == 'member' ? 'style="display:block;"' : ''; ?>>
+                <li class="<?php echo $controller == 'member' && ($action == 'list' || !isEmptyString($request->id)) ? 'active' : ''; ?>"><a class="blockanchor" href="<?php echo $this->baseUrl('member/list'); ?>">Manage Members</a></li>
                 <?php if ($acl->checkPermission('Member', ACTION_CREATE)) { ?>	
-                	<li class="<?php echo $controller == 'member' && $action == 'index' ? 'active' : ''; ?>"><a class="xblockanchor gonowhere" href="<?php echo $this->baseUrl('member'); ?>">New Member</a></li>
+                	<li class="<?php echo $controller == 'member' && ($action == 'index' && isEmptyString($request->id)) ? 'active' : ''; ?>"><a class="blockanchor" href="<?php echo $this->baseUrl('member'); ?>">New Member</a></li>
                 <?php } ?>
             </ul>						
         </li>
@@ -31,7 +31,7 @@
     <?php if($acl->checkPermission('Committee', ACTION_LIST)) { ?>
     	<li class="nav dropdown <?php echo $controller == 'committee' ? 'active' : ''; ?>">
         	<a class="gonowhere" id="comlink"><span class="glyphicon glyphicon-th-large"></span> <span class="hideontoggle">Committees</span></a>
-            <ul class="subNav committee" <?php echo $controller == 'committee' ? 'style="display:block;"' : ''; ?>>
+            <ul class="subNav committee" id="committee" <?php echo $controller == 'committee' ? 'style="display:block;"' : ''; ?>>
                 <?php if($acl->checkPermission('Committee', ACTION_LIST)) { 
 					$committees = getFeaturedCommittees();
 				?>
@@ -46,7 +46,7 @@
   	<?php if($acl->checkPermission('Location', ACTION_LIST)) { ?>
     	<li class="nav dropdown <?php echo $controller == 'location' ? 'active' : ''; ?>">
         	<a class="gonowhere"><span class="glyphicon glyphicon-map-marker"></span> <span class="hideontoggle">Locations</span></a>
-            <ul class="subNav location" <?php echo $controller == 'location' ? 'style="display:block;"' : ''; ?>>
+            <ul class="subNav location" id="location" <?php echo $controller == 'location' ? 'style="display:block;"' : ''; ?>>
                 <?php if($acl->checkPermission('NFBPC Region', ACTION_LIST)) { ?>
 	                <li class="<?php echo $controller == 'location' && $request->type == 0 ? 'active' : ''; ?>"><a class="blockanchor" href="<?php echo $this->baseUrl('location/list/type/0'); ?>">Regions</a></li>
                 <?php } ?>
@@ -69,7 +69,7 @@
     <?php if($acl->checkPermission('System Variables', ACTION_LIST)) { ?>
     	<li class="nav dropdown <?php echo in_array($controller, array('position','department')) ? 'active' : ''; ?>">
         	<a class="gonowhere"><span class="glyphicon glyphicon-cog"></span> <span class="hideontoggle">Administration</span></a>
-            <ul class="subNav" <?php echo in_array($controller, array('position','department')) ? 'style="display:block;"' : ''; ?>>
+            <ul class="subNav" id="admin" <?php echo in_array($controller, array('position','department')) ? 'style="display:block;"' : ''; ?>>
 				<?php if($acl->checkPermission('Position', ACTION_LIST)) { ?>
 	                <li class="<?php echo $controller == 'position' ? 'active' : ''; ?>"><a class="blockanchor" href="<?php echo $this->baseUrl('position/list'); ?>">Manage Leadership Positions</a></li>
                     <li class="<?php echo $controller == 'department' ? 'active' : ''; ?>"><a class="blockanchor" href="<?php echo $this->baseUrl('department/list'); ?>">Manage Departments</a></li>

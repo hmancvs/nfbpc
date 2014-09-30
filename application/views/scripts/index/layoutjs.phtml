@@ -24,15 +24,10 @@
 		$style = $session->getVar('style');
 	}
 ?>
-<script type="text/javascript" src="<?php echo $this->serverUrl($this->baseUrl('javascript/plugins/table2CSV.js')); ?>"></script>
-<script type="text/javascript" src="<?php echo $this->serverUrl($this->baseUrl('javascript/plugins/jquery.doubleScroll.js')); ?>"></script>
-<script type="text/javascript" src="<?php echo $this->serverUrl($this->baseUrl('javascript/plugins/jquery.mCustomScrollbar.concat.min.js')); ?>"></script>
-<link rel="stylesheet" type="text/css" href="<?php echo $this->baseUrl('stylesheets/jquery.mCustomScrollbar.css'); ?>" />
-
 <?php if(false){ ?>
-<script type="text/javascript" src="<?php echo $this->serverUrl($this->baseUrl('javascript/plugins/ddsmoothmenu.js')); ?>"></script>
-<link rel="stylesheet" type="text/css" href="<?php echo $this->baseUrl('stylesheets/ddsmoothmenu.css'); ?>" />
+
 <?php } ?>
+<script type="text/javascript" src="<?php echo $this->serverUrl($this->baseUrl('javascript/plugins/jquery-ui-1.11.1.min.js')); ?>"></script>
 <script type="text/javascript">
 var datepickerOpts = {
 		showOn: 'both', 
@@ -169,6 +164,13 @@ $(document).ready(function() {
 		}
 		return true;
 	}, "Please select");
+	
+	$.validator.addMethod("validate_ug", function(value, element, params) { 
+		if(!isUgNumber(value) && !isEmptyString(value)) {
+			return false; 
+		}
+		return true;        
+	}, "<?php echo $this->translate("globale_phonenumber_format"); ?>");
 	
 	// Add validation rules for number fields on each line
 	$.validator.addClassRules("isnumber", {
@@ -1083,47 +1085,21 @@ $(document).ready(function() {
 		}
 	});
 	
-	$("#leftnavtoggler").click(function(){
-		$("#sidebar, #contentcontainer, .breadcrumbs").toggleClass('toggled');
-		if($("#sidebar").hasClass('toggled')){
-			$("#leftnavtoggler span").removeClass('glyphicon glyphicon-backward').addClass('glyphicon glyphicon-forward');
-		} else {
-			$("#leftnavtoggler span").removeClass('glyphicon glyphicon-forward').addClass('glyphicon glyphicon-backward');
-		}
-	});
-	
 	// dropdown in leftmenu
 	$('#mainNav .dropdown > a').click(function(){
-		if(!$(this).next().is(':visible'))
-			$(this).next().slideDown('fast');
-		else
-			$(this).next().slideUp('fast');	
+		var theid = $(this).next().attr('id'); // alert(theid);
+		if(!$(this).next().is(':visible')) {			
+			$(this).next().slideDown('fast').addClass('open').removeClass('closed');
+			$("#mainNav .dropdown .subNav:not(#"+theid+")").slideUp('fast')
+		} else {
+			$(this).next().slideUp('fast').addClass('closed').removeClass('open');
+		}
 		return false;
 	});
 	
 	$('#mainNav .dropdown > a').append('<span class="dropdownArrow"></span>');
 	var controller = '<?php echo $request->getControllerName(); ?>';
 	$('#mainNav ul.subNav.'+controller).show();
-	
-	<?php if(false){ ?>
-		ddsmoothmenu.init({
-			mainmenuid: "sidebar", //Menu DIV id
-			orientation: 'v', //Horizontal or vertical menu: Set to "h" or "v"
-			classname: 'ddsmoothmenu-v', //class added to menu's outer DIV
-			method: 'toggle', // set to 'hover' (default) or 'toggle'
-			arrowswap: true, // enable rollover effect on menu arrow images?
-			contentsource: "markup" //"markup" or ["container_id", "path_to_menu_file"]
-		});
-	<?php } ?>
-	
-	
-});
-
-//Use window.load and not document.ready for effective equal heights
-$(window).load(function() {
-	//Make columns equal
-	//equalHeight($("#sidebar, #contentcontainer"));
-	equalHeight($("#location, #contact"));
 	
 	$(".wrapper1").scroll(function(){
         $(".wrapper2").scrollLeft($(".wrapper1").scrollLeft());
@@ -1133,14 +1109,46 @@ $(window).load(function() {
         $(".wrapper1").scrollLeft($(".wrapper2").scrollLeft());
     });
 	
-	/*$("#sidebar").mCustomScrollbar({
+	$("#sidebar").mCustomScrollbar({
 		axis:"y",
 		scrollButtons:{enable:true},
-		theme:"minimal",
-		scrollInertia:400,
-		scrollbarPosition:"inside",
-		Scrollbar: 2
-	});*/
+		theme:"rounded-dots",
+		scrollInertia:200,
+		scrollbarPosition:"inside"
+	});
+	
+	// toggle showing the hidden leftcolumn. set value in session so that when pages are reloaded the previous setting is kept in session
+	$("#leftnavtoggler").click(function(){
+		$("#sidebar, #contentcontainer, .breadcrumbs").toggleClass('toggled');
+		var tid = '';
+		if($("#sidebar").hasClass('toggled')){
+			tid = 1;
+			$("#leftnavtoggler span").removeClass('glyphicon glyphicon-backward').addClass('glyphicon glyphicon-forward');
+			$('#mainNav ul.subNav').hide().addClass('closed').removeClass('open');
+		} else {
+			tid = 0;
+			$("#leftnavtoggler span").removeClass('glyphicon glyphicon-forward').addClass('glyphicon glyphicon-backward');
+		}
+		$.get("<?php echo $this->baseUrl('index/leftcolumn/pgc/true'); ?>/value/"+tid, {                        
+			cachebuster: new Date().getTime()},                            
+			function(data){                        
+				// alert(data);                        
+			}
+		);
+	});
+	
+	<?php if($session->getVar('toggled') == '1'){ ?>
+		$('#mainNav ul.subNav').hide().addClass('closed').removeClass('open');
+	<?php } ?>
+	
+	$("#bottomactions").html($("#topactions").html());
+});
+
+//Use window.load and not document.ready for effective equal heights
+$(window).load(function() {
+	//Make columns equal
+	//equalHeight($("#sidebar, #contentcontainer"));
+	equalHeight($("#location, #contact"));
 });
 
 </script>

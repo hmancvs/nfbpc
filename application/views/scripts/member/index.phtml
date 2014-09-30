@@ -1,15 +1,79 @@
 <?php
-	require_once APPLICATION_PATH.'/includes/header.php';
+	include APPLICATION_PATH.'/includes/header.php';
 	
 	$member = new Member();
-    $member->populate(decode($request->id));
-	$id = $member->getID();
 	
+	if (isEmptyString($request->id)) {
+		$title = "New Member";
+		$posturl = $this->baseUrl("member/create");
+		$button_title = $this->translate("global_button_save").' Profile';
+		$successmessage = $this->translate('global_save_success');
+		$failureurl =  encode($this->viewurl);
+		$successurl = encode($this->baseUrl('member/view'));
+		$description = '';	
+		// $member->setType($type);
+	} else {
+		$title = "Update Profile"; 
+		$member->populate(decode($request->id));		
+		$posturl = $this->baseUrl("member/edit"); 
+		$button_title = $this->translate('global_button_save_changes'); 
+		$successmessage = $this->translate('global_update_success');
+		$failureurl =  encode($this->viewurl);
+		$successurl = encode($this->baseUrl('member/view'));
+		$description = '';
+	}
+	
+	$tab = $request->tab;
+	if(isEmptyString($tab)){
+		$tab = 'overview';
+	}
+	
+	if($tab == 'picture'){
+		$posturl = $this->baseUrl("member/uploadpicture");
+		if(isMobile()){
+			$posturl = $this->baseUrl("member/processpicture");
+		}
+		$button_title = "Upload Picture";
+		$successurl = encode($this->baseUrl('member/index/id/'.encode($member->getID()).'/tab/picture/crop/1'));
+		$failureurl =  encode($this->baseUrl('member/index/id/'.encode($member->getID()).'/tab/picture'));
+		
+		if($request->crop == 1){
+			$posturl = $this->baseUrl("member/croppicture");
+			$button_title = "Crop Photo";
+			$successurl = encode($this->baseUrl('member/view/id/'.encode($member->getID())));
+			$failureurl =  encode($this->baseUrl('member/index/id/'.encode($member->getID()).'/tab/picture/crop/1'));
+		}
+	}
+	
+	$gotosuccess = false; 
+	if(!isEmptyString($request->successurl)){
+		$successurl = $request->successurl;
+		$gotosuccess = true; 
+	}
+	
+	$isme = true;
+	if($member->getID() != $userid){
+		$isme = false;
+	}
+	
+	#in case of errors in session, populate the fields from session
+	if(!isEmptyString($session->getVar(ERROR_MESSAGE))){ 
+		$member->processPost($session->getVar(FORM_VALUES));
+	}
+	
+	$entityname = "Member";
+	$listitems = "Members";
 	$listurl = $this->baseUrl('member/list');
-	$title = $member->getName();
-	$description = 'Profile Details';	
 	$this->headTitle($title.$browserappend);
 ?>
+<?php if($tab == 'overview' && loadMaps() && false){ ?>
+	<script src="<?php echo getGoogleMapsUrl(); ?>" type="text/javascript"></script>
+	<script type="text/javascript" src="<?php echo $this->serverUrl($this->baseUrl('javascript/plugins/gmaps.min.js')); ?>"></script>
+    <script src="<?php echo $this->baseUrl('javascript/plugins/geoPosition.js'); ?>"></script>
+<?php } ?>
+<?php if($tab == 'picture'){ ?>
+	<script type="text/javascript" src="<?php echo $this->serverUrl($this->baseUrl('javascript/plugins/jquery.imgareaselect.min.js')); ?>"></script>
+<?php } ?>
 <script>
 $(document).ready(function() {
 	$('.titlebreadcrumb').html('<?php echo $homedir.'Members / '.$member->getName(); ?>');
@@ -17,8 +81,265 @@ $(document).ready(function() {
 	$('.desclabel').html('<?php echo $description; ?>');
 	$('.pageicon').html('<span class="icon-large icon-group"></span>');
 	
+	$("#indexform").validate({		
+		// define the validation rules one field at a time
+		rules: {
+			gender: "required",
+			firstname: "required",
+			lastname: "required",
+			username: {
+				required: false,
+				minlength: <?php echo $config->profile->usernameminlength; ?>,
+				maxlength: <?php echo $config->profile->usernamemaxlength; ?>
+			},
+			email: {
+				required: false, 
+				email: true
+			},
+			phone: {
+				required: true,
+				validnumber: true,
+				validate_ug: true,				
+				minlength: "<?php echo $config->country->phoneminlength; ?>"
+			},
+			oldpassword: {
+				required: function(element) {
+					return !isEmptyString($("#newpassword").val());
+				}
+			},
+			newpassword: {
+				<?php if(isEmptyString($member->getID())) { ?>
+					required: true,
+				<?php } else { ?>
+					required: function(element) {
+						return !isEmptyString($("#oldpassword").val());
+					},
+				<?php } ?>	
+				maxlength: <?php echo $config->profile->passwordmaxlength; ?>,
+				minlength: <?php echo $config->profile->passwordminlength; ?>
+			},			
+			confirmpassword: {
+				<?php if(isEmptyString($member->getID())) { ?>
+					required: true,
+				<?php } else { ?>
+					required: function(element) {
+						return !isEmptyString($("#oldpassword").val()) && !isEmptyString($("#newpassword").val());
+					},
+				<?php } ?>	
+				equalTo: "#newpassword"
+			},
+			type: "required",
+			country: "required",
+			regionid: "required",
+			provinceid: "required",
+			districtid: "required",
+			countyid: "required",
+			subcountyid: "required",
+			parishid: "required",
+			villageid: "required",
+			organisationid: "required",
+			profileimage: "required"
+		}, 
+		// the messages for each of the fields being validated
+		messages: {		
+			gender: "<?php echo $this->translate("profile_gender_error"); ?>", 
+			firstname: "<?php echo $this->translate("profile_firstname_error"); ?>",
+			lastname: "<?php echo $this->translate("profile_lastname_error"); ?>",
+			username: {
+				required: "<?php echo $this->translate("useraccount_username_error"); ?>",
+				minlength: "<?php echo sprintf($this->translate("profile_username_error_minlength"), $config->profile->usernameminlength); ?>",
+				maxlength: "<?php echo sprintf($this->translate("profile_username_error_maxlength"), $config->profile->usernamemaxlength); ?>"
+			},
+			email: {
+				"required": "<?php echo $this->translate("profile_email_error"); ?>", 
+				"email": "<?php echo $this->translate("profile_email_invalid_error"); ?>"
+			},
+			phone: {
+				required: "<?php echo $this->translate("profile_phonenumber_error"); ?>",
+				minlength: "<?php echo sprintf($this->translate("profile_phone_maxlength_error"), $config->country->phoneminlength); ?>"
+			},
+			oldpassword: {
+				required: "<?php echo $this->translate("profile_oldpassword_error"); ?>"
+			},
+			newpassword: {
+				required: "<?php echo $this->translate("useraccount_password_error"); ?>",
+				maxlength: "<?php echo sprintf($this->translate("useraccount_password_error_maxlength"), $config->profile->passwordmaxlength); ?>",
+				minlength: "<?php echo sprintf($this->translate("useraccount_password_error_minlength"), $config->profile->passwordminlength); ?>"
+			},
+			confirmpassword: {
+				required: "<?php echo $this->translate("profile_confirmpassword_error"); ?>",
+				equalTo: "<?php echo $this->translate("profile_confirmpassword_error_equalto"); ?>"
+			},
+			type: "<?php echo $this->translate("profile_role_error"); ?>",
+			country: "<?php echo $this->translate("profile_nationality_error"); ?>",
+			regionid: "<?php echo $this->translate("global_region_error"); ?>",
+			provinceid: "<?php echo $this->translate("global_province_error"); ?>",
+			districtid: "<?php echo $this->translate("global_district_error"); ?>",
+			countyid: "<?php echo $this->translate("global_country_error"); ?>",
+			subcountyid: "<?php echo $this->translate("global_subcountry_error"); ?>",
+			parishid: "<?php echo $this->translate("global_parish_error"); ?>",
+			villageid: "<?php echo $this->translate("global_village_error"); ?>",
+			organisationid: "<?php echo $this->translate("profile_organisation_error"); ?>",
+			profileimage: "Please browse for image on computer"
+		},
+		// custom error positions
+		errorPlacement: function(error, element) {
+			switch(element.attr("name")){					
+				default:
+					if(element.hasClass("useid_error")){
+						error.appendTo("#"+element.attr("id")+"_error");
+					} else {
+						error.appendTo("#"+element.attr("name")+"_error");
+					}
+					break;
+			}			
+		},
+		ignore: ":hidden:not(select)"
+	});
+	
+	$("ul.nav.nav-tabs li:not(.active) a").click(function(){
+		var url = $(this).attr('goto');
+		var id = $(this).attr('theid');
+		if(!isEmptyString(url) && url != 'undefined'){
+			$(".tab-content #"+id).html("<a id='loading' class='xhidden' style='text-align:center; display:block; margin-top:75px;'><span style='display:block; margin-bottom:15px; font-weight:bold;'>Loading...</span><img style='margin-left:-10px;' src='<?php echo $this->baseUrl('images/ui-anim_basic_16x16.gif'); ?>' /></a>").css({'display':'block'});
+			window.location.href = url;
+		}
+	}); 
+	
+	$(".screentrigger").change(function() {
+		$("#displayname").html('');
+		var first = $("#firstname").val(); 
+		var last = $("#lastname").val();
+		var other = $("#othername").val();
+		var opt1 = first+" "+last;
+		var opt2 = last+" "+first;
+		$("#displayname").append("<option value='"+opt1+"'>"+opt1+"</option>");
+		$("#displayname").append("<option value='"+opt2+"'>"+opt2+"</option>");
+		
+		if(!isEmptyString(other)){
+			var opt3 = first+" "+last+" "+other;
+			var opt4 = last+" "+first+" "+other;
+			var opt5 = first+" "+other+" "+last;
+			var opt6 = last+" "+other+" "+first;
+			$("#displayname").append("<option value='"+opt3+"'>"+opt3+"</option>");
+			$("#displayname").append("<option value='"+opt4+"'>"+opt4+"</option>");
+			$("#displayname").append("<option value='"+opt5+"'>"+opt5+"</option>");
+			$("#displayname").append("<option value='"+opt6+"'>"+opt6+"</option>");
+		}
+		
+		// alert('result is '+$("#displayname option").eq(10));
+		<?php if(!isEmptyString($member->getDisplayName())) { ?>
+			var curval = '<?php echo $member->getDisplayName(); ?>';
+			$("#displayname").val(curval).attr('selected', true);
+		<?php } ?>
+	});
+	 
+	$(".screentrigger").change();
+	
+	var dateofbirthOpts = datepickerOpts;
+	var yearback = '<?php echo intval(date('Y'))-1900; ?>';
+	var startfrom = '<?php echo date('Y'); ?>';
+	dateofbirthOpts.yearRange = "-"+yearback+":-0"; 
+	dateofbirthOpts.minDate = "-"+yearback+"Y";
+	datepickerOpts.maxDate = new Date("Dec 31, "+startfrom);	
+	$("#dateofbirth").datepicker(dateofbirthOpts);
+	
+	var regionid = '<?php echo $member->getRegionID(); ?>';
+	var provinceid = '<?php echo $member->getProvinceID(); ?>';
+	var districtid = '<?php echo $member->getDistrictID(); ?>';
+	var countyid = '<?php echo $member->getCountyID(); ?>';
+	var subcountyid = '<?php echo $member->getSubCountyID(); ?>';
+	var parishid = '<?php echo $member->getParishID(); ?>';
+	var villageid = '<?php echo $member->getVillageID(); ?>';
+	
+	// update locations when page first loads
+	regionTrigger(provinceid, districtid);
+	districtTrigger(countyid);
+	countyTrigger(subcountyid);
+	subCountyTrigger(parishid);
+	parishTrigger(villageid);
+	
+	// update dropdowns when locations change
+	$('#regionid').change(function() {
+		regionTrigger(provinceid, districtid);
+	});
+	$('#districtid').change(function() {
+		districtTrigger(countyid);
+	});
+	$('#countyid').change(function() {
+		countyTrigger(subcountyid);
+	});
+	$('#subcountyid').change(function() {
+		subCountyTrigger(parishid);
+	});
+	$('#parishid').change(function() {
+		parishTrigger(villageid);
+	});
+	
+	
+	function regionTrigger(provinceid, districtid){
+		autoPopulateSelectChain('regionid', 'provinceid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/region_provinces/regionid/'); ?>', provinceid);
+		autoPopulateSelectChain('regionid', 'districtid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/region_districts/regionid/'); ?>', districtid);
+	}
+	
+	function districtTrigger(countyid){
+		autoPopulateSelectChain('districtid', 'countyid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/district_counties/districtid/'); ?>', countyid);
+	}
+	
+	function countyTrigger(subcountyid){
+		autoPopulateSelectChain('countyid', 'subcountyid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/county_subcounties/countyid/'); ?>', subcountyid);
+	}
+	
+	function subCountyTrigger(parishid){
+		autoPopulateSelectChain('subcountyid', 'parishid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/subcounty_parishes/subcountyid/'); ?>', parishid);
+	}
+	
+	function parishTrigger(villageid){
+		autoPopulateSelectChain('parishid', 'villageid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/parish_villages/parishid/'); ?>', villageid);
+	}
+	
+ 	<?php if(false){?>
+	var cache = {};
+	$("#project").autocomplete({
+		minLength: 1,
+		// source: projects,
+		source: function(request, response) {
+			var term = request.term;
+			if ( term in cache ) {
+				response( cache[ term ] );
+				return;
+			}
+		
+			$.getJSON("<?php echo $this->baseUrl('member/search'); ?>", request, function(data, status, xhr ) {
+				// alert();
+				cache[term] = data;
+				response(data);
+				
+			});
+		},
+		//source: "<?php //echo $this->baseUrl('member/search'); ?>",
+		/*focus: function( event, ui) {
+			$("#project").val(ui.item.label );
+			return false;
+		},*/
+     	select: function( event, ui ) {
+			$("#project" ).val( ui.item.label );
+			$("#project-id" ).val( ui.item.value );
+			$("#project-description" ).html( ui.item.desc );
+	 
+			return false;
+      	}
+    })
+    .autocomplete("instance" )._renderItem = function( ul, item ) {
+      return $( "<li>" )
+        .append( "<a>" + item.label + "<br>" + item.desc + "</a>" )
+        .appendTo( ul );
+    };
+	<?php } ?>
+
 });
 </script>
+<form class="form-horizontal" action="<?php echo $posturl; ?>" id="indexform" method="post" enctype="multipart/form-data">
 <div class="row-fluid margin0 view">
     <div class="col-md-12 padding0">
     	<div class="headerbox">
@@ -31,14 +352,751 @@ $(document).ready(function() {
             </table>
         </div>
     </div>
-    <?php if($sessionhaserror) { ?>
-        <div class="alert alert-danger"><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
-    <?php } ?>
+    <?php if ($sessionhaserror) { ?>
+    	<div class="alert alert-danger fade in"><i class="icon-remove close" data-dismiss="alert"></i><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
+	<?php } ?>
     <?php if (!isEmptyString($session->getVar(SUCCESS_MESSAGE))) { ?>
-        <div class="alert alert-success alert-dismissable"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button> <?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
+        <div class="alert alert-success fade in"><i class="icon-remove close" data-dismiss="alert"></i><?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
     <?php } ?>
-    
-</div>    
+    <div class="contentcontainer clearfix padding10">
+        <div class="row margin0">
+            <div class="col-md-12">
+                <!-- Tabs-->
+                <?php if($tab == 'overview'){ ?>
+                    <div class="formactions" id="topactions" <?php echo isEmptyString($member->getID()) ? 'style="left:50px; position:relative; float:left;"' : ''; ?>>
+                        <a class="btn button-previous cancel" href="<?php echo $this->referer; ?>"><i class="icon-remove"></i> <?php echo $this->translate('global_button_cancel'); ?></a> &nbsp;
+                        <button type="submit" class="btn btn-success button-submit" name="save"><i class="glyphicon glyphicon-ok"></i> <?php echo $button_title; ?></button>
+                        <input type="hidden" name="entityname" value="<?php echo $entityname; ?>" />
+                        <input type="hidden" id="id" name="id" value="<?php echo encode($member->getID()); ?>" />
+                        <input type="hidden" id="status" name="status" value="<?php echo $member->getStatus(); ?>" />
+                        <input type="hidden" class="successurl" id="<?php echo URL_SUCCESS; ?>" name="<?php echo URL_SUCCESS; ?>" value="<?php echo $successurl; ?>" />
+                        <input type="hidden" class="failureurl" id="<?php echo URL_FAILURE; ?>" name="<?php echo URL_FAILURE; ?>" value="<?php echo $failureurl; ?>" />
+                        <input type="hidden" id="<?php echo SUCCESS_MESSAGE; ?>" name="<?php echo SUCCESS_MESSAGE; ?>" value="<?php echo $successmessage; ?>" />
+                        <?php if($gotosuccess){ ?>
+                            <input type="hidden" id="nosuccessid" name="nosuccessid" value="1" />
+                        <?php } ?>
+                    </div>
+					<div class="divider2"></div>
+                <?php } ?>
+                <div class="tabbable tabbable-custom tabbable-full-width">
+                    <ul class="nav nav-tabs">
+                        <?php if ($acl->checkPermission('Member', ACTION_VIEW) && !isEmptyString($member->getID())) { ?>
+                            <li class="gonowhere"><a href="#overview" class="blockanchor" goto="<?php echo $this->baseUrl('member/view/id/'.encode($member->getID())); ?>" theid="overview" data-toggle="tab">Overview</a></li>
+                        <?php } ?>
+                        <?php if ($acl->checkPermission('Member', ACTION_EDIT) && !isEmptyString($member->getID())) { ?>
+                            <li class="<?php echo $tab == 'overview' ? 'active gonowhere' : ''; ?>"><a href="#updateaccount" goto="<?php echo $this->baseUrl('member/index/id/'.encode($member->getID())); ?>" class="<?php echo $tab != 'overview' ? 'blockanchor' : ''; ?>" theid="updateaccount" data-toggle="tab">Update Profile</a></li>
+                            <?php if(!isEmptyString($member->getID())) { 
+                                $title = "Upload Photo";
+                                if(!isEmptyString($request->crop)){
+                                    $title = "Crop Profile Photo"; 
+                                }
+                            ?>
+                                <li class="<?php echo $tab == 'picture' ? 'active gonowhere' : ''; ?>"><a href="#uploadpicture" goto="<?php echo $this->baseUrl('member/index/id/'.encode($member->getID()).'/tab/picture'); ?>" class="<?php echo $tab != 'picture' ? 'blockanchor' : ''; ?>" theid="uploadpicture" data-toggle="tab"><?php echo $title; ?></a></li>
+                            <?php } ?>
+                        <?php } ?>
+                    </ul>
+                    
+                    <div class="divider5"></div>
+                    <div class="tab-content row">
+                        <div class="tab-pane active" id="overview">
+                            <div class="row">
+                            	<?php if(!isEmptyString($member->getID()) && $tab != 'picture'){ ?>
+                                    <div class="col-md-3">
+                                        <div class="list-group">
+                                            <li class="list-group-item no-padding" style="padding-left:15px; padding-right:15px; padding-bottom:10px;">
+                                                <div class="divider5"></div>
+                                                <?php if($acl->checkPermission('Member', ACTION_EDIT)){ ?>
+                                                    <a href="<?php echo $this->baseUrl('member/index/id/'.encode($member->getID()).'/tab/picture'); ?>" class="editpic imagecontainer blockanchor" title="Update Profile Photo"><img id="profileimage" class="imagecontainer" src="<?php echo $member->getMediumPicturePath(); ?>" style="width:100%;" /><pre id="uploadlink" class=""><i class="icon-pencil"></i> Upload Photo</pre></a>
+                                                <?php } else { ?>
+                                                    <img id="profileimage" class="imagecontainer" src="<?php echo $member->getMediumPicturePath(); ?>" style="width:100%;" />
+                                                    <div class="divider10"></div>
+                                                <?php } ?>
+                                            </li>
+                                            <a class="list-group-item <?php echo $tab == 'overview' || $tab == 'picture' ? 'gonowhere active' : 'blockanchor'; ?>" href="<?php echo $this->baseUrl('member/view/id/'.encode($member->getID())); ?>">Profile</a>
+                                            
+                                            <a class="list-group-item <?php echo $tab == 'roles' ? 'gonowhere active' : 'blockanchor'; ?>" href="<?php echo $this->baseUrl('member/view/id/'.encode($member->getID()).'/tab/roles'); ?>">Leadership Roles</a>
+                                            <a class="list-group-item <?php echo $tab == 'bio' ? 'gonowhere active' : 'blockanchor'; ?>" href="<?php echo $this->baseUrl('member/view/id/'.encode($member->getID()).'/tab/bio'); ?>">Biography</a>
+                                            <a class="list-group-item <?php echo $tab == 'contact' ? 'gonowhere active' : 'blockanchor'; ?>" href="<?php echo $this->baseUrl('member/view/id/'.encode($member->getID()).'/tab/contact'); ?>">Contact Member</a>
+                                            <a class="list-group-item <?php echo $tab == 'account' ? 'gonowhere active' : 'blockanchor'; ?>" href="<?php echo $this->baseUrl('member/view/id/'.encode($member->getID()).'/tab/account'); ?>">Account</a>
+                                        </div>
+                                    </div>
+                                <?php } ?>
+                                <div class="col-md-9 paddingleft0">
+                                    <?php if($tab == 'overview'){ ?>
+                                        <div class="row-fluid margin0">
+                                            <div class="col-md-12">
+                                                <fieldset class="fieldsetcontainer" style="margin-bottom:0;">
+                                                    <legend>Summary</legend>
+                                                    <div class="panel-body well-sm">
+                                                        <div class="row-fluid marginleft5">
+                                                            <div class="col-md-6 paddingleft10">
+                                                                <div class="form-group">
+                                                                    <label class="col-md-4 control-label"><?php echo $this->translate('profile_firstname_label'); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                                                    <div class="col-md-8">
+                                                                        <input type="text" name="firstname" id="firstname" class="form-control screentrigger input-width-large" value="<?php echo $member->getFirstName(); ?>" /><div id="firstname_error"></div>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="form-group">
+                                                                    <label class="col-md-4 control-label"><?php echo $this->translate('profile_lastname_label'); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                                                    <div class="col-md-8">
+                                                                    	<input type="text" name="lastname" id="lastname" class="form-control screentrigger input-width-large" value="<?php echo $member->getLastName(); ?>" />
+                                                                        <div id="lastname_error"></div>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="form-group">
+                                                                    <label class="col-md-4 control-label"><?php echo $this->translate('profile_othernames_label'); ?>:</label>
+                                                                    <div class="col-md-8">
+                                                                        <input type="text" name="othername" id="othername" class="form-control screentrigger input-width-large" value="<?php echo $member->getOtherName(); ?>" />
+                                                        				<div id="othername_error"></div>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="form-group">
+                                                                    <label class="col-md-4 control-label"><?php echo $this->translate('profile_displayname_label'); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                                                    <div class="col-md-8">
+                                                                        <?php
+																			  $displaynameselect = new Zend_Form_Element_Select('displayname',
+																					  array(
+																							  'multiOptions' => array(""=>"<Select one>"),
+																							  'view' => new Zend_View(),
+																							  'decorators' => array(array('ViewHelper')),
+																							  'class' => array('form-control','xchosen-select')
+																					  )
+																			  );
+																			  
+																			  $displaynameselect->setValue(isEmptyString($member->getDisplayName()) ? $member->getName() : $member->getDisplayName());
+																			  echo $displaynameselect->render();
+																		  ?>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="form-group">
+                                                                    <label class="col-md-4 control-label"><?php echo $this->translate('profile_gender_label'); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                                                    <div class="col-md-8">
+                                                                        <input type="radio" name="gender" id="gender_male" class="<?php echo $member->isMale() ? 1 : 0; ?>" value="1" /> Male &nbsp;
+                                                                        <input type="radio" name="gender" id="gender_female" class="<?php echo $member->isFemale() ? 1 : 0; ?>" value="2" /> Female
+                                                                        <div id="gender_error"></div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-md-6 paddingleft10">
+                                                                <div class="form-group">
+                                                                    <label class="col-md-4 control-label"><?php echo $this->translate('profile_nationality_label'); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                                                    <div class="col-md-8">
+                                                                        <?php
+																			$countries = getCountries();
+																			$countrydropdown = new Zend_Form_Element_Select('country',
+																								array(
+																									'multiOptions' => array_merge_maintain_keys(array('' => "<Select One>", "UG"=>"Uganda"), $countries),
+																									'view' => new Zend_View(), 
+																									'decorators' => array('ViewHelper'),
+																									'class' => array('form-control','xchosen-select')                                            	)
+																							);
+																			$countrydropdown->setValue($member->getCountry()); 
+																			echo $countrydropdown->render(); 
+																		?><div id="country_error"></div>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="form-group">
+                                                                    <label class="col-md-4 control-label"><?php echo $this->translate('profile_dateofbirth_label'); ?>:</label>
+                                                                    <div class="col-md-8">
+                                                                        <input type="text" class="form-control input-sm datefield readonly width100" name="dateofbirth" id="dateofbirth" value="<?php echo changeMySQLDateToPageFormat($member->getDateOfBirth()); ?>" />
+                                    									<div id="dateofbirth_error"></div>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="form-group">
+                                                                    <label class="col-md-4 control-label"><?php echo $this->translate('profile_maritalstatus_label'); ?>:</label>
+                                                                    <div class="col-md-8">
+                                                                        <?php
+																			$maritalstatuses = getAllMaritalStatuses();
+																			$dropdown = new Zend_Form_Element_Select('maritalstatus',
+																					array(
+																						'multiOptions' => array_merge_maintain_keys(array('' => '<Select One>'), $maritalstatuses),
+																						'view' => new Zend_View(),
+																						'decorators' => array('ViewHelper'),
+																						'class' => array('form-control','input-sm','xconfigvariable'),
+																						'lookupid' => 3,
+																						'fieldid' => 'maritalstatus',
+																						'fieldlabel' => $this->translate("profile_maritalstatus_label")
+																					)
+																			);  
+																			$dropdown->setValue($member->getMaritalStatus()); 
+																			echo $dropdown->render();
+																		?>
+																		<input type="hidden" class="form-control" name="maritalstatus_old" id="maritalstatus_old" value="<?php echo $member->getMaritalStatus(); ?>" />
+                                                                    </div>
+                                                                </div>
+                                                                <div class="form-group">
+                                                                    <label class="col-md-4 control-label"><?php echo $this->translate('profile_suffix_label'); ?>:</label>
+                                                                    <div class="col-md-8">
+                                                                         <?php
+																			  $values = getSalutations();
+																			  $suffixselect = new Zend_Form_Element_Select('salutation',
+																					  array(
+																							'multiOptions' => array_merge_maintain_keys(array('' => '<Select One>'), $values),
+																							'view' => new Zend_View(),
+																							'decorators' => array(array('ViewHelper')),
+																							'class' => array('form-control','input-sm','xconfigvariable'),
+																							'lookupid' => 2,
+																							'fieldid' => 'salutation',
+																							'fieldlabel' => $this->translate("profile_suffix_label")
+																					  )
+																			  );
+																			  
+																			  $suffixselect->setValue($member->getSalutation());
+																			  echo $suffixselect->render();
+																		  ?>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="form-group">
+                                                                    <label class="col-md-4 control-label"><?php echo $this->translate('profile_profession_label'); ?>:</label>
+                                                                    <div class="col-md-8">
+                                                                         <?php
+																			  $values = getProfessions();
+																			  $dropdown = new Zend_Form_Element_Select('profession',
+																					  array(
+																							'multiOptions' => array_merge_maintain_keys(array('' => '<Select One>'), $values),
+																							'view' => new Zend_View(),
+																							'decorators' => array(array('ViewHelper')),
+																							'class' => array('form-control','input-sm','xconfigvariable'),
+																							'lookupid' => 4,
+																							'fieldid' => 'profession',
+																							'fieldlabel' => $this->translate("profile_profession_label")
+																					  )
+																			  );
+																			  
+																			  $dropdown->setValue($member->getSalutation());
+																			  echo $dropdown->render();
+																		  ?>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </fieldset>
+                                            </div>
+                                        </div>
+                                        <div class="row-fluid margin0">
+                                            <div class="col-md-12">
+                                                <fieldset class="fieldsetcontainer" style="margin-bottom:0;">
+                                                    <legend>Church / Ministry Organisation</legend>
+                                                    <div class="panel-body well-sm">
+                                                        <div class="row-fluid marginleft5">
+                                                        	<div class="divider10"></div>
+                                                            <div class="col-md-12 paddingleft10">
+                                                                <div class="form-group">
+                                                                    <div class="col-md-6">
+                                                                        <?php
+																			  $values = getChurches();
+																			  $dropdown = new Zend_Form_Element_Select('organisationid',
+																					  array(
+																							'multiOptions' => array_merge_maintain_keys(array('' => '<Select a Church or Ministry>'), $values),
+																							'view' => new Zend_View(),
+																							'decorators' => array(array('ViewHelper')),
+																							'class' => array('form-control','chosen-select','input-sm')
+																					  )
+																			  );
+																			  
+																			  $dropdown->setValue($member->getOrganisationID());
+																			  echo $dropdown->render();
+																		  ?><div id="organisationid_error"></div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </fieldset>
+                                            </div>
+                                        </div>
+                                        <div class="row-fluid margin0">
+                                            <div class="col-md-12">
+                                                <fieldset class="fieldsetcontainer" style="margin-bottom:0;">
+                                                    <legend>Contact</legend>
+                                                    <div class="panel-body well-sm">
+                                                        <div class="row-fluid marginleft5">
+                                                            <div class="col-md-6 paddingleft10">
+                                                                <div class="form-group">
+                                                                    <label class="col-md-4 control-label"><?php echo $this->translate('profile_phone_label'); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                                                    <div class="col-md-8">
+                                                                        <input type="text" name="phone" id="phone" class="form-control input-width-medium width150" value="<?php echo $member->getPhone(); ?>" placeholder="e.g 256782123456" maxlength="12" /><div id="phone_error"></div>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="form-group">
+                                                                    <label class="col-md-4 control-label"><?php echo $this->translate('profile_altphone_label'); ?>:</label>
+                                                                    <div class="col-md-8">
+                                                                        <input type="text" name="phone2" id="phone2" class="form-control input-width-medium width150" value="<?php echo $member->getPhone2(); ?>" placeholder="e.g 256782123456" maxlength="12" /><div id="phone2_error"></div>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="form-group">
+                                                                    <label class="col-md-4 control-label"><?php echo $this->translate('profile_email_label'); ?>:</label>
+                                                                    <div class="col-md-8">
+                                                                        <input type="text" name="email" id="email" class="form-control input-width-medium" value="<?php echo $member->getEmail(); ?>" /><div id="email_error"></div>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="form-group">
+                                                                    <label class="col-md-4 control-label"><?php echo $this->translate('profile_altemail_label'); ?>:</label>
+                                                                    <div class="col-md-8">
+                                                                        <input type="text" name="email2" id="email2" class="form-control input-width-medium" value="<?php echo $member->getEmail2(); ?>" /><div id="email2_error"></div>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="form-group">
+                                                                    <label class="col-md-4 control-label"><?php echo $this->translate('profile_website_label'); ?>:</label>
+                                                                    <div class="col-md-8">
+                                                                        <input type="text" name="website" id="website" class="form-control" value="<?php echo $member->getWebsite(); ?>" /><div id="website_error"></div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-md-6 paddingleft10">
+                                                                <div class="form-group">
+                                                                    <label class="col-md-4 control-label"><?php echo $this->translate('profile_nxtkeen_name_label'); ?>:</label>
+                                                                    <div class="col-md-8">
+                                                                        <input type="text" name="contactname" id="contactname" class="form-control input-width-medium" value="<?php echo $member->getContactName(); ?>" /><div id="contactname_error"></div>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="form-group">
+                                                                    <label class="col-md-4 control-label"><?php echo $this->translate('profile_nxtkeen_phone_label'); ?>:</label>
+                                                                    <div class="col-md-8">
+                                                                        <input type="text" name="contactphone" id="contactphone" class="form-control input-width-medium width150" value="<?php echo $member->getContactPhone(); ?>" placeholder="e.g 256782123456" maxlength="12" /><div id="contactphone_error"></div>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="form-group">
+                                                                    <label class="col-md-4 control-label"><?php echo $this->translate('profile_nxtkeen_rship_label'); ?>:</label>
+                                                                    <div class="col-md-8">
+                                                                    	<?php
+																			  $values = getRelationshipTypes();
+																			  $dropdown = new Zend_Form_Element_Select('contactrshp',
+																					  array(
+																							'multiOptions' => array_merge_maintain_keys(array('' => '<Select one>'), $values),
+																							'view' => new Zend_View(),
+																							'decorators' => array(array('ViewHelper')),
+																							'class' => array('form-control','input-sm')
+																					  )
+																			  );
+																			  
+																			  $dropdown->setValue($member->getcontactrshp());
+																			  echo $dropdown->render();
+																		  ?><div id="contactrshp_error"></div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </fieldset>
+                                            </div>
+                                        </div>
+                                    <?php } ?>
+                                    <?php if($tab == 'picture'){ ?>
+                                        <div class="row-fluid margin0">
+                                            <div class="col-md-12">
+                                                <fieldset class="fieldsetcontainer" style="margin-bottom:0;">
+                                                    <legend><?php echo $title; ?></legend>
+                                                    <div class="panel-body well-sm minheight400">
+                                                    	<div class="row leftalignlabel">
+                                                            <div class="col-md-3">
+                                                                <div class="widget-header" style="margin-left:15px;">
+                                                                	<div class="divider20"></div>
+                                                                    <b><i class="icon-reorder"></i> Current Photo</b>
+                                                                    <div id="profileinfo" style="margin-top:10px;">
+                                                                        <img id="profileimage" class="imagecontainer" src="<?php echo $member->getMediumPicturePath(); ?>" style="width:100%; height:auto;" />
+                                                                    </div>
+                                                                    <?php if(!isEmptyString($request->crop)){ ?>
+                                                                        <div class="divider10"></div>
+                                                                        <a href="<?php echo $this->baseUrl('member/index/tab/picture/id/'.encode($member->getID())); ?>" class="btn btn-primary btn-xs blockanchor">Upload New</a>
+                                                                    <?php } ?>
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-md-9">
+																<?php if(isEmptyString($request->crop)){ ?>
+                                                                    <script type="text/javascript" src="<?php echo $this->serverUrl($this->baseUrl('javascript/plugins/jquery.form.min.js')); ?>"></script>
+                                                                    <script>
+                                                                    $(document).ready(function(){
+                                                                        $("#indexform").validate({		
+                                                                            // define the validation rules one field at a time
+                                                                            rules: {
+                                                                                FileInput: "required"
+                                                                            }, 
+                                                                            // the messages for each of the fields being validated
+                                                                            messages: {		
+                                                                                FileInput: "No file specified"
+                                                                            },
+                                                                            // custom error positions
+                                                                            errorPlacement: function(error, element) {
+                                                                                switch(element.attr("name")){					
+                                                                                    default:
+                                                                                        if(element.hasClass("useid_error")){
+                                                                                            error.appendTo("#"+element.attr("id")+"_error");
+                                                                                        } else {
+                                                                                            error.appendTo("#"+element.attr("name")+"_error");
+                                                                                        }
+                                                                                        break;
+                                                                                }			
+                                                                            },
+                                                                            ignore: ":hidden:not(select)"
+                                                                        });
+                                                                        
+                                                                        var options = { 
+                                                                            target:   '#output',   // target element(s) to be updated with server response 
+                                                                            beforeSubmit:  beforeSubmit,  // pre-submit callback 
+                                                                            success:       afterSuccess,  // post-submit callback 
+                                                                            uploadProgress: OnProgress, //upload progress callback 
+                                                                            resetForm: true        // reset the form after successful submit 
+                                                                        }; 
+                                                                            
+                                                                         $("#FileInput").change(function(){
+                                                                            var filename = $(this).val(); // alert('file is '+filename);								
+                                                                            $("#filenamedisplay").html(filename);
+                                                                            // upload the file to the server
+                                                                            // $("#indexform").ajaxSubmit(options);  			
+                                                                        });  
+                                                                        
+                                                                        $('#filenamedisplay').click(function(){
+                                                                            $("#FileInput").trigger('click');
+                                                                        });
+                                                                        
+                                                                        $('#submit-btn').click(function(){
+                                                                            $("#indexform").ajaxSubmit(options);
+                                                                        });
+                                                                        
+                                                                        $('#re-upload').click(function(){
+                                                                            $("#aftersave").hide().addClass('hidden');
+                                                                            $("#beforesave").show().removeClass('hidden');
+                                                                            $("#filename, #FileInput, #attachment, #attachment_display").val('');
+                                                                            $("#uploadresult").html('');
+                                                                        });
+                                                                        
+                                                                        //function after succesful file upload (when server response)
+                                                                        function afterSuccess() {
+                                                                            $('#submit-btn').show(); //hide submit button
+                                                                            $('#loading-img').hide(); //hide submit button
+                                                                            $('#progressbox').delay(400).fadeOut(); //hide progress bar
+                                                                            $("#filenamedisplay").html('');
+                                                                            
+                                                                            var data = $.parseJSON($("#output").html());
+                                                                            if(data.result == 1){
+                                                                                $("#output, #FileInput_error, #filename_error ").hide();	
+                                                                                // $('#uploadresult').html('<div class="divider5"></div><span class="alert alert-success">Uploaded. Save changes to continue</span>').removeClass('hidden');
+                                                                                $('#uploadresult').html('<div class="divider5"></div><span class="alert alert-success">Uploaded. Please wait while we optimise...</span>').removeClass('hidden');
+                                                                                $("#filename").val(data.newfilename);
+                                                                                $("#attachment").val(data.oldfilename);
+                                                                                $("#attachment_display, #aftersave").show().removeClass('hidden');
+                                                                                $("#attachment_display").html(data.oldfilename);
+                                                                                $("#beforesave").hide().addClass('hidden');
+                                                                                // $("#savecontinue").show().removeClass('hidden');
+                                                                                // redirect to the crop page
+                                                                                var url = '<?php echo $this->baseUrl('member/index/id/'.encode($member->getID()).'/tab/picture/crop/1'); ?>';
+                                                                                window.location.href = url;
+																				var uiblockcontent = '<h4><img src="<?php echo $this->baseUrl('images/loader.gif'); ?>" /> Please wait...</h4>';
+																				$.blockUI({ message: uiblockcontent}); 
+                                                                            }
+                                                                        }
+                                                                        
+                                                                        //function to check file size before uploading.
+                                                                        function beforeSubmit(){
+                                                                            //check whether browser fully supports all File API
+                                                                           if (window.File && window.FileReader && window.FileList && window.Blob){
+                                                                                if(!$('#FileInput').val()) {
+                                                                                    $("#output").html("<span class='alert alert-danger'>Error: Please select a File to Upload.</span>");
+                                                                                    return false
+                                                                                }
+                                                                                $('#submit-btn').hide(); //hide submit button
+                                                                                $('#loading-img').show(); //hide submit button
+                                                                                $("#output").html("");  
+                                                                                
+                                                                            } else {
+                                                                                //Output error to older unsupported browsers that doesn't support HTML5 File API
+                                                                                $("#output").html("Please upgrade your browser. File upload not supported at this time.");
+                                                                                return false;
+                                                                            }
+                                                                        }
+                                                                        
+                                                                        //progress bar function
+                                                                        function OnProgress(event, position, total, percentComplete){
+                                                                            //Progress bar
+                                                                            $('#progressbox').show();
+                                                                            $('#progressbar').width(percentComplete + '%') //update progressbar percent complete
+                                                                            $('#statustxt').html(percentComplete + '%'); //update status text
+                                                                            if(percentComplete > 50) {
+                                                                                $('#statustxt').css('color','#000'); //change status text to white after 50%
+                                                                            }
+                                                                        }
+                                                                        
+                                                                        $(".topactions, .bottomactions, #topactions, #bottomactions").hide();
+                                                                    });
+                                                                    </script>
+                                                                <div class="divider20"></div>
+                                                                <div class="form-group" style="margin-left:0; padding-left:0; margin-top:30px;">
+                                                                    <div class="form-group" style="margin-left:0; padding-left:0;">
+                                                                        <label class="col-md-12 control-label">Upload an Image (Max size <?php echo formatBytes($config->uploads->photomaximumfilesize); ?>) <?php echo $this->translate("required_field_marker"); ?></label>
+                                                                        <div class="divider20"></div>
+                                                                        <div>
+                                                                            <div id="beforesave">
+                                                                                <div class="fileinput-holder input-group xcol-md-7" style="padding-left:15px;">
+                                                                                    <div id="filenamedisplay" style="cursor: text; text-overflow: ellipsis; " class="fileinput-preview uneditable-input form-control">No file selected...</div>
+                                                                                    <div class="input-group-btn floatleft">
+                                                                                        <span style="overflow: hidden; position: relative; cursor: pointer; margin:0;" class="fileinput-btn btn btn-default noround">Browse...
+                                                                                            <input type="file" name="FileInput"  id="FileInput" class="form-control inline file" data-style="fileinput" style="position: absolute; top: 0px; right: 0px; margin: 0px; cursor: pointer; font-size: 99px; opacity: 0;" />
+                                                                                            <input type="hidden" id="id" name="id" value="<?php echo encode($member->getID()); ?>" />
+                                                                                        </span>
+                                                                                    </div> &nbsp;
+                                                                                    <button type="button" id="submit-btn" class="btn btn-sm btn-success floatright"><i class="glyphicon glyphicon-upload"></i> &nbsp;Upload</button> &nbsp;
+                                                                                    
+                                                                                    <span class="lineblocked floatright" style="margin-right:10px;"><img src="<?php echo $this->baseUrl('images/loader.gif'); ?>" id="loading-img" style="display:none;" /></span>
+                                                                                </div>
+                                                                                                                              	
+                                                                            </div>
+                                                                            <div id="aftersave" class="hidden">
+                                                                                <div class="xcol-md-7" style="padding-left:0;"><span id="attachment_display"><?php // echo $member->getProfilePhoto(); ?></span> &nbsp;<button type="button" id="re-upload" class="btn btn-xs"><i class="icon-remove-circle"></i> Re-upload</button> </div>
+                                                                            </div>
+                                                                            <div class="divider5"></div>
+                                                                            <div id="progressbox"><div id="progressbar"></div><div id="statustxt">0%</div></div>
+                                                                            <div id="output"></div><div id="uploadresult" class="hidden"></div>
+                                                                            <div id="filename_error"></div><div id="FileInput_error"></div><div id="profileimage_error"></div>
+                                                                            <input type="hidden" id="userid" name="userid" value="<?php echo $member->getID(); ?>" />
+                                                                        </div>
+                                                                        
+                                                                    </div> 
+                                                                </div>
+                                                            <?php } else { ?>
+																<script>
+                                                                    $(document).ready(function(){
+                                                                        $(".topactions, .bottomactions, #topactions, #bottomactions").hide();
+																		
+																		$('#photo').imgAreaSelect({ 
+																			aspectRatio: '1:1', 
+																			handles: true,
+																			fadeSpeed: 200, 
+																			minWidth: 100,
+																			maxWidth: 380,
+																			x1: 0, y1: 0, x2: 200, y2: 200,
+																			/*onSelectChange: preview,*/
+																			onSelectEnd: function (img, selection) {
+																				$('input[name="x1"]').val(selection.x1);
+																				$('input[name="y1"]').val(selection.y1);
+																				$('input[name="x2"]').val(selection.x2);
+																				$('input[name="y2"]').val(selection.y2);
+																				$('input[name="h"]').val(selection.height);
+																				$('input[name="w"]').val(selection.width);            
+																			}
+																		});
+                                                                    });
+                                                                    </script> 
+                                                                    <div class="form-group" style="margin-left:30px;">
+                                                                        <div class="widget-header">
+                                                                            <h4><i class="icon-reorder"></i> Resize/Crop Photo</h4>
+                                                                        </div>
+                                                                        <div class="divider10"></div>
+                                                                        <label class="blocked notbolded">Drag the handles on the image canvas below to resize and click <b>'Crop Photo'</b> to save changes.</label>
+                                                                        <div class="divider10"></div>
+                                                                        
+                                                                        <button type="submit" class="btn btn-success btn-md button-submit" name="save"><i class="glyphicon glyphicon-ok"></i> <?php echo $button_title; ?></button>
+                                                                        <div class="clearfix divider15"></div>
+                                                                        <img src="<?php echo $member->getLargePicturePath(); ?>" id="photo" />
+                                                                        
+                                                                        <input type="hidden" name="x1" value="0" />
+                                                                        <input type="hidden" name="y1" value="0" />
+                                                                        <input type="hidden" name="x2" value="200" />
+                                                                        <input type="hidden" name="y2" value="200" />
+                                                                        <input type='hidden' name='w' value='200' />
+                                                                        <input type='hidden' name='h' value='200' />
+                                                                        <input type="hidden" id="id" name="id" value="<?php echo encode($member->getID()); ?>" />
+                                                                        <div class="clearfix divider15"></div>
+                                                                        <button type="submit" class="btn btn-success btn-md button-submit" name="save"><i class="glyphicon glyphicon-ok"></i> <?php echo $button_title; ?></button>
+                                                                    </div>
+															<?php } ?>
+                                                            
+                                                         	</div>
+                                                     	</div>
+                                                    </div>
+                                                </fieldset>
+                                            </div>
+                                        </div>
+                                    <?php } ?>
+                                </div>
+                            </div>
+                            <?php if($tab == 'overview'){ ?>
+                                <div class="row-fluid margin0">
+                                    <div class="col-md-12 col-sm-12 col-xs-12 paddingleft0 <?php echo !isEmptyString($member->getID()) ? 'col-md-offset-3' : ''; ?>" <?php echo !isEmptyString($member->getID()) ? 'style="width:74.5%; margin-left:25.5%;"' : 'style="width:74.5%;"'; ?>>
+                                        <fieldset class="fieldsetcontainer">
+                                            <legend>Location</legend>
+                                            <div class="panel-body well-sm">
+                                            	<div class="row-fluid marginleft5">
+                                                    <div class="col-md-6">
+                                                        <div class="form-group clearfix">
+                                                            <label class="col-md-4 control-label"><?php echo $this->translate("global_region_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                                            <div class="col-md-8">
+                                                                <?php
+                                                                      $values = getNFBPCRegions();
+                                                                      $dropdown = new Zend_Form_Element_Select('regionid',
+                                                                              array(
+                                                                                    'multiOptions' => array_merge_maintain_keys(array('' => '<Select one>'), $values),
+                                                                                    'view' => new Zend_View(),
+                                                                                    'decorators' => array(array('ViewHelper')),
+                                                                                    'class' => array('form-control','input-sm')
+                                                                              )
+                                                                      );
+                                                                      
+                                                                      $dropdown->setValue($member->getRegionID());
+                                                                      echo $dropdown->render();
+                                                                  ?><div id="regionid_error"></div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="form-group clearfix">
+                                                            <label class="col-md-4 control-label"><?php echo $this->translate("global_province_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                                            <div class="col-md-8">
+                                                                <?php
+                                                                      $values = getProvinces();
+                                                                      $dropdown = new Zend_Form_Element_Select('provinceid',
+                                                                              array(
+                                                                                    'multiOptions' => array_merge_maintain_keys(array('' => '<Select one>'), $values),
+                                                                                    'view' => new Zend_View(),
+                                                                                    'decorators' => array(array('ViewHelper')),
+                                                                                    'class' => array('form-control','input-sm')
+                                                                              )
+                                                                      );
+                                                                      
+                                                                      $dropdown->setValue($member->getProvinceID());
+                                                                      echo $dropdown->render();
+                                                                  ?><div id="provinceid_error"></div>
+                                                            </div>
+                                                        </div>                                        
+                                                        <div class="form-group clearfix">
+                                                            <label class="col-md-4 control-label"><?php echo $this->translate("global_district_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                                            <div class="col-md-8">
+                                                                <?php
+                                                                      $values = getDistricts();
+                                                                      $dropdown = new Zend_Form_Element_Select('districtid',
+                                                                              array(
+                                                                                    'multiOptions' => array_merge_maintain_keys(array('' => '<Select one>'), $values),
+                                                                                    'view' => new Zend_View(),
+                                                                                    'decorators' => array(array('ViewHelper')),
+                                                                                    'class' => array('form-control','input-sm')
+                                                                              )
+                                                                      );
+                                                                      
+                                                                      $dropdown->setValue($member->getDistrictID());
+                                                                      echo $dropdown->render();
+                                                                  ?><div id="districtid_error"></div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="form-group clearfix">
+                                                            <label class="col-md-4 control-label"><?php echo $this->translate("global_county_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                                            <div class="col-md-8">
+                                                                <?php
+                                                                      $values = array();
+                                                                      $dropdown = new Zend_Form_Element_Select('countyid',
+                                                                              array(
+                                                                                    'multiOptions' => array_merge_maintain_keys(array('' => '<Select district first>'), $values),
+                                                                                    'view' => new Zend_View(),
+                                                                                    'decorators' => array(array('ViewHelper')),
+                                                                                    'class' => array('form-control','input-sm')
+                                                                              )
+                                                                      );
+                                                                      
+                                                                      $dropdown->setValue($member->getCountyID());
+                                                                      echo $dropdown->render();
+                                                                  ?><div id="countyid_error"></div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="form-group clearfix">
+                                                            <label class="col-md-4 control-label"><?php echo $this->translate("global_subcounty_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                                            <div class="col-md-8">
+                                                                <?php
+                                                                      $values = array();
+                                                                      $dropdown = new Zend_Form_Element_Select('subcountyid',
+                                                                              array(
+                                                                                    'multiOptions' => array_merge_maintain_keys(array('' => '<Select county first>'), $values),
+                                                                                    'view' => new Zend_View(),
+                                                                                    'decorators' => array(array('ViewHelper')),
+                                                                                    'class' => array('form-control','input-sm')
+                                                                              )
+                                                                      );
+                                                                      
+                                                                      $dropdown->setValue($member->getSubCountyID());
+                                                                      echo $dropdown->render();
+                                                                  ?><div id="subcountyid_error"></div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="form-group clearfix">
+                                                            <label class="col-md-4 control-label"><?php echo $this->translate("global_parish_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                                            <div class="col-md-8">
+                                                                <?php
+                                                                      $values = array();
+                                                                      $dropdown = new Zend_Form_Element_Select('parishid',
+                                                                              array(
+                                                                                    'multiOptions' => array_merge_maintain_keys(array('' => '<Select sub-county first>'), $values),
+                                                                                    'view' => new Zend_View(),
+                                                                                    'decorators' => array(array('ViewHelper')),
+                                                                                    'class' => array('form-control','input-sm')
+                                                                              )
+                                                                      );
+                                                                      
+                                                                      $dropdown->setValue($member->getParishID());
+                                                                      echo $dropdown->render();
+                                                                  ?><div id="parishid_error"></div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="form-group clearfix">
+                                                            <label class="col-md-4 control-label"><?php echo $this->translate("global_village_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                                            <div class="col-md-8 nullifempty">
+                                                                <?php
+                                                                      $values = array();
+                                                                      $dropdown = new Zend_Form_Element_Select('villageid',
+                                                                              array(
+                                                                                    'multiOptions' => array_merge_maintain_keys(array('' => '<Select parish first>'), $values),
+                                                                                    'view' => new Zend_View(),
+                                                                                    'decorators' => array(array('ViewHelper')),
+                                                                                    'class' => array('form-control','input-sm')
+                                                                              )
+                                                                      );
+                                                                      
+                                                                      $dropdown->setValue($member->getVillageID());
+                                                                      echo $dropdown->render();
+                                                                  ?><div id="villageid_error"></div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="form-group clearfix">
+                                                            <label class="col-md-4 control-label"><?php echo $this->translate("global_address_label"); ?>:</label>
+                                                            <div class="col-md-8">
+                                                                <textarea name="address1" id="address1" class="form-control expanding"><?php echo $member->getAddress1(); ?></textarea>
+                                                            </div>
+                                                        </div>
+                                                        <div class="form-group clearfix">
+                                                            <label class="col-md-4 control-label">GPS:</label>
+                                                            <div class="col-md-8">
+                                                                <input type="text" name="gpslat" id="gpslat" placeholder="Latitude e.g 0.301254" class="form-control isdecimal inline" value="<?php echo $member->getGpsLat(); ?>" style="margin-bottom:4px;" />
+                                                                <input type="text" name="gpslng" id="gpslng" placeholder="Longitude e.g 30.362152" class="form-control isdecimal inline" value="<?php echo $member->getGpsLng(); ?>" style="margin-bottom:4px;" />
+                                                                <div id="gpslat_error"></div><div id="gpslng_error"></div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div class="form-group">
+                                                            <label class="col-md-12 control-label" style="padding-top:0;">Search by Village to Auto-complete:</label>
+                                                            <div class="divider5"></div>
+                                                            <div class="col-md-10 paddingright0">
+                                                                <input type="text" name="project" id="project" title="Type name of location to Populate" class="form-control inline" />
+                                                                <input type="hidden" id="project-id">
+																<p id="project-description"></p>
+                                                                
+                                                            </div>
+                                                            <div class="col-md-1 padding0">
+                                                            	<button type="button" name="use" id="use" class="btn btn-sm btn-success inline" style="margin-left:2px;">Use</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                              	</div>
+                                          	</div>
+                                        </fieldset>                                                                        
+                                    </div>
+                                </div>
+                            <?php } ?>
+                        </div>
+                    </div>
+                </div>
+                <div class="formactions" id="bottomactions" <?php echo isEmptyString($member->getID()) ? 'style="left:50px; position:relative; float:left;"' : 'style="float:right; position:relative; right:16px;"'; ?> ></div>
+            </div>
+        </div>
+    </div>                 
+</div>
+</form> 
 <?php
 	require_once APPLICATION_PATH.'/includes/footer.php';
 ?>

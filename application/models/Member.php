@@ -57,8 +57,10 @@ class Member extends BaseEntity {
 		$this->hasColumn('profilephoto', 'string', 50);
 		$this->hasColumn('maritalstatus', 'integer', null, array('default' => NULL));
 		$this->hasColumn('website', 'string', 50);
-		$this->hasColumn('spouseid', 'integer', null);
-		$this->hasColumn('spousename', 'string', 50);
+		$this->hasColumn('contactid', 'integer', null);
+		$this->hasColumn('contactname', 'string', 255);
+		$this->hasColumn('contactphone', 'string', 15);
+		$this->hasColumn('contactrshp', 'string', 15);
 		$this->hasColumn('noofchildren', 'integer', null, array('default' => NULL));
 		$this->hasColumn('profession', 'string', 50);
 		$this->hasColumn('specialisation', 'string', 50);
@@ -118,6 +120,12 @@ class Member extends BaseEntity {
 	function setIsinvited($isinvited) {
 		$this->isinvited = $isinvited;
 	}
+	function getNameofmember(){
+		return $this->nameofmember;
+	}
+	function setNameofmember($nameofmember) {
+		$this->nameofmember = $nameofmember;
+	}
 	
 	# Contructor method for custom initialization
 	public function construct() {
@@ -166,49 +174,60 @@ class Member extends BaseEntity {
 									'foreign' => 'id',
 								)
 						);
-		
-		$this->hasOne('Region as regionid',
-				array(
-						'local' => 'regionid',
-						'foreign' => 'id'
-				)
-		);
-		$this->hasOne('Province as provinceid',
-				array(
-						'local' => 'regionid',
-						'foreign' => 'id'
-				)
-		);
+		$this->hasOne('Member as contact',
+								array(
+										'local' => 'contactid',
+										'foreign' => 'id',
+								)
+						);
+		$this->hasOne('Organisation as organisation',
+								array(
+										'local' => 'organisationid',
+										'foreign' => 'id',
+								)
+						);
+		$this->hasOne('Region as region',
+								array(
+										'local' => 'regionid',
+										'foreign' => 'id'
+								)
+						);
+		$this->hasOne('Province as province',
+								array(
+										'local' => 'regionid',
+										'foreign' => 'id'
+								)
+						);
 		$this->hasOne('Location as district',
-				array(
-						'local' => 'districtid',
-						'foreign' => 'id'
-				)
-		);
+								array(
+										'local' => 'districtid',
+										'foreign' => 'id'
+								)
+						);
 		$this->hasOne('Location as county',
-				array(
-						'local' => 'countyid',
-						'foreign' => 'id'
-				)
-		);
+								array(
+										'local' => 'countyid',
+										'foreign' => 'id'
+								)
+						);
 		$this->hasOne('Location as subcounty',
-				array(
-						'local' => 'subcountyid',
-						'foreign' => 'id'
-				)
-		);
+								array(
+										'local' => 'subcountyid',
+										'foreign' => 'id'
+								)
+						);
 		$this->hasOne('Location as parish',
-				array(
-						'local' => 'parishid',
-						'foreign' => 'id'
-				)
-		);
+								array(
+										'local' => 'parishid',
+										'foreign' => 'id'
+								)
+						);
 		$this->hasOne('Location as village',
-				array(
-						'local' => 'villageid',
-						'foreign' => 'id'
-				)
-		);
+								array(
+										'local' => 'villageid',
+										'foreign' => 'id'
+								)
+						);
 	}
 	/**
 	 * Custom model validation
@@ -223,12 +242,15 @@ class Member extends BaseEntity {
 		}
 		# validate that email is unique
 		if($this->emailExists()){
-			$this->getErrorStack()->add("email.unique", sprintf($this->translate->_("profile_email_unique_error"), $this->getEmail()));
+			$this->getErrorStack()->add("email.unique", sprintf($this->translate->_("profile_phone_unique_error"), $this->getEmail()));
 		}
 		
+		if($this->phoneExists()){
+			$this->getErrorStack()->add("phone.unique", sprintf($this->translate->_("profile_phone_unique_error"), $this->getPhone(), $this->getNameofmember()));
+		}
 		# check that at least one group has been specified
 		if ($this->getUserGroups()->count() == 0) {
-			$this->getErrorStack()->add("groups", $this->translate->_("profile_group_error"));
+			// $this->getErrorStack()->add("groups", $this->translate->_("profile_group_error"));
 		}
 		
 		# validate attempt to change password with an invalid current password
@@ -282,6 +304,33 @@ class Member extends BaseEntity {
 		}
 		return true;
 	}
+	# determine if the refno has already been assigned to another organisation
+	function phoneExists($phone =''){
+		$conn = Doctrine_Manager::connection();
+		$id_check = "";
+		if(!isEmptyString($this->getID())){
+			$id_check = " AND id <> '".$this->getID()."' ";
+		}
+	
+		$query_custom = '';
+		if(isEmptyString($phone)){
+			$phone = $this->getPhone();
+		}
+		
+		# unique phone
+		$phone_query = "SELECT id FROM member WHERE phone = '".$phone."' ".$id_check;
+		// debugMessage($phone_query);
+		$result = $conn->fetchOne($phone_query);
+		// debugMessage($result);exit();
+		if(isEmptyString($result)){
+			return false;
+		} else {
+			$member = new Member();
+			$member->populate($result);
+			$this->setNameofmember($member->getfirstname().' '.$member->getlastname().' '.$member->getothername());
+		}
+		return true;
+	}
 	/**
 	 * Preprocess model data
 	 */
@@ -309,7 +358,7 @@ class Member extends BaseEntity {
 		/*if(!isArrayKeyAnEmptyString('phone', $formvalues)){
 			$formvalues['phone'] = str_pad(ltrim($formvalues['phone'], '0'), 12, getCountryCode(), STR_PAD_LEFT); 
 		}*/
-		if(!isArrayKeyAnEmptyString('email', $formvalues) && !isArrayKeyAnEmptyString('oldemail', $formvalues) && !isArrayKeyAnEmptyString('isactive', $formvalues)){
+		if(!isArrayKeyAnEmptyString('email', $formvalues) && !isArrayKeyAnEmptyString('oldemail', $formvalues) && !isArrayKeyAnEmptyString('status', $formvalues)){
 			if($formvalues['email'] != $formvalues['oldemail'] && $session->getVar('userid') == $formvalues['id']){
 				$this->setChangeEmail('1');
 				$this->setOldEmail($formvalues['oldemail']);
@@ -319,8 +368,8 @@ class Member extends BaseEntity {
 			}
 		}
 		# force setting of default none string column values. enum, int and date 	
-		if(isArrayKeyAnEmptyString('isactive', $formvalues)){
-			unset($formvalues['isactive']); 
+		if(isArrayKeyAnEmptyString('status', $formvalues)){
+			unset($formvalues['status']); 
 		}
 		if(isArrayKeyAnEmptyString('agreedtoterms', $formvalues)){
 			unset($formvalues['agreedtoterms']); 
@@ -336,6 +385,18 @@ class Member extends BaseEntity {
 		}
 		if(isArrayKeyAnEmptyString('type', $formvalues)){
 			unset($formvalues['type']); 
+		}
+		if(isArrayKeyAnEmptyString('salutation', $formvalues)){
+			unset($formvalues['salutation']);
+		}
+		if(isArrayKeyAnEmptyString('maritalstatus', $formvalues)){
+			unset($formvalues['maritalstatus']);
+		}
+		if(isArrayKeyAnEmptyString('profession', $formvalues)){
+			unset($formvalues['profession']);
+		}
+		if(isArrayKeyAnEmptyString('contactid', $formvalues)){
+			unset($formvalues['contactid']);
 		}
 		if(isArrayKeyAnEmptyString('isinvited', $formvalues)){
 			$formvalues['isinvited'] = NULL;
@@ -421,7 +482,7 @@ class Member extends BaseEntity {
 			unset($formvalues['villageid']);
 		}
 		
-		// debugMessage($formvalues); exit();
+		//debugMessage($formvalues); // exit();
 		parent::processPost($formvalues);
 	}
 	/*
@@ -628,7 +689,7 @@ class Member extends BaseEntity {
 		}
 		
 		# set active to true and blank out activation key
-		$this->setIsActive(1);		
+		$this->setStatus(1);		
 		$this->setActivationKey("");
 		$startdate = date("Y-m-d H:i:s");
 		$this->setActivationDate($startdate);
@@ -675,7 +736,7 @@ class Member extends BaseEntity {
    		# save to the audit trail
    		
 		# set active to true and blank out activation key
-		$this->setIsActive($status);		
+		$this->setStatus($status);		
 		$this->setActivationKey('');
 		// $this->setActivationDate(NULL);
 		if($this->getusergroups()->count() == 0){
@@ -1029,7 +1090,7 @@ class Member extends BaseEntity {
 	 * @return String The full name of the user
 	 */
 	function getName() {
-		return $this->getFirstName()." ".$this->getLastName();
+		return $this->getFirstName()." ".$this->getLastName()." ".$this->getOtherName();
 	}
 	# function to determine the user's profile path
 	function getProfilePath() {
@@ -1123,7 +1184,7 @@ class Member extends BaseEntity {
 	}
 	# Determine if user profile has been activated
 	function isActivated(){
-		return $this->getIsActive() == 1;
+		return $this->getStatus() == 1;
 	}
 	# Determine if user has accepted terms
 	function hasAcceptedTerms(){
@@ -1131,23 +1192,27 @@ class Member extends BaseEntity {
 	}
     # Determine if user is active	 
 	function isUserActive() {
-		return $this->getIsActive() == 1;
+		return $this->getStatus() == 1;
 	}
 	# determine text to display depending on the status of the user
 	function getStatusLabel(){
-		return $this->getIsActive() == 1 ? 'Active' : 'Inactive';
+		return $this->getStatus() == 1 ? 'Active' : 'Inactive';
 	}
     # Determine if user is deactivated
 	function isUserInActive() {
-		return $this->getIsActive() == 0 ? true : false;
+		return $this->getStatus() == 0 ? true : false;
 	}
 	# determine if user has been pending
 	function isPending() {
-		return $this->getIsActive() == 1 ? true : false;
+		return $this->getStatus() == 1 ? true : false;
 	}
 	# determine if user has been deactivated
 	function isDeactivated() {
-		return $this->getIsActive() == 2 ? true : false;
+		return $this->getStatus() == 2 ? true : false;
+	}
+	# function get user type
+	function getUserTypeText(){
+		return getUserType($this->getType());
 	}
 	# determine if is an admin
 	function isAdmin(){
@@ -1360,6 +1425,20 @@ class Member extends BaseEntity {
 		$mail->clearFrom();
 		
 		return true;
+	}
+	
+	function getGPSCordinates(){
+		if(isEmptyString($this->getGPSLat()) || isEmptyString($this->getGPSLng())){
+			return '';
+		}
+		return $this->getGPSLat().', '.$this->getGPSLng();
+	}
+	
+	function hasGPSCoordinates(){
+		if(!isEmptyString($this->getGPSLat()) && !isEmptyString($this->getGPSLng())){
+			return true;
+		}
+		return false;
 	}
 }
 ?>
