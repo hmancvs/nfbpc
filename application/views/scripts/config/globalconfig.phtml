@@ -2,43 +2,52 @@
 	require_once APPLICATION_PATH.'/includes/header.php';
 	
 	$listurl = $this->baseUrl('config/globalconfig');
-	$title = "System Global Configurations";
+	$title = $columnheading = "System Global Configurations";
 	$listitems = "Variables";
 	$this->headTitle($title.$browserappend);
 	$description = 'Application settings';
 	
 	$showsearch = true;
 	$section = $request->getParam('section'); // debugMessage('>> '.$section);
-	
-	if($request->type == 'logo'){ 
-		$this->headScript()->appendFile($this->baseUrl('javascript/custom/5.jquery.imgareaselect.min.js'));
-		echo $this->headScript();
+	$columnheading = "Settings";
+	if(!isEmptyString($section)){
+		$currentlookup = new AppConfig();
+		$current = $currentlookup->getCurrentSection($section);
+		// debugMessage($current->toArray());
+		
+		$appconfig = new AppConfig();
+		$variables = $appconfig->getLookupOptions($current->getSection());
+		// debugMessage($variables->toArray());
+		$columnheading = $current->getSectionDisplay();
 	}
 ?>
 <script>
 $(document).ready(function() {
-	// breadcrumb config
-	$("#levelone_icon").addClass('icon-settings');
-	$("#levelone_link").attr('href', '').html('System');
-	$("#leveltwo_link").attr('href', '<?php echo $listurl; ?>').html('Global Config');
-
+	$('.titlebreadcrumb').html('<?php echo $homedir.'Global Config / '.$columnheading; ?>');
+	$('.titlelabel').html("<?php echo $title; ?>");
+	$('.desclabel').html("<?php echo $description; ?>");
+	$('.pageicon').html('<span class="glyphicon glyphicon-list-alt"></span>');
 });
 </script>
-<!--=== Page Header ===-->
-<div class="page-header makerelative">
-    <div class="page-title">
-        <h3><?php echo $title; ?></h3>
-        <span><?php echo $description; ?></span>
+<div class="row-fluid margin0">
+	<div class="col-md-12 padding0">
+    	<div class="headerbox">
+            <table class="table border0 nohover margin0">                       
+                <tr>		                    
+                    <td class="padding2">
+                        
+                    </td>
+                </tr>
+            </table>
+        </div>
     </div>
-    
-</div>
-<?php if(!isEmptyString($session->getVar(SUCCESS_MESSAGE))){ ?>
-    <div class="alert alert-success clear"><a class="close" data-dismiss="alert">×</a><?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
-<?php } ?>
-<?php if($sessionhaserror) { ?>
-    <div class="alert alert-error"><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
-<?php } ?>
-    
+    <?php if ($sessionhaserror) { ?>
+        <div class="alert alert-danger"><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
+    <?php } ?>
+    <?php if (!isEmptyString($session->getVar(SUCCESS_MESSAGE))) { ?>
+        <div class="alert alert-success alert-dismissable"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button> <?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
+    <?php } ?>
+</div>	
 <!--=== Responsive DataTable ===-->
 <div class="row">					
 	<div class="col-md-3">
@@ -54,7 +63,7 @@ $(document).ready(function() {
                             // debugMessage($lists);
                         ?>
                         <?php foreach($lists as $key => $value){ ?>
-                            <li class="filtertyppe <?php echo $value['section'] == $section ? 'active': ''; ?>"><a style="font-weight:normal; font-size:15px;" href="<?php echo $this->baseUrl('config/globalconfig/section/'.$value['section']); ?>"><?php echo $value['sectiondisplay']; ?></a></li>
+                            <li class="filtertyppe noround <?php echo $value['section'] == $section ? 'active': ''; ?>"><a style="font-weight:normal; font-size:15px;" href="<?php echo $this->baseUrl('config/globalconfig/section/'.$value['section']); ?>"><?php echo $value['sectiondisplay']; ?></a></li>
                         <?php } ?>
                     </ul>
                 </div>
@@ -62,22 +71,6 @@ $(document).ready(function() {
 		</div>
 	</div>
 	<div class="col-md-9">
-    	<?php
-			$columnheading = "Settings";
-			if(!isEmptyString($section)){
-				$currentlookup = new AppConfig();
-				$current = $currentlookup->getCurrentSection($section);
-				// debugMessage($current->toArray());
-				
-				$appconfig = new AppConfig();
-				$variables = $appconfig->getOptions($current->getSection());
-				// debugMessage($variables->toArray());
-				$columnheading = $current->getSectionDisplay();
-				if($request->type == 'logo'){
-					$columnheading = "Upload Logo Image";
-				}
-			}
-		?>
 		<div class="widget box">
 			<div class="widget-header">
 				<h4><i class="icon-reorder"></i> <?php echo $columnheading; ?></h4>
@@ -89,11 +82,11 @@ $(document).ready(function() {
                         <div class="alert alert-info clear padding10 margin10">Select a Parameter to show values</div>
                     <?php } else { ?>
                     	 <?php if(in_array($current->getSection(), array('api','system','sms'))){ ?>
-                         	<div class="alert alert-warning clear">These are very sensitive settings. Be sure you know the implication of commiting any updates.</div>
+                         	<div class="alert alert-warning clear padding10 margin10">These are very sensitive settings. Be sure you know the implication of commiting any updates.</div>
                          <?php } ?>
                          <form id="indexform" name="indexform" action="<?php echo $this->baseUrl('config/processglobalconfig'); ?>" method="post">
                             <div class="divider5"></div>
-                            <button type="submit" class="btn btn-primary pull-right"><i class="icon-ok icon-white"></i> Save Changes</button>
+                            <button type="submit" class="btn btn-primary pull-right" style="margin-right: 10px;"><i class="icon-ok icon-white"></i> Save Changes</button>
                             <div class="divider5"></div>
                           	<!--  <table class="table table-stripped table-bordered hasheader" style="margin:5px; width:98%;">-->
                             <table class="table table-hover table-bordered commodities" style="margin:5px; width:98%;">
@@ -127,19 +120,13 @@ $(document).ready(function() {
                                                 <div id="displayname_<?php echo $t; ?>_error"></div>
                                             </td>
                                             <td>
-                                                <?php if($option->getOptionName() == 'logotype'){ ?>
-                                                    <span class="blocked" style="margin-bottom:5px;"><input type="radio" name="optionvalue_<?php echo $t; ?>" id="optionvalue_<?php echo $t; ?>_1" value="1" class="<?php echo $option->getOptionValue() == 1 ? '1' : '0'; ?>" /> Use Application Name (Default)</span>
-                                                    <span class="blocked" style="margin-bottom:5px;"><input type="radio" name="optionvalue_<?php echo $t; ?>" id="optionvalue_<?php echo $t; ?>_1" value="2" class="<?php echo $option->getOptionValue() == 2 ? '1' : '0'; ?>" /> Use Company Name</span>
-                                                <?php } ?>
-                                                <?php if($option->getOptionName() != 'logotype'){ ?>
-                                                    <?php if($option->isEditable()){ ?>		
-                                                        <input type="text" name="optionvalue_<?php echo $t; ?>" id="optionvalue_<?php echo $t; ?>" class="form-control"  style="width:95%; padding:4px;" value="<?php echo $option->getOptionValue(); ?>" />
-                                                    <?php } else { ?>    
-                                                        <?php echo $option->getOptionValue(); ?>
-                                                        <div class="alert alert-info" style="margin:10px;">Updates to this option are currently disabled.</div>
-                                                    <?php } ?>
-                                                    <div id="optionvalue_<?php echo $t; ?>_error"></div>
-                                                <?php } ?>
+												<?php if($option->isEditable()){ ?>		
+													<input type="text" name="optionvalue_<?php echo $t; ?>" id="optionvalue_<?php echo $t; ?>" class="form-control"  style="width:95%; padding:4px;" value="<?php echo $option->getOptionValue(); ?>" />
+												<?php } else { ?>    
+													<?php echo $option->getOptionValue(); ?>
+													<div class="alert alert-info" style="margin:10px;">Updates to this option are currently disabled.</div>
+												<?php } ?>
+												<div id="optionvalue_<?php echo $t; ?>_error"></div>
                                             </td>
                                             <td><?php echo $option->getOptionName(); ?></td>
                                         </tr>
@@ -162,7 +149,8 @@ $(document).ready(function() {
 			</div>
 		</div>
 	</div>
-</div>  
+</div>      
+
 <?php
 	require_once APPLICATION_PATH.'/includes/footer.php';
 ?>

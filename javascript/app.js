@@ -757,3 +757,44 @@ function stripTrailingSlash(str) {
 	}
 	return str;
 }
+Date.prototype.monthNames = [
+	"January", "February", "March",
+	"April", "May", "June",
+	"July", "August", "September",
+	"October", "November", "December"
+];
+Date.prototype.getMonthName = function() {
+	return this.monthNames[this.getMonth()];
+};
+Date.prototype.getShortMonthName = function () {
+	return this.getMonthName().substr(0, 3);
+};
+Date.prototype.addDays = function(days) {
+	this.setDate(this.getDate() + days);
+	return this;
+};
+function addDays(theDate, days) {
+	return new Date(theDate.getTime() + days*24*60*60*1000);
+}
+function pad(n) {
+	return (n < 10) ? ("0" + n) : n;
+}
+function getMonthShortName(mon){
+	var month = new Array();
+	month[0] = "Jan";
+	month[1] = "Feb";
+	month[2] = "Mar";
+	month[3] = "Apr";
+	month[4] = "May";
+	month[5] = "Jun";
+	month[6] = "Jul";
+	month[7] = "Aug";
+	month[8] = "Sep";
+	month[9] = "Oct";
+	month[10] = "Nov";
+	month[11] = "Dec";
+	return month[mon];
+}
+function numberWithCommas(x) {
+    return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}

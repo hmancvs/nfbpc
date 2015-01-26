@@ -94,6 +94,9 @@
                         <li><a class="btn btn-primary btn-sm blockanchor" href="<?php echo $addurl; ?>"><i class="glyphicon glyphicon-plus"></i> Setup <?php echo $moduleitem; ?></a></li>
                     <?php } ?>
                 </ul>
+                <ul class="listfilter">
+                	<li>&nbsp;</li>
+                </ul>
             </div>
             <div class="col-md-3 padding0">
             	<div class="col-md-12 padding0"><input name="searchterm" id="searchterm" class="form-control form-search" value="<?php echo $request->searchterm; ?>" type="text" placeholder="Search..." /><button type="submit" class="btn btn-default blockanchor searchbtn"><i class="glyphicon glyphicon-search"></i></button></div>
@@ -109,6 +112,7 @@
             <a class="gonowhere btn btn-default btn-xs noround styletrigger <?php echo $style == 1 ? 'active' : ''; ?>" id="style1" rel='1'><i class="glyphicon glyphicon-th-large"></i> Grid</a>
             <a class="gonowhere btn btn-default btn-xs noround styletrigger <?php echo $style == 2 ? 'active' : ''; ?>" id="style2" rel='2'><i class="glyphicon glyphicon-list-alt"></i> Table</a>
         </div>
+        <div class="divider10"></div>
 		<?php if ($has_no_data) { ?>
             <div class="divider30"></div>
             <div style="clear:both;" class="alert alert-warning margin5"><?php echo $this->translate("global_list_noentries"); ?></div>
@@ -162,10 +166,10 @@
                            			$indexurl = $this->baseUrl('committee/index/id/'.encode($line['id']));
                             ?>
                                 <tr>
-                                    <td class="nullifmpty"><?php echo $line['Code']; ?></td>
-                                    <td class="nullifmpty"><a href="<?php echo $viewurl; ?>" class="blockanchor"><?php echo $line['Name']; ?></a></td>
-                                    <td class="nullifmpty"><?php echo nl2br(snippet($line['Description'],250,'<a href="'.$viewurl.'">...more</a>')); ?></td>
-                                    <td class="nullifmpty"><?php echo $line['abbr']; ?></td>
+                                    <td class="nullifempty"><?php echo $line['Code']; ?></td>
+                                    <td class="nullifempty"><a href="<?php echo $viewurl; ?>" class="blockanchor"><?php echo $line['Name']; ?></a></td>
+                                    <td class="nullifempty"><?php echo nl2br(snippet($line['Description'],250,'<a href="'.$viewurl.'">...more</a>')); ?></td>
+                                    <td class="nullifempty"><?php echo $line['abbr']; ?></td>
                                     <td>
                                     	<ul class="nav listactions">
 											<?php if ($acl->checkPermission('Position', ACTION_VIEW)) { ?>

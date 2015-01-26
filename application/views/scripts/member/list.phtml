@@ -1,7 +1,32 @@
 <?php
-	require_once APPLICATION_PATH.'/includes/header.php';
+	include APPLICATION_PATH.'/includes/header.php';
 	
-	$style = '1';
+	$loggedinuser = new Member();
+	$loggedinuser->populate($userid);
+	$customlabel = "";
+	if($loggedinuser->isRegionalClerk()){
+		if($request->regionid == $loggedinuser->getRegionID()){
+			$customlabel = " : ".$loggedinuser->getRegion()->getName().' Region';
+		}
+	}
+	if($loggedinuser->isProvinceClerk()){
+		if($request->provinceid == $loggedinuser->getProvinceID()){
+			$customlabel = " : ".$loggedinuser->getProvince()->getName().' Province';
+		}
+	}
+	if($loggedinuser->isDistrictClerk()){
+		if($request->districtid == $loggedinuser->getDistrictID()){
+			$customlabel = " : ".$loggedinuser->getDistrict()->getName().' District';
+		}
+	}
+	if($loggedinuser->isSubCountyClerk()){
+		if($request->subcountyid == $loggedinuser->getSubcountyID()){
+			$customlabel = " : ".$loggedinuser->getSubcounty()->getName().' Sub-county';
+		}
+	}
+	
+	
+	$style = '1'; $isuserlist = false; $ismemberlist = true;
 	if(!isEmptyString($request->style)){
 		$style = $request->style;
 		$session->setVar('style', $request->style);
@@ -25,19 +50,42 @@
 	$paginate = new Pagination();	
 	$paginate->setView($this);
 	# set the search columns to be used on this list
-	$paginate->setSearchColumns(array("m.firstname","m.lastname","m.email","m.phone","m.phone2","m.othername","m.displayname"));
+	$paginate->setSearchColumns(array("m.firstname","m.lastname","m.othername","m.displayname","m.email","m.phone","m.phone2"));
 	$paginate->setFilterColumns(array());
 	$paginate->setItemCountPerPage("50");
 	
 	# define the letter to be clicked to ease navigation 
 	$where_query = " WHERE m.id <> '' ";
+	if($controller == 'profile'){
+		$isuserlist = true; $ismemberlist = false;
+		$where_query .= " AND (m.type <> '' OR m.type IS NOT NULL) ";
+	}
 	$allowclear = false;
+	if(!isEmptyString($request->searchterm)){
+		$allowclear = true;
+	}
+	
+	$status = trim($request->status);
+	if(!isEmptyString($status)){
+		$where_query .= " AND (m.`status` = ".$status.") ";
+		$allowclear = true;
+	}
+	
+	$type = trim($request->type);
+	$role = '';
+	$allroles = getUserType();
+	if(!isEmptyString($type)){
+		$where_query .= " AND (m.type = ".$type." || g.groupid = ".$type.") ";
+		$allowclear = true;
+	}
 	
 	if(!isEmptyString($startdate)){
-		$where_query .= " AND (TO_DAYS(m.startdate) >= TO_DAYS('".$startdate."')) ";
+		$where_query .= " AND (TO_DAYS(m.datecreated) >= TO_DAYS('".$startdate."')) ";
+		$allowclear = true;
 	}
 	if(!isEmptyString($enddate)){
-		$where_query .= " AND (TO_DAYS(m.startdate) <= TO_DAYS('".$enddate."')) ";
+		$where_query .= " AND (TO_DAYS(m.datecreated) <= TO_DAYS('".$enddate."')) ";
+		$allowclear = true;
 	}
 		
 	if(!isEmptyString($request->letter)){
@@ -45,27 +93,50 @@
 		$allowclear = true;
 	}
 	
-	if(!isEmptyString($request->searchterm)){
+	$regionid = $request->regionid;
+	if($loggedinuser->isRegionalClerk() && isEmptyString($regionid)){
+		$regionid = $loggedinuser->getRegionID(); // debugMessage('id is '.$regionid);
+	}
+	if(!isEmptyString($regionid)){
+		$where_query .= " AND m.regionid = '".$regionid."' ";
+		$allowclear = true;
+	}
+	$provinceid = $request->provinceid;
+	if(!isEmptyString($provinceid)){
+		$where_query .= " AND m.provinceid = '".$provinceid."' ";
+		$allowclear = true;
+	}
+	
+	$districtid = $request->districtid;
+	if(!isEmptyString($districtid)){
+		$where_query .= " AND m.districtid = '".$districtid."' ";
+		$allowclear = true;
+	}
+	
+	$subcountyid = $request->subcountyid;
+	if(!isEmptyString($subcountyid)){
+		$where_query .= " AND m.subcountyid = '".$subcountyid."' ";
+		$allowclear = true;
+	}
+	
+	$organisationid = $request->organisationid;
+	if(!isEmptyString($organisationid)){
+		$where_query .= " AND m.organisationid = '".$organisationid."' ";
+		$allowclear = true;
+	}
+	$committeeid = $request->committeeid;
+	if(!isEmptyString($committeeid)){
+		$where_query .= " AND a.committeeid = '".$committeeid."' ";
+		$allowclear = true;
+	}
+	$profilerid = $request->profilerid;
+	if(!isEmptyString($profilerid)){
+		$where_query .= " AND m.createdby = '".$profilerid."' ";
 		$allowclear = true;
 	}
 	
 	$order = trim($request->order);
-	$order_query = " ";
-	if(isEmptyString($order)){
-		$order = 1;
-	}
-	if($order == 1){
-		$order_query = " ORDER BY m.datecreated DESC, m.id desc ";
-	}
-	if($order == 2){
-		$order_query = " ORDER BY m.datecreated ASC, m.id desc ";
-	}
-	if($order == 3){
-		$order_query = " ORDER BY m.firstname ASC ";
-	}
-	if($order == 4){
-		$order_query = " ORDER BY m.lastname ASC ";
-	}
+	$order_query = " ORDER BY m.datecreated DESC, m.id desc ";
 	
 	$sortcolumn = $request->sortby;
 	$sortorder = $request->sortorder;
@@ -75,15 +146,19 @@
 	// f.orgname as fundername, concat(u.firstname,' ',u.lastname) as supervisorname
 	$paginate->processPost($request->getParams());
 	$all_results_query = "SELECT 
-		m.id as mid, m.firstname, m.lastname, m.othername, m.displayname as Member, 
+		m.id as mid, 
+		m.firstname, m.lastname, m.othername, m.displayname as Member, IF(m.displayname <> '', m.displayname, concat(m.firstname, ' ', m.lastname, ' ', m.othername)) as name, m.username,
 		m.phone, m.phone2, m.email, 
 		m.profilephoto, m.gender, m.dateofbirth, m.bio, 
-		m.datecreated as mdatecreated, m.createdby as mcreatedby,
+		m.datecreated as mdatecreated, m.createdby as mcreatedby, m.activationdate,
 		m.nationality, m.country,m.address1 as address1,o.name as church,
-		m.status,m.salutation, m.profession, 
-		r.name as region,p.name as province,d.name as district,c.name as county,s.name as subcounty,ps.name as parish, v.name as village,
+		m.status as `status`, m.salutation, m.profession, m.organisationid,
+		m.regionid, m.provinceid, m.districtid, m.countyid, m.subcountyid, m.parishid, m.villageid,
+		m.regionid, m.provinceid, m.districtid, m.countyid, m.subcountyid, m.parishid, m.villageid,
+		r.name as region, p.name as province, d.name as district, c.name as county,s.name as subcounty,ps.name as parish, v.name as village,
 		m.website, m.dateofbirth, m.dateofbirth, m.contactid, m.noofchildren,
-		ms.contactname as contactname, mc.displayname as addedby
+		ms.contactname as contactname, mc.displayname as addedby,
+		g.groupid as groupid, acg.name as `Group`, group_concat(t.name separator ', ') as committees
 	 FROM member m
 	 left join organisation o on (m.organisationid = o.id)
 	 left join region r on (m.regionid = r.id) 
@@ -95,24 +170,31 @@
      left join location v on (m.villageid = v.id and v.locationtype = 6)
 	 left join member mc on (m.createdby = mc.id)
 	 left join member ms on (m.contactid = ms.id)
+	 left join aclusergroup as g ON (m.id = g.userid) 
+	 left join aclgroup as acg ON (g.groupid = acg.id)
+	 left join appointment as a on (a.memberid = m.id)
+	 left join committee as t on (a.committeeid = t.id)
 	 ".$where_query." ".$paginate->getSearchAndFilterSQL()." GROUP BY m.id ".$order_query;
-	
-	// debugMessage($all_results_query); // exit;
+	// debugMessage($all_results_query); exit;
 	
 	// determine total number of records found
 	$conn = Doctrine_Manager::connection(); 
 	$count_query = "SELECT count(m.id) as total FROM member m
-	 left join organisation o on (m.organisationid = o.id)
+	  left join organisation o on (m.organisationid = o.id)
 	 left join region r on (m.regionid = r.id) 
 	 left join province p on (m.provinceid = p.id) 
 	 left join location d on (m.districtid = d.id and d.locationtype = 2)
 	 left join location c on (m.countyid = c.id and c.locationtype = 3)
 	 left join location s on (m.subcountyid = s.id and s.locationtype = 4)
 	 left join location ps on (m.parishid = ps.id and ps.locationtype = 5)
-     left join location v on (m.subcountyid = v.id and v.locationtype = 6)
+     left join location v on (m.villageid = v.id and v.locationtype = 6)
 	 left join member mc on (m.createdby = mc.id)
 	 left join member ms on (m.contactid = ms.id)
-	".$where_query." ".$paginate->getSearchAndFilterSQL(); // debugMessage($count_query); 
+	 left join aclusergroup as g ON (m.id = g.userid) 
+	 left join aclgroup as acg ON (g.groupid = acg.id)
+	 left join appointment as a on (a.memberid = m.id)
+	 left join committee as t on (a.committeeid = t.id)
+	".$where_query." ".$paginate->getSearchAndFilterSQL(); // debugMessage($count_query); exit;
 	$total = $conn->fetchOne($count_query);
 	$paginate->setItemCount($total); //debugMessage('>> '.$total);	
 	$current_results_query = $all_results_query." ".$paginate->getSQLLimit();
@@ -121,23 +203,34 @@
 	$result = $conn->fetchAll($current_results_query);
 	$has_no_data = (count($result) == 0) ? true : false;
 	
-	$listurl = $this->baseUrl('member/list');
-	$addurl = $this->baseUrl('member');
+	$listurl = $this->baseUrl($controller.'/list');
+	$addurl = $this->baseUrl($controller);
 	$title = "Member Directory";
 	$listitems = "Members";
-		
 	$moduleitem = "Member";
 	$description = '';
-	$icon = $this->baseUrl('images/icon_home.png');
+	$icon = 'icon-large icon-group';
+	$resourcename = 'Member';
+	
+	if($isuserlist){
+		$title = "System Users";
+		$listitems = "Users";
+		$moduleitem = "User";
+		$description = '';
+		$icon = 'glyphicon glyphicon-user';
+		$resourcename = 'User Account';
+	}
+	$salutations = getSalutations();
+	$professions = getProfessions();
 	
 	$this->headTitle($title.$browserappend);
 ?>
 <script>
 	$(document).ready(function() {
 		$('.titlebreadcrumb').html('<?php echo $homedir.$title; ?>');
-		$('.titlelabel').html('<?php echo $title; ?>');
+		$('.titlelabel').html('<?php echo $title.$customlabel; ?>');
 		$('.desclabel').html('<?php echo $description; ?>');
-		$('.pageicon').html('<span class="icon-large icon-group"></span>');
+		$('.pageicon').html('<span class="<?php echo $icon; ?>"></span>');
 		
 		var dateoptions = datepickerOpts;
 		var startfrom = '<?php echo date('Y'); ?>';
@@ -146,16 +239,48 @@
 		dateoptions.maxDate = new Date("Dec 31, "+startfrom);	
 		$("#startdate, #enddate").datepicker(dateoptions);
 		
+		// export list to excel
+		$(".submitexcel").click(function(e){
+			<?php if($style == 1){ ?>
+				$("#exporttrigger").val('1');
+				$("#style").val('2');
+				$("#listform").submit();
+			<?php } else { ?>
+				e.preventDefault();
+				var csv_value = $('#datatable').table2CSV({delivery:'value'});
+				var decoded_value = base64_encode(csv_value);
+				$("#csv_text").val(decoded_value);
+				$("#listform").attr('action', '<?php echo $this->baseUrl('download/excel'); ?>').attr('method', 'post').submit();
+				// on submit reset the form parameters to previous definition
+				$("#listform").attr('action', '<?php echo $this->baseUrl($controller."/listsearch"); ?>').attr('method', 'get');
+				$("#csv_text").val('');
+				return true;
+			<?php } ?>
+		});
+		
+		<?php if($request->exporttrigger == '1'){ ?>
+			$(".submitexcel").trigger('click');
+		<?php } ?>
+		
+		$(".filter, #filter").click(function(e){
+			$.blockUI({ message: '<?php echo $blockcontent; ?>'}); 
+	        return true;
+		});	
 	});
 </script>
 <style>
 .peoplelist .peoplewrapper {
 	height:160px;
 }
+<?php if($isuserlist){ ?>
+	.peoplelist .peoplewrapper {
+		height:130px;
+	}
+<?php } ?>
 </style>
 <div class="row margin0">
     <div class="col-md-12 padding0">
-    <form class="form margin0 listform makerelative" action="<?php echo $this->baseUrl("member/listsearch"); ?>" method="get" id="listform">
+    <form class="form margin0 listform makerelative" action="<?php echo $this->baseUrl($controller."/listsearch"); ?>" method="get" id="listform">
 		<?php if ($sessionhaserror) { ?>
             <div class="alert alert-danger"><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
         <?php } ?>
@@ -165,74 +290,229 @@
         <div class="row-fluid clearfix">
         	<div class="col-md-9 paddingleft0">
             	<ul class="listfilter blocked">
-					<?php if ($acl->checkPermission('Member', ACTION_CREATE)) { ?>
+					<?php if ($acl->checkPermission($resourcename, ACTION_CREATE)) { ?>
                         <li><a title="New <?php echo $moduleitem; ?>" class="btn btn-primary btn-sm blockanchor" href="<?php echo $addurl; ?>"><i class="glyphicon glyphicon-plus"></i> New <?php echo $moduleitem; ?></a></li>
                     <?php } ?>
-                    <li>
-						<?php
-                           /* $allorders = array('1' => 'Latest First', '2'=>'Earliest First', '3'=>'Order By First Name','4'=>'Order By Last Name');
-                            $ordersdropdown = new Zend_Form_Element_Select('order',
-                                                array(
-                                                    'multiOptions' => $allorders,
-                                                    'view' => new Zend_View(),
-                                                    'decorators' => array('ViewHelper'),
-                                                   'class' => array("autofilter", "form-control", 'width150', 'chosen-select')
-                                                )
-                            );  
-                            $ordersdropdown->setValue($request->getParam('order')); 
-                            echo $ordersdropdown->render();*/
-                        ?>
-                    </li>
+                    <?php if($ismemberlist){ ?>
+                        <li>
+                        	<?php
+								$regions = getNFBPCRegions();
+								$dropdown = new Zend_Form_Element_Select('regionid',
+													array(
+														'multiOptions' => array_merge_maintain_keys(array('' => 'All Regions'), $regions),								
+														'view' => new Zend_View(),
+														'decorators' => array('ViewHelper'),
+														'class' => array("xautofilter", "form-control", 'chosen-select', 'width125')
+													)
+												);
+								$dropdown->setValue($regionid); 
+								echo $dropdown->render();
+							?> 
+                        </li>
+                        <li>
+                        	<?php
+								$provinces = getProvinces($request->getParam('regionid'));
+								$dropdown = new Zend_Form_Element_Select('provinceid',
+													array(
+														'multiOptions' => array_merge_maintain_keys(array('' => 'All Provinces'), $provinces),								
+														'view' => new Zend_View(),
+														'decorators' => array('ViewHelper'),
+														'class' => array("xautofilter", "form-control", 'chosen-select', 'width125')
+													)
+												);
+								$dropdown->setValue($provinceid); 
+								echo $dropdown->render();
+							?> 
+                        </li>
+                        <li>
+                        	<?php
+								$districts = getDistricts($request->getParam('regionid'));
+								$dropdown = new Zend_Form_Element_Select('districtid',
+													array(
+														'multiOptions' => array_merge_maintain_keys(array('' => 'All Districts'), $districts),								
+														'view' => new Zend_View(),
+														'decorators' => array('ViewHelper'),
+														'class' => array("xautofilter", "form-control", 'chosen-select', 'width125'),
+														'style' => 'width:150px;'
+													)
+												);
+								$dropdown->setValue($districtid); 
+								echo $dropdown->render();
+							?> 
+                        </li>
+                    <?php } ?>
+					<?php if($isuserlist){ ?>
+                    	<li>
+							<?php
+                                $dropdown = new Zend_Form_Element_Select('type',
+                                                    array(
+                                                        'multiOptions' => array_merge_maintain_keys(array('' => 'All Types'), $allroles),
+                                                        'view' => new Zend_View(),
+                                                        'decorators' => array('ViewHelper'),
+                                                         'class' => array("xautofilter", "form-control", 'width150', 'chosen-select')
+                                                    )
+                                );  
+                                $dropdown->setValue($request->getParam('type')); 
+                                echo $dropdown->render();
+                            ?>                    
+                        </li>
+                        <li>
+                            <?php
+								$allstatus = getUserStatus();
+                                $dropdown = new Zend_Form_Element_Select('status',
+                                                    array(
+                                                        'multiOptions' => array_merge_maintain_keys(array('' => 'All Statuses'), $allstatus),
+                                                        'view' => new Zend_View(),
+                                                        'decorators' => array('ViewHelper'),
+                                                        'class' => array("xautofilter", "form-control", 'width150', 'chosen-select')
+                                                    )
+                                );  
+                                $dropdown->setValue($request->getParam('status')); 
+                                echo $dropdown->render();
+                            ?>                    
+                        </li>
+                    <?php } ?>
+                    <li><button type="submit" class="btn btn-default btn-sm blockanchor" class="filter"><i class="glyphicon glyphicon-filter"></i> Filter</button></li>
                 </ul>
                 <div class="divider1"></div>
                 <ul class="listfilter">
-                    <!--<li><input type="text" name="startdate" id="startdate" class="form-control input-sm datefield readonly width100" value="<?php echo $request->startdate; ?>" placeholder="From:" /></li>
-                    <li><input name="enddate" id="enddate" type="text" class="form-control input-sm datefield readonly width100" placeholder="To:" value="<?php echo $request->enddate; ?>" /></li>
-                    <li><button type="submit" class="btn btn-default btn-sm blockanchor"><i class="glyphicon glyphicon-filter"></i> Filter</button></li>-->
+                    <?php if($ismemberlist){ ?>
+                        <li>
+							<?php
+								$churches = getChurches();
+                                $dropdown = new Zend_Form_Element_Select('organisationid',
+                                                    array(
+                                                        'multiOptions' => array_merge_maintain_keys(array('' => 'All Churches'), $churches),
+                                                        'view' => new Zend_View(),
+                                                        'decorators' => array('ViewHelper'),
+                                                        'class' => array("xautofilter", "form-control", 'chosen-select'),
+														'style' => 'width:150px;'
+                                                    )
+                                );  
+                                $dropdown->setValue($request->getParam('organisationid')); 
+                                echo $dropdown->render();
+                            ?>                    
+                        </li>
+                        <li>
+                            <?php
+                                $values = getCommittees();
+                                $dropdown = new Zend_Form_Element_Select('committeeid',
+                                                    array(
+                                                        'multiOptions' => array_merge_maintain_keys(array('' => 'All Committees'), $values),
+                                                        'view' => new Zend_View(),
+                                                        'decorators' => array('ViewHelper'),
+                                                        'class' => array("xautofilter", "form-control", 'chosen-select'),
+                                                        'style' => 'width:150px;'
+                                                    )
+                                );  
+                                $dropdown->setValue($request->getParam('committeeid')); 
+                                echo $dropdown->render();
+                            ?>                    
+                        </li>
+                    <?php } ?>
+                    <li>
+						<?php
+                            $values = getMemberProfilingUsers();
+                            $dropdown = new Zend_Form_Element_Select('profilerid',
+                                                array(
+                                                    'multiOptions' => array_merge_maintain_keys(array('' => 'Profiled By'), $values),
+                                                    'view' => new Zend_View(),
+                                                    'decorators' => array('ViewHelper'),
+                                                    'class' => array("xautofilter", "form-control", 'chosen-select'),
+                                                    'style' => 'width:130px;'
+                                                )
+                            );  
+                            $dropdown->setValue($request->getParam('profilerid')); 
+                            echo $dropdown->render();
+                        ?>
+                   	</li>
+                    <li><input type="text" name="startdate" id="startdate" class="form-control input-sm datefield readonly width80" value="<?php echo $request->startdate; ?>" placeholder="From:" /></li>
+                    <li><input name="enddate" id="enddate" type="text" class="form-control input-sm datefield readonly width80" placeholder="To:" value="<?php echo $request->enddate; ?>" /></li>
+                    <li><button type="submit" class="btn btn-default btn-sm blockanchor" class="filter"><i class="glyphicon glyphicon-filter"></i> Filter</button></li>
                	</ul>
             </div>
             <div class="col-md-3 padding0">
             	<div class="col-md-12 padding0"><input name="searchterm" id="searchterm" class="form-control form-search" value="<?php echo $request->searchterm; ?>" type="text" placeholder="Search..." /><button type="submit" class="btn btn-default blockanchor searchbtn"><i class="glyphicon glyphicon-search"></i></button></div>
             	<input type="hidden" name="letter" id="letter" value="<?php echo $request->getParam('letter'); ?>" />
                 <input type="hidden" name="style" id="style" value="<?php echo $style; ?>" />
+                <input type="hidden" name="exporttrigger" id="exporttrigger" value="<?php echo $request->exporttrigger; ?>" />
                 <?php if($allowclear){ ?>
                     <a href="<?php echo $listurl; ?>" title="Clear Search and Filters" class="reset close button btn resetlink blockanchor">&times;</a>
                 <?php } ?>
             </div>
         </div>
         <div class="stylewidget">
+        	<?php if($allowclear){ ?>
+	        	<a class="btn btn-xs blockanchor" href="<?php echo $listurl; ?>" title="Clear Search and Filters"><i class="glyphicon glyphicon-refresh"></i> Reset List</a>
+            <?php } ?>
             <a class="gonowhere btn btn-default btn-xs noround styletrigger <?php echo $style == 1 ? 'active' : ''; ?>" id="style1" rel='1'><i class="glyphicon glyphicon-th-large"></i> Grid</a>
             <a class="gonowhere btn btn-default btn-xs noround styletrigger <?php echo $style == 2 ? 'active' : ''; ?>" id="style2" rel='2'><i class="glyphicon glyphicon-list-alt"></i> Table</a>
+            <?php if ($acl->checkPermission($resourcename, ACTION_EXPORT)) { ?>
+            	<button type="button" class="btn btn-default btn-xs noround submitexcel" title="Export to Excel"><i class='glyphicon glyphicon-download-alt'></i> Export</button>
+                <input type="hidden" name="csv_text" id="csv_text" value="" />
+            <?php } ?>
         </div>
         <?php echo $paginate->getAlphabetString(); ?>
 		<?php if ($has_no_data) { ?>
             <div class="divider30"></div>
             <div style="clear:both;" class="alert alert-warning margin5"><?php echo $this->translate("global_list_noentries"); ?></div>
         <?php } else { ?>
+            <div class="col-md-4 padding0">
+				<div class="leftalign"><label class="form-control"><?php echo sprintf($this->translate("global_list_counter"), $paginate->getItemCounterText()); ?></label></div>
+            </div>
+            <div class="col-md-8 padding0">
+                <div class="inline floatleft"><?php echo $paginate->getPaginationLinks(); ?></div>
+                <div class="inline floatright"><?php echo $this->listcountdropdown; ?></div>
+            </div>
+            <div class="divider2"></div>
         	<div class="row-fluid peoplelist clearfix <?php echo $style == '2' ? 'whitebg' : ''; ?>">
             	<?php if($style == 1){ ?>		
                 	<div class="divider10"></div>
 					<?php
 						foreach($result as $line){
-							$viewurl = $this->baseUrl('member/view/id/'.encode($line['mid']));
-							$indexurl = $this->baseUrl('member/index/id/'.encode($line['mid']));
+							$viewurl = stripUrl($this->baseUrl($controller.'/view/id/'.encode($line['mid'])));
+							$indexurl = stripUrl($this->baseUrl($controller.'/index/id/'.encode($line['mid'])));
+							
+							$isme = false;
+							if($line['mid'] == $userid){
+								$isme = true;
+							}
+							$allowedit = false;
+							if($acl->checkPermission($resourcename, ACTION_EDIT)){
+								$allowedit = true;
+								if($loggedinuser->isRegionalClerk() && ($line['regionid'] != $loggedinuser->getRegionID())){
+									$allowedit = false;
+								}
+								if($loggedinuser->isProvinceClerk() && ($line['provinceid'] != $loggedinuser->getProvinceID())){
+									$allowedit = false;
+								}
+								if($loggedinuser->isDistrictClerk() && ($line['districtid'] != $loggedinuser->getDistrictID())){
+									$allowedit = false;
+								}
+								if($loggedinuser->isSubCountyClerk() && ($line['subcountyid'] != $loggedinuser->getSubCountyID())){
+									$allowedit = false;
+								}
+							}
 					?>
                     	 <div class="col-xs-12 col-sm-6">
                             <div class="peoplewrapper makerelative">
                                 <div class="btn-group gridactions">
                                     <button type="button" class="btn btn-default btn-xs dropdown-toggle noround" data-toggle="dropdown">Action <span class="caret"></span></button>
                                     <ul class="dropdown-menu" role="menu" style="left:-102px;">
-										<?php if ($acl->checkPermission('Member', ACTION_VIEW)) { ?>
+										<?php if ($acl->checkPermission($resourcename, ACTION_VIEW)) { ?>
                                        		<li><a class="blockanchor" href="<?php echo $viewurl; ?>"><i class="glyphicon glyphicon-list"></i> View Profile</a></li>
                                         <?php } ?>
-                                        <?php if ($acl->checkPermission('Member', ACTION_EDIT)) { ?>
+                                        <?php if ($allowedit) { ?>
                                         	<li><a class="blockanchor" href="<?php echo $indexurl; ?>"><i class="glyphicon glyphicon-pencil"></i> Update</a></li>
                                         <?php } ?>
-                                        <?php if(!isEmptyString($line['email'])){ ?>
-                                        	<li><a><i class="glyphicon glyphicon-envelope"></i> Send Email</a></li>
+                                        <?php if ($acl->checkPermission($resourcename, ACTION_DELETE)) { ?>
+                                        	<li><a class="<?php echo $line['status'] == '1' ? 'alert-dialog' : 'deleteline'; ?> gonowhere" action="<?php echo $this->baseUrl($controller.'/delete/id/'.encode($line['mid'])."/entityname/Member/successurl/".encode($listurl)); ?>" message="<?php echo $line['status'] == '1' ? 'Delete on this Profile is  disabled. Contact Super Admin' : $this->translate('global_delete_confirm_message'); ?>" title="Delete Entry"><i class="glyphicon glyphicon-trash"></i> Delete</a></li>
+                                        <?php } ?>
+                                        <?php if(!isEmptyString($line['email']) && $acl->checkPermission('Message', ACTION_CREATE)){ ?>
+                                        	<li><a class="blockanchor" href="<?php echo $viewurl.'/tab/contact/type/1'; ?>"><i class="glyphicon glyphicon-envelope"></i> Send Email</a></li>
                                         <?php }?>
-                                        <?php if(!isEmptyString($line['phone'])){ ?>
-                                        	<li><a><i class="glyphicon glyphicon-phone"></i> Send SMS</a></li>
+                                        <?php if(!isEmptyString($line['phone']) && $acl->checkPermission('SMS', ACTION_CREATE)){ ?>
+                                        	<li><a class="blockanchor" href="<?php echo $viewurl.'/tab/contact/type/2'; ?>"><i class="glyphicon glyphicon-phone"></i> Send SMS</a></li>
                                         <?php } ?>
                                     </ul>
                                 </div>
@@ -245,20 +525,34 @@
                                     	<div class="col-md-6 padding0">
                                         	<ul>
                                                 <li><span class="bolded">Phone:</span> <span class="nullifempty"><?php echo $line['phone']; ?></span></li>
-                                                <li><span class="bolded">Email:</span> <span class="nullifempty"><?php echo $line['email']; ?></span></li> 
-                                                <li><span class="bolded">Church:</span> <span class="nullifempty"><a><?php echo snippet($line['church'], '25','...'); ?></a></span></li>
-                                                <li><span class="bolded">Regn Date:</span> <span class="nullifempty"><?php echo formatDateAndTime($line['mdatecreated'], false); ?></span></li>
-                                                <li><span class="bolded">Region:</span> <span class="nullifempty"><?php echo $line['region']; ?></span></li>
-                                                <li><span class="bolded">Province:</span> <span class="nullifempty"><?php echo $line['province']; ?></span></li>
+                                                <li><span class="bolded">Email:</span> <span class="nullifempty"><?php echo snippet($line['email'], '23','...'); ?></span></li>
+                                                <?php if($isuserlist){ ?> 
+                                                	<li><span class="bolded">Username:</span> <span class="nullifempty"><?php echo $line['username']; ?></span></li>
+                                                <?php } ?>
+                                                <?php if($ismemberlist){ ?> 
+                                                    <li><span class="bolded">Church:</span> <span class="nullifempty"><a href="<?php echo $this->baseUrl('organisation/view/id/'.encode($line['organisationid'])); ?>" class="<?php echo isEmptyString($line['organisationid']) ? 'blanklink' : 'blockanchor'; ?>"><?php echo isEmptyString($line['organisationid']) ? '--' : snippet($line['church'], '23','...'); ?></a></span></li>
+                                                    <li><span class="bolded">Regn Date:</span> <span class="nullifempty"><?php echo formatDateAndTime($line['mdatecreated'], false); ?></span></li>
+                                                <?php } ?>
+                                                <?php if($ismemberlist){ ?>
+                                                    <li><span class="bolded">Region:</span> <span class="nullifempty"><?php echo $line['region']; ?></span></li>
+                                                    <li><span class="bolded">Province:</span> <span class="nullifempty"><?php echo $line['province']; ?></span></li>
+                                                <?php } ?>
                                             </ul>
                                         </div>
                                         <div class="col-md-6 padding0">
                                             <ul>
-                                                <li><span class="bolded">District:</span> <span class="nullifempty"><?php echo $line['district']; ?></span></li>
-                                                <li><span class="bolded">County:</span> <span class="nullifempty"><?php echo $line['county']; ?></span></li>
-                                                <li><span class="bolded">Sub-county:</span> <span class="nullifempty"><?php echo $line['subcounty']; ?></span></li>
-                                                <li><span class="bolded">Parish:</span> <span class="nullifempty"><?php echo $line['parish']; ?></span></li>
-                                                <li><span class="bolded">Village:</span> <span class="nullifempty"><?php echo $line['village']; ?></span></li>
+                                            	<?php if($ismemberlist){ ?> 
+                                                    <li><span class="bolded">District:</span> <span class="nullifempty"><?php echo $line['district']; ?></span></li>
+                                                    <li><span class="bolded">County:</span> <span class="nullifempty"><?php echo $line['county']; ?></span></li>
+                                                    <li><span class="bolded">Sub-county:</span> <span class="nullifempty"><?php echo $line['subcounty']; ?></span></li>
+                                                    <li><span class="bolded">Parish:</span> <span class="nullifempty"><?php echo $line['parish']; ?></span></li>
+                                                    <li><span class="bolded">Village:</span> <span class="nullifempty"><?php echo $line['village']; ?></span></li>
+                                                <?php } ?>
+                                                <?php if($isuserlist){ ?> 
+                                                	<li><span class="bolded">User Type:</span> <span class="nullifempty"><?php echo $line['Group']; ?></span></li>
+                                                    <li><span class="bolded">Status:</span> <span class="nullifempty"><?php echo isArrayKeyAnEmptyString($line['status'], $allstatus) ? '' : $allstatus[$line['status']]; ?></span></li>
+                                                    <li><span class="bolded">Activation Date:</span> <span class="nullifempty"><?php echo formatDateAndTime($line['activationdate'], false); ?></span></li>
+                                                <?php } ?>
                                             </ul>
                                         </div>
                                     </div>
@@ -276,8 +570,8 @@
                         <div class="div2" style="width:5800px;">
                 			<table class="table list table-bordered table-striped data-table" id="datatable">
                                 <thead class="paginationheader">
-                                    <th class="nowrapping">Actions <img style="width:10px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /> </th>
-                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.id',  'ID#'); ?>
+                                    <th class="nowrapping">Actions <img style="width:25px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /> </th>
+                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('o.id',  'Ref#'); ?>
                                         <img style="width:55px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /> </th>
                                     <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.firstname',  'Fist Name'); ?>
                                         <img style="width:50px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
@@ -291,6 +585,14 @@
                                     	<img style="width:50px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
                                     <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.email', 'Email'); ?>
                                     	<img style="width:150px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
+                                   	<?php if($isuserlist){ ?>
+                                        <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.username', 'Username'); ?>
+                                            <img style="width:50px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
+                                        <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.type', 'User Type'); ?>
+                                            <img style="width:50px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
+                                        <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.status', 'Status'); ?>
+                                            <img style="width:50px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
+                                    <?php } ?>
                                     <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.gender', 'Gender'); ?></th>
                                     <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('o.name', 'Church'); ?>
                                         <img style="width:250px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
@@ -316,7 +618,7 @@
                                         <img style="width:200px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
                                     <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.website', 'Website'); ?>
                                         <img style="width:150px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
-                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.salutation', 'Salutation'); ?>
+                                    <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.salutation', 'Title'); ?>
                                         <img style="width:30px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
                                     <th class="nowrapping"><?php echo $paginate->getSortLinkForColumn('m.profession', 'Profession'); ?>
                                         <img style="width:60px; height:2px;" src="<?php echo $this->baseUrl('images/spacer.gif'); ?>" /></th>
@@ -335,73 +637,90 @@
                                 <tbody>
                                     <?php
                                         foreach($result as $line){
-                                            $viewurl = $this->baseUrl('member/view/id/'.encode($line['mid']));
-                                            $indexurl = $this->baseUrl('member/index/id/'.encode($line['mid']));
+                                            $viewurl = $this->baseUrl($controller.'/view/id/'.encode($line['mid']));
+                                            $indexurl = $this->baseUrl($controller.'/index/id/'.encode($line['mid']));
+											
+											$allowedit = false;
+											if($acl->checkPermission($resourcename, ACTION_EDIT)){
+												$allowedit = true;
+												if($loggedinuser->isRegionalClerk() && ($line['regionid'] != $loggedinuser->getRegionID())){
+													$allowedit = false;
+												}
+												if($loggedinuser->isProvinceClerk() && ($line['provinceid'] != $loggedinuser->getProvinceID())){
+													$allowedit = false;
+												}
+												if($loggedinuser->isDistrictClerk() && ($line['districtid'] != $loggedinuser->getDistrictID())){
+													$allowedit = false;
+												}
+												if($loggedinuser->isSubCountyClerk() && ($line['subcountyid'] != $loggedinuser->getSubCountyID())){
+													$allowedit = false;
+												}
+											}
                                     ?>
                                         <tr>
                                             <td class="padding2">
                                             	<ul class="nav listactions">
-													<?php if ($acl->checkPermission('Member', ACTION_VIEW)) { ?>
+													<?php if ($acl->checkPermission($resourcename, ACTION_VIEW)) { ?>
                                                         <li><a class="blockanchor" href="<?php echo $viewurl; ?>" title="View"><i class="glyphicon glyphicon-list"></i></a></li>
                                                     <?php } ?>
-                                                    <?php if ($acl->checkPermission('Member', ACTION_EDIT)) { ?>
+                                                    <?php if ($allowedit) { ?>
                                                         <li><a class="blockanchor" href="<?php echo $indexurl; ?>" title="Update"><i class="glyphicon glyphicon-pencil"></i> </a></li>
+                                                    <?php } ?>
+                                                    <?php if ($acl->checkPermission($resourcename, ACTION_DELETE)) { ?>
+                                                        <li><a class="<?php echo $line['status'] == '1' ? 'alert-dialog' : 'deleteline'; ?> gonowhere" action="<?php echo $this->baseUrl($controller.'/delete/id/'.encode($line['mid'])."/entityname/Member/successurl/".encode($listurl)); ?>" message="<?php echo $line['status'] == '1' ? 'Delete on this Profile is  disabled. Contact Super Admin' : $this->translate('global_delete_confirm_message'); ?>" title="Delete Entry"><i class="glyphicon glyphicon-remove"></i></a></li>
                                                     <?php } ?>
                                                 </ul>
                                             </td>
-                                            <td class="nullifmpty"><a href="<?php echo $viewurl; ?>" class="blockanchor"><?php echo 'M'.number_pad($line['mid'], 4); ?></a></td>
-                                            <td class="nullifmpty"><?php echo $line['firstname']; ?></a></td>
-                                            <td class="nullifmpty"><?php echo $line['lastname']; ?></td>
-                                            <td class="nullifmpty"><?php echo $line['othername']; ?></td>
-                                            <td class="nullifmpty"><?php echo $line['Member']; ?></td>
-                                            <td class="nullifmpty"><?php echo $line['phone']; ?></td>
-                                            <td class="nullifmpty"><?php echo $line['email']; ?></td>
-                                            <td class="nullifmpty"><?php echo getGenderText($line['gender']); ?></td>
-                                            <td class="nullifmpty"><a><?php echo $line['church']; ?></a></td>
-                                            <td class="nullifmpty"><?php echo $line['nationality'] == '1' ? 'Ugandan': 'xx'; ?></td>
-                                            <td class="nullifmpty"><?php echo $line['country'] == 'UG' ? 'Uganda': 'xx'; ?></td>
-                                            <td class="nullifmpty"><?php echo $line['region']; ?></td>
-                                            <td class="nullifmpty"><?php echo $line['province']; ?></td>
-                                            <td class="nullifmpty"><?php echo $line['district']; ?></td>
-                                            <td class="nullifmpty"><?php echo $line['county']; ?></td>
-                                            <td class="nullifmpty"><?php echo $line['subcounty']; ?></td>
-                                            <td class="nullifmpty"><?php echo $line['parish']; ?></td>
-                                            <td class="nullifmpty"><?php echo $line['village']; ?></td>
-                                            <td class="nullifmpty"><?php echo $line['address1']; ?></td>
-                                            <td class="nullifmpty"><?php echo $line['website']; ?></td>
-                                            <td class="nullifmpty"><?php echo $line['salutation']; ?></td>
-                                            <td class="nullifmpty"><?php echo $line['profession']; ?></td>
-                                            <td class="nullifmpty"><?php echo $line['dateofbirth']; ?></td>
-                                            <td class="nullifmpty"><?php echo $line['contactname']; ?></td>
-                                            <td class="nullifmpty"><?php echo $line['noofchildren']; ?></td>
-                                            <td class="nullifmpty"><?php echo $line['mdatecreated']; ?></td>
-                                            <td class="nullifmpty"><?php echo $line['addedby']; ?></td>
-                                            <td class="nullifmpty"><?php // echo $line['']; ?></td>
+                                            <td class="nullifempty"><a href="<?php echo $viewurl; ?>" class="blockanchor"><?php echo 'M'.number_pad($line['mid'], 4); ?></a></td>
+                                            <td class="nullifempty"><?php echo $line['firstname']; ?></td>
+                                            <td class="nullifempty"><?php echo $line['lastname']; ?></td>
+                                            <td class="nullifempty"><?php echo $line['othername']; ?></td>
+                                            <td class="nullifempty"><?php echo $line['Member']; ?></td>
+                                            <td class="nullifempty"><?php echo $line['phone']; ?></td>
+                                            <td class="nullifempty"><?php echo $line['email']; ?></td>
+                                            <?php if($isuserlist){ ?>
+                                            	<td class="nullifempty"><?php echo $line['username']; ?></td>
+                                                <td class="nullifempty"><?php echo $line['Group']; ?></td>
+                                                <td class="nullifempty"><?php echo isArrayKeyAnEmptyString($line['status'], $allstatus) ? '' : $allstatus[$line['status']]; ?></td>	
+                                            <?php } ?>
+                                            <td class="nullifempty"><?php echo getGenderText($line['gender']); ?></td>
+                                            <td class="nullifempty"><a><?php echo $line['church']; ?></a></td>
+                                            <td class="nullifempty"><?php echo $line['country'] == 'UG' ? 'Ugandan': ''; ?></td>
+                                            <td class="nullifempty"><?php echo $line['country'] == 'UG' ? 'Uganda': ''; ?></td>
+                                            <td class="nullifempty"><?php echo $line['region']; ?></td>
+                                            <td class="nullifempty"><?php echo $line['province']; ?></td>
+                                            <td class="nullifempty"><?php echo $line['district']; ?></td>
+                                            <td class="nullifempty"><?php echo $line['county']; ?></td>
+                                            <td class="nullifempty"><?php echo $line['subcounty']; ?></td>
+                                            <td class="nullifempty"><?php echo $line['parish']; ?></td>
+                                            <td class="nullifempty"><?php echo $line['village']; ?></td>
+                                            <td class="nullifempty"><?php echo $line['address1']; ?></td>
+                                            <td class="nullifempty"><?php echo $line['website']; ?></td>
+                                            <td class="nullifempty"><?php echo isArrayKeyAnEmptyString($line['salutation'], $salutations) ? '' : $salutations[$line['salutation']]; ?></td>
+                                            <td class="nullifempty"><?php echo isArrayKeyAnEmptyString($line['profession'], $professions) ? '' : $professions[$line['profession']]; ?></td>
+                                            <td class="nullifempty"><?php echo changeMySQLDateToPageFormat($line['dateofbirth']); ?></td>
+                                            <td class="nullifempty"><?php echo $line['contactname']; ?></td>
+                                            <td class="nullifempty"><?php echo $line['noofchildren']; ?></td>
+                                            <td class="nullifempty"><?php echo formatDateAndTime($line['mdatecreated']); ?></td>
+                                            <td class="nullifempty"><?php echo $line['addedby']; ?></td>
+                                            <td class="nullifempty"><?php echo $line['committees']; ?></td>
                                         </tr>
                                     <?php } ?>
                                 </tbody>
                             </table>
                   		</div>
                     </div>
+                    <div class="divider10"></div>
+                    <div class="col-md-4 padding0">
+                        <div class="leftalign"><label class="form-control"><?php echo sprintf($this->translate("global_list_counter"), $paginate->getItemCounterText()); ?></label></div>
+                    </div>
+                    <div class="col-md-8 padding0">
+                        <div class="inline floatleft"><?php echo $paginate->getPaginationLinks(); ?></div>
+                        <div class="inline floatright"><?php // echo $this->listcountdropdown; ?></div>
+                    </div>
                 <?php } ?> 
             </div>
-            <div class="row-fluid">
-                <div class="table-footer">
-                    <div class="col-md-6 padding0" style="margin-bottom:10px;">
-                        <div class="table-actions">
-                            <div class="row col-md-12 margin0 padding0 clearfix">
-                                <div class="col-md-6 padding0 floatleft"><?php echo $paginate->getListCountDropDown(); ?></div>
-                                <div class="col-md-6 paddingleft5 rightalign" style="margin-bottom:5px;"><?php echo sprintf($this->translate("global_list_counter"), $paginate->getItemCounterText()); ?></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-6 padding0">
-                        <?php echo $paginate->getPaginationLinks(); ?>
-                    </div>
-                </div>
-            </div>
         <?php } ?>
-                                                                      
 	</form>
 </div>            
 <?php

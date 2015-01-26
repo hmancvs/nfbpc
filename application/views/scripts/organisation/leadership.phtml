@@ -1,0 +1,171 @@
+<?php if($step == 'add'){ ?>
+                                	<script>
+										$(document).ready(function(){
+											$("#indexform").validate({		
+												// define the validation rules one field at a time
+												rules: {
+													memberid: "required",
+													positionid: "required"
+												}, 
+												// the messages for each of the fields being validated
+												messages: {		
+													memberid: "Please select a Member",
+													positionid: "Please select a Position"
+												},
+												// custom error positions
+												errorPlacement: function(error, element) {
+													switch(element.attr("name")){					
+														default:
+															if(element.hasClass("useid_error")){
+																error.appendTo("#"+element.attr("id")+"_error");
+															} else {
+																error.appendTo("#"+element.attr("name")+"_error");
+															}
+															break;
+													}			
+												},
+												ignore: ":hidden:not(select)"
+											});
+										});
+									</script>
+                                    <div class="divider10"></div>
+                                    <div class="formactions" id="topactions" style="position:relative;">
+                                        <button type="submit" class="btn btn-success button-submit" name="save"><i class="glyphicon glyphicon-ok"></i> <?php echo $button_title; ?></button>
+                                        <a class="btn button-previous cancel" href="<?php echo $this->referer; ?>"><i class="icon-remove"></i> <?php echo $this->translate('global_button_cancel'); ?></a> &nbsp;
+                                        
+                                        <input type="hidden" name="entityname" value="Appointment" />
+                                        <input type="hidden" id="id" name="id" value="<?php echo encode($role->getID()); ?>" />
+                                        <input type="hidden" id="organisationid" name="organisationid" value="<?php echo $role->getOrganisationID(); ?>" />
+                                        <input type="hidden" class="successurl" id="<?php echo URL_SUCCESS; ?>" name="<?php echo URL_SUCCESS; ?>" value="<?php echo $successurl; ?>" />
+                                        <input type="hidden" class="failureurl" id="<?php echo URL_FAILURE; ?>" name="<?php echo URL_FAILURE; ?>" value="<?php echo $failureurl; ?>" />
+                                        <input type="hidden" id="<?php echo SUCCESS_MESSAGE; ?>" name="<?php echo SUCCESS_MESSAGE; ?>" value="<?php echo $successmessage; ?>" />
+                                        <input type="hidden" id="nosuccessid" name="nosuccessid" value="1" />
+                                    </div>
+                                    <div class="row-fluid margin0">
+                                        <div class="col-md-12">
+                                            <fieldset class="fieldsetcontainer" style="margin-top:0;">
+                                                <legend><?php echo $subtitle; ?></legend>
+                                                <div class="panel-body well-sm">
+                                                    <div class="row-fluid marginleft5">
+                                                        <div class="col-md-6">
+                                                            <div class="form-group">
+                                                                <label class="col-md-4 control-label">Member: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                                                <div class="col-md-8">
+                                                                    <?php
+																		$allvalues = getMembersForOrganisation($organisation->getID());
+																		$dropdown = new Zend_Form_Element_Select('memberid',
+																							array(
+																								'multiOptions' => array_merge_maintain_keys(array('' => '<Select One>'), $allvalues),
+																								'view' => new Zend_View(),
+																								'decorators' => array('ViewHelper'),
+																								'class' => array('form-control','chosen-select')
+																							)
+																		);  
+																		$dropdown->setValue($role->getMemberID()); 
+																		echo $dropdown->render();
+																	?><div id="memberid_error"></div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="form-group">
+                                                                <label class="col-md-4 control-label">Role: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                                                <div class="col-md-8">
+                                                                	<?php
+																		$values = getPositions();
+																		$dropdown = new Zend_Form_Element_Select('positionid',
+																				array(
+																					'multiOptions' => array_merge_maintain_keys(array('' => '<Select One>'), $values),
+																					'view' => new Zend_View(),
+																					'decorators' => array('ViewHelper'),
+																					'class' => array('form-control','input-sm','xconfigvariable'),
+																					'lookupid' => 3,
+																					'fieldid' => 'positionid',
+																					'fieldlabel' => "Roles and Positions"
+																				)
+																		);  
+																		$dropdown->setValue($role->getPositionID()); 
+																		echo $dropdown->render();
+																	?><div id="positionid_error"></div>
+                                                                </div>
+                                                            </div>
+                                                      	</div>
+                                                 	</div>
+                                              	</div>
+                                         	</fieldset>
+                                      	</div>
+                                  	</div>
+                                <?php } ?>
+								<?php if($step == 'list'){ ?>
+                                	<style>
+                                    .peoplelist .peopleinfo {
+										margin-left: 160px;
+										margin-top: -10px;
+									}
+									.peoplelist .thumb {
+										width: 140px;
+									}
+									.peoplelist .thumb img {
+										width: 100%;
+									}
+									.peoplelist .peoplewrapper {
+										height: 165px;
+									}
+                                    </style>
+									<?php 
+                                        $roles = $organisation->getAppointments();
+                                        $totalroles = $roles->count();
+                                        // debugMessage($roles->toArray());
+                                    ?>
+                                    <div class="divider20"></div>
+                                    <a class="btn btn-primary btn-sm blockanchor makeabsolute" style="right:15px; top:10px;" href="<?php echo $this->viewurl.'/step/add'; ?>"><i class="glyphicon glyphicon-plus"></i> Add New Role</a>
+                                    <?php if ($totalroles == 0) { ?>
+                                        <div class="divider10"></div>
+                                        <div style="clear:both;" class="alert alert-warning margin5">There are currently no leadership roles for <?php echo $organisation->getName(); ?></div>
+                                    <?php } else { ?>
+                                        <h5 class="italisize inline" style="color:#999;">Viewing <?php echo $totalroles; ?><?php echo $totalroles > 1 ? ' Roles' : ' Role'; ?> for <?php echo $organisation->getName(); ?></h5>
+                                    	<div class="divider10"></div>
+                                    	<div class="row-fluid peoplelist clearfix">
+                                        	<div class="divider10"></div>
+											<?php
+                                                $i = 1;
+                                                foreach($roles as $role){
+                                            ?>
+                                                <div class="col-xs-12 col-sm-6">
+                                                    <div class="peoplewrapper makerelative">
+                                                        <div class="btn-group gridactions">
+                                                            <button type="button" class="btn btn-default btn-xs dropdown-toggle noround" data-toggle="dropdown">Action <span class="caret"></span></button>
+                                                            <ul class="dropdown-menu" role="menu" style="left:-102px;">
+                                                                <?php if ($acl->checkPermission('Appointment', ACTION_EDIT)) { ?>
+                                                                    <li><a class="blockanchor" href="<?php echo $this->baseUrl('organisation/view/id/'.encode($organisation->getID()).'/tab/leadership/step/add/rid/'.encode($role->getID())); ?>"><i class="glyphicon glyphicon-pencil"></i> Update Role</a></li>
+                                                                <?php } ?>
+                                                                <?php if ($acl->checkPermission('Appointment', ACTION_DELETE)) { ?>
+                                                                    <li><a class="deleteline gonowhere" action="<?php echo $this->baseUrl('appointment/delete/id/'.encode($role->getID())."/entityname/Appointment/successurl/".encode($this->viewurl)); ?>" message="<?php echo $this->translate('global_delete_confirm_message'); ?>" title="Delete Entry"><i class="glyphicon  glyphicon-trash"></i>&nbsp; Delete Role</a></li>
+                                                                <?php } ?>
+                                                                
+																<?php if ($acl->checkPermission('Member', ACTION_VIEW)) { ?>
+                                                                    <li><a class="blockanchor" href="<?php echo $this->baseUrl('member/view/id/'.encode($role->getMemberID())); ?>"><i class="glyphicon glyphicon-list"></i> View Member</a></li>
+                                                                <?php } ?>
+                                                            </ul>
+                                                        </div>
+                                                        <div class="thumb img-thumbnail">
+                                                            <a href="<?php echo $this->baseUrl('member/view/id/'.encode($role->getMemberID())); ?>" class="blockanchor"><img class="imagecontainer" src="<?php echo getImagePath($role->getMemberID(), $role->getMember()->getProfilePhoto(), $role->getMember()->getGender()); ?>" /></a>
+                                                        </div>
+                                                        <div class="peopleinfo">
+                                                            <h4><a href="<?php echo $viewurl; ?>" class="blockanchor"><?php echo $role->getMember()->getName(); ?></a></h4>
+                                                            <div class="row-fluid margin0">
+                                                                <div class="col-md-10 padding0">
+                                                                    <ul>
+                                                                        <li><span class="bolded" style="font-size:15px;"><?php echo $role->getPosition()->getName(); ?></span></li>
+                                                                        <div class="divider20"></div>
+                                                                        <li><span class="bolded">Phone:</span> <span class="nullifempty"><?php echo $role->getMember()->getPhone(); ?></span></li>
+                                                                        <li><span class="bolded">Email:</span> <span class="nullifempty"><?php echo $role->getMember()->getEmail(); ?></span></li>
+                                                                    </ul>
+                                                                </div>
+                                                            </div>
+                                                            
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            <?php } ?>
+                                        </div>
+                                   	<?php } ?>
+                            	<?php } ?> 

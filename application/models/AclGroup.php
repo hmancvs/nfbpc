@@ -43,9 +43,9 @@ class AclGroup extends BaseEntity implements Zend_Acl_Role_Interface {
 	
 	function validate() {
 		# check that the permissions are specfied
-		if (($this->getPermissions()->count() == 0)) {
+		/* if (($this->getPermissions()->count() == 0)) {
 			$this->getErrorStack()->add('permissions', 'Please select at least one set of permissions for the group');
-		}
+		} */
 	}
 	
 	/**
@@ -152,6 +152,29 @@ class AclGroup extends BaseEntity implements Zend_Acl_Role_Interface {
 		// now process the data
 		// debugMessage($post_array['permissions']); // exit();
 		parent::processPost($post_array); 
+	}
+	
+	function afterSave(){
+		$session = SessionWrapper::getInstance();
+		# add log to audit trail
+		$view = new Zend_View();
+		$url = $view->serverUrl($view->baseUrl('role/view/id/'.encode($this->getID())));
+		$usecase = '0.4';
+		$module = '0';
+		$type = SYSTEM_CREATEROLE;
+		$details = "Role <a href='".$url."' class='blockanchor'>".$this->getName()."</a> created";
+			
+		$browser = new Browser();
+		$audit_values = $session->getVar('browseraudit');
+		$audit_values['module'] = $module;
+		$audit_values['usecase'] = $usecase;
+		$audit_values['transactiontype'] = $type;
+		$audit_values['status'] = "Y";
+		$audit_values['userid'] = $session->getVar('userid');
+		$audit_values['transactiondetails'] = $details;
+		$audit_values['url'] = $url;
+		// debugMessage($audit_values);
+		$this->notify(new sfEvent($this, $type, $audit_values));
 	}
 }
 ?>

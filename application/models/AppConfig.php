@@ -62,7 +62,7 @@ class AppConfig extends BaseEntity {
 		$result = $q->execute();
 		return $result->get(0);
 	}
-	function getOptions($section){
+	function getLookupOptions($section){
 		$q = Doctrine_Query::create()->from('Appconfig a')->where("a.section = '".$section."' ")->orderby("a.id");
 		
 		$result = $q->execute();
@@ -76,8 +76,8 @@ class AppConfig extends BaseEntity {
 	}
 	# determine if person has profile image
 	function hasLogo(){
-		$real_path = APPLICATION_PATH."/../public/uploads/system/logo/".$this->getLogo();
-		$real_path2 = APPLICATION_PATH."/../public/uploads/system/logo/large_".$this->getLogo();
+		$real_path = BASE_PATH.DIRECTORY_SEPARATOR."uploads".DIRECTORY_SEPARATOR."system".DIRECTORY_SEPARATOR."logo".DIRECTORY_SEPARATOR.$this->getLogo();
+		$real_path2 = BASE_PATH.DIRECTORY_SEPARATOR."uploads".DIRECTORY_SEPARATOR."system".DIRECTORY_SEPARATOR."logo".DIRECTORY_SEPARATOR."large_".$this->getLogo();
 		if((file_exists($real_path) || file_exists($real_path2)) && !isEmptyString($this->getLogo())){
 			return true;
 		}

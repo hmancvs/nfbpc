@@ -18,10 +18,10 @@ class ConfigController extends IndexController   {
 	 */
 	function getActionforACL() {
 		$action = strtolower($this->getRequest()->getActionName()); 
-		if($action == "processvariables" || $action == "processglobal" || $action == "add"){
+		if($action == "processvariables" || $action == "processglobalconfig" || $action == "add"){
 			return ACTION_EDIT;
 		}
-		if($action == "variables" || $action == "global") {
+		if($action == "variables" || $action == "globalconfig") {
 			return ACTION_LIST; 
 			// return ACTION_VIEW;
 		}
@@ -48,7 +48,7 @@ class ConfigController extends IndexController   {
 		$this->_helper->viewRenderer->setNoRender(TRUE);
 		
 		$formvalues = $this->_getAllParams();
-		//debugMessage($formvalues); 
+		// debugMessage($formvalues); 
 		if(isArrayKeyAnEmptyString('noreload', $formvalues)){
 			$hasnoreload = false; 	
 		} else {
@@ -74,25 +74,6 @@ class ConfigController extends IndexController   {
 		// exit;
 		// debugMessage()
 		switch ($formvalues['lookupid']){
-			case 43:
-				$company = new Company();
-				$company->processPost($formvalues);
-				
-				$result = array('id'=>'', 'name'=>'');
-				if($company->hasError()){
-					$session->setVar(ERROR_MESSAGE, $company->getErrorStackAsString());
-					$session->setVar(FORM_VALUES, $formvalues);
-					// debugMessage('error is '.$company->getErrorStackAsString()); exit;
-				} else {
-					try {
-						$company->save();
-						$result = array('id'=>$company->getID(), 'name'=>$company->getName(), 'alias'=>$company->getalias());
-					} catch (Exception $e) {
-						$session->setVar(ERROR_MESSAGE, $e->getMessage()."<br />".$company->getErrorStackAsString());
-						$session->setVar(FORM_VALUES, $formvalues);
-					}
-				}
-				break;
 			default:
 				$lookupvalue = new LookupTypeValue();
 				$lookuptype = new LookupType();
@@ -121,11 +102,12 @@ class ConfigController extends IndexController   {
 				
 				if(!isArrayKeyAnEmptyString('id', $formvalues)){
 					$lookupvalue->populate($formvalues['id']);
+					$beforesave = $lookupvalue->toArray(); // debugMessage($beforesave);
 				}
 				// unset($dataarray['id']);
 				$lookupvalue->processPost($dataarray);
-				// debugMessage($lookupvalue->toArray());
-		    	// debugMessage('errors are '.$lookupvalue->getErrorStackAsString()); // exit();
+				/* debugMessage($lookupvalue->toArray());
+		    	debugMessage('errors are '.$lookupvalue->getErrorStackAsString()); // exit(); */
 				
 		    	$result = array('id'=>'', 'name'=>'');
 				if($lookupvalue->hasError()){
@@ -136,11 +118,43 @@ class ConfigController extends IndexController   {
 					try {
 						$lookupvalue->save();
 						if(!$hasnoreload){
+							$url = $this->view->serverUrl($this->view->baseUrl("config/variables/lookupid/".$formvalues['lookupid']));
+							$module = '0';
 							if(isArrayKeyAnEmptyString('id', $formvalues)){
 								$session->setVar(SUCCESS_MESSAGE, "Successfully saved");
+								$type = SYSTEM_ADDVARIABLE;
+								$usecase = '0.1';
+								$details = 'Variable - <b>'.$lookupvalue->getlookupvaluedescription().' </b>('.$lookupvalue->getLookupType()->getdisplayname().') addded';
 							} else {
 								$session->setVar(SUCCESS_MESSAGE, "Successfully updated");
+								$type = SYSTEM_UPDATEVARIABLE;
+								$usecase = '0.2';
+								$details = 'Variable - <b>'.$lookupvalue->getlookupvaluedescription().' </b>('.$lookupvalue->getLookupType()->getdisplayname().') updated';
+								$prejson = json_encode($beforesave);
+								$lookupvalue->clearRelated();
+								$after = $lookupvalue->toArray(); debugMessage($after);
+								$postjson = json_encode($after); // debugMessage($postjson);
+								$diff = array_diff($beforesave, $after);  // debugMessage($diff);
+								$jsondiff = json_encode($diff); // debugMessage($jsondiff);
 							}
+							
+							$browser = new Browser();
+							$audit_values = $session->getVar('browseraudit');
+							$audit_values['module'] = $module;
+							$audit_values['usecase'] = $usecase;
+							$audit_values['transactiontype'] = $type;
+							$audit_values['status'] = "Y";
+							$audit_values['userid'] = $session->getVar('userid');
+							$audit_values['transactiondetails'] = $details;
+							$audit_values['url'] = $url;
+							if(!isArrayKeyAnEmptyString('id', $formvalues)){
+								$audit_values['isupdate'] = 1;
+								$audit_values['prejson'] = $prejson;
+								$audit_values['postjson'] = $postjson;
+								$audit_values['jsondiff'] = $jsondiff;
+							}
+							// debugMessage($audit_values);
+							$this->notify(new sfEvent($this, $type, $audit_values));
 						}
 						$result = array('id'=>$lookupvalue->getlookuptypevalue(), 'name'=>$lookupvalue->getlookupvaluedescription(), 'alias'=>$lookupvalue->getalias());
 					} catch (Exception $e) {
@@ -159,17 +173,17 @@ class ConfigController extends IndexController   {
 		}
 	}
     
-	function globalAction(){
+	function globalconfigAction(){
     	// parent::listAction();
     }
     
-	function globalsearchAction(){
-		$this->_helper->redirector->gotoSimple("global", "config", 
+	function globalconfigsearchAction(){
+		$this->_helper->redirector->gotoSimple("globalconfig", "config", 
     											$this->getRequest()->getModuleName(),
     											array_remove_empty(array_merge_maintain_keys($this->_getAllParams(), $this->getRequest()->getQuery())));
 	}
 	
-	function processglobalAction(){
+	function processglobalconfigAction(){
 		$session = SessionWrapper::getInstance(); 
      	$this->_helper->layout->disableLayout();
 		$this->_helper->viewRenderer->setNoRender(TRUE);
@@ -247,7 +261,7 @@ class ConfigController extends IndexController   {
 		$upload->addValidator('Extension', false, $config->uploads->photoallowedformats);
 	 	$upload->addValidator('Size', false, $config->uploads->photomaximumfilesize);
 		
- 		$destination_path = APPLICATION_PATH.DIRECTORY_SEPARATOR."..".DIRECTORY_SEPARATOR."public".DIRECTORY_SEPARATOR."uploads".DIRECTORY_SEPARATOR."system".DIRECTORY_SEPARATOR."logo";
+ 		$destination_path = BASE_PATH.DIRECTORY_SEPARATOR."uploads".DIRECTORY_SEPARATOR."system".DIRECTORY_SEPARATOR."logo";
  		
 		// create archive folder for each user
 		$archivefolder = $destination_path.DIRECTORY_SEPARATOR."archive";
@@ -368,7 +382,7 @@ class ConfigController extends IndexController   {
 		//debugMessage($farmgroup->toArray());
 		
 		$oldfile = "large_".$appconfig->getLogo();
-		$base = APPLICATION_PATH.DIRECTORY_SEPARATOR."..".DIRECTORY_SEPARATOR."public".DIRECTORY_SEPARATOR."uploads".DIRECTORY_SEPARATOR."system".DIRECTORY_SEPARATOR."logo".DIRECTORY_SEPARATOR;
+		$base = BASE_PATH.DIRECTORY_SEPARATOR."uploads".DIRECTORY_SEPARATOR."system".DIRECTORY_SEPARATOR."logo".DIRECTORY_SEPARATOR;
 		
 		$src = $base.$oldfile;
 		// debugMessage($src); exit();

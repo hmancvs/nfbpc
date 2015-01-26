@@ -47,10 +47,10 @@
 				$isregion = true;
 				break;
 			case 2:
-				$moduleitem = "District";
+				$moduleitem = "NFBPC District";
 				$listitems = "Districts";
 				$moduleitem_lower = strtolower($moduleitem);
-				$title = "Districts";
+				$title = "NFBPC Districts";
 				$isdistrict = true;
 				break;
 			case 3:
@@ -157,7 +157,7 @@ $(document).ready(function() {
 	<?php if(!$isregion){ ?>
 		$('#regionid').change(function() {
 			autoPopulateSelectChain('regionid', 'provinceid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/region_provinces/regionid/'); ?>', '<?php echo $location->getProvinceID(); ?>');
-			autoPopulateSelectChain('regionid', 'districtid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/region_districts/regionid/'); ?>', '<?php echo $location->getDistrictID(); ?>');
+			// autoPopulateSelectChain('regionid', 'districtid', '<?php //echo $this->baseUrl('index/selectchaincustom/select_chain_type/region_districts/regionid/'); ?>', '<?php //echo $location->getDistrictID(); ?>');
 		});
 		$('#regionid').trigger('change');
 		
@@ -241,7 +241,7 @@ $(document).ready(function() {
 																				'class' => array('form-control','chosen-select','col-md-2')
 																			)
 																		);
-														$dropdown->setValue($location->getRegionID()); 
+														$dropdown->setValue($rid); 
 														echo $dropdown->render(); 
 													?><div id="regionid_error"></div>
                                                 </div>
@@ -263,6 +263,25 @@ $(document).ready(function() {
 														$dropdown->setValue($location->getProvinceID()); 
 														echo $dropdown->render(); 
 													?><div id="provinceid_error"></div>
+                                                </div>
+                                            </div>
+                                        <?php } ?>
+                                        <?php if($isdistrict){ ?>
+                                        	<div class="form-group">
+                                                <label class="col-md-2 control-label">Political District: <?php echo $this->translate("required_field_marker"); ?></label>
+                                                <div class="col-md-5">
+                                                    <?php
+														$districts = getDistricts();
+														$dropdown = new Zend_Form_Element_Select('districtid',
+																			array(
+																				'multiOptions' => array_merge_maintain_keys(array('' => '<Select One>'), $districts),								'view' => new Zend_View(),
+																				'decorators' => array('ViewHelper'),
+																				'class' => array('form-control','chosen-select','col-md-2')
+																			)
+																		);
+														$dropdown->setValue($location->getDistrictID()); 
+														echo $dropdown->render(); 
+													?><div id="districtid_error"></div>
                                                 </div>
                                             </div>
                                         <?php } ?>
@@ -342,6 +361,12 @@ $(document).ready(function() {
                                                 </div>
                                             </div>
                                         <?php } ?>
+                                        <div class="form-group">
+                                            <label class="col-sm-2 control-label">Population:</label>
+                                            <div class="col-sm-10">
+                                                <input type="text" class="form-control input-sm width100 isnumber" id="population" name="population" value="<?php echo $location->getPopulation(); ?>" /><div id="population_error"></div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

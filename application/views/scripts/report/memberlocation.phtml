@@ -1,0 +1,391 @@
+<?php
+	include APPLICATION_PATH.'/includes/header.php';
+	// require_once BASE_PATH.'/mpdf/mpdf.php';
+	
+	// $user->populate($userid);
+	$title = "Members by Location Report";
+	
+	$startdate = $request->getParam('startdate');
+	if(!isEmptyString($startdate)){
+		$startdate = changeDateFromPageToMySQLFormat($startdate);
+	}
+	$enddate = $request->getParam('enddate');
+	if(!isEmptyString($enddate)){
+		$enddate = changeDateFromPageToMySQLFormat($enddate);
+	}
+	
+	$datestring = ''; 
+	$where_query_region = " WHERE r.id <> '' ";
+	$where_query_province = " WHERE p.id <> '' ";
+	$where_query_district = " WHERE l.id <> '' AND l.locationtype = 2 "; 
+	if(!isEmptyString($startdate) && !isEmptyString($enddate)){
+		$datestring = '['.changeMySQLDateToPageFormat($startdate).' - '.changeMySQLDateToPageFormat($enddate).']'; 
+		$where_query_region .= $where_query_province .= $where_query_district .= " AND TO_DAYS(m.datecreated) BETWEEN TO_DAYS('".$startdate."') AND TO_DAYS('".$enddate."') ";
+	}
+	
+	$profilerid = $request->profilerid;
+	if(!isEmptyString($profilerid)){
+		$where_query_region .= $where_query_province .= $where_query_district .= " AND m.createdby = '".$profilerid."' ";
+	}
+	
+	$order = trim($request->order);
+	$order_query_region = " "; $order_query_province = " "; $order_query_district = " ";
+	if(isEmptyString($order)){
+		$order = 1;
+	}
+	if($order == 1){
+		$order_query_region = " ORDER BY totalmembers DESC ";
+		$order_query_province = " ORDER BY totalmembers DESC ";
+		$order_query_district .= " ORDER BY totalmembers DESC ";
+	}
+	if($order == 2){
+		$order_query_region = " ORDER BY r.name ASC ";
+		$order_query_province = " ORDER BY p.name ASC ";
+		$order_query_district = " ORDER BY l.name ASC ";
+	}
+	
+	$all_results_region_query = "SELECT
+	r.id as id,
+	r.code as refno,
+	r.name as name, 
+	count(m.id) as totalmembers,
+	SUM(IF(m.gender =1,1,0)) as male, 
+	SUM(IF(m.gender =2,1,0)) as female, 
+	SUM(IF(m.phone <> '',1,0)) as withphone, 
+	SUM(IF(m.phone = '' || m.phone is null ,1,0)) as nophone,
+	SUM(IF(m.email <> '',1,0)) as withemail, 
+	SUM(IF(m.email = '' || m.email is null ,1,0)) as noemail 
+	from region r
+	left join member m on(m.regionid = r.id) 
+	".$where_query_region."
+	GROUP BY r.id ".$order_query_region;
+	
+	// debugMessage($all_results_region_query); // exit;
+	$conn = Doctrine_Manager::connection(); 
+	$result_region = $conn->fetchAll($all_results_region_query);
+	$has_no_data_region = (count($result_region) == 0) ? true : false;
+	
+	$all_results_province_query = "SELECT
+	p.id as id,
+	p.pcode as refno,
+	p.name as name, 
+	count(m.id) as totalmembers,
+	SUM(IF(m.gender =1,1,0)) as male, 
+	SUM(IF(m.gender =2,1,0)) as female, 
+	SUM(IF(m.phone <> '',1,0)) as withphone, 
+	SUM(IF(m.phone = '' || m.phone is null ,1,0)) as nophone,
+	SUM(IF(m.email <> '',1,0)) as withemail, 
+	SUM(IF(m.email = '' || m.email is null ,1,0)) as noemail 
+	from province p
+	left join member m on(m.provinceid = p.id) 
+	".$where_query_province."
+	GROUP BY p.id ".$order_query_province;
+	
+	// debugMessage($all_results_region_query); // exit;
+	$conn = Doctrine_Manager::connection(); 
+	$result_province = $conn->fetchAll($all_results_province_query);
+	$has_no_data_province = (count($result_province) == 0) ? true : false;
+	
+	$all_results_district_query = "SELECT
+	l.id as id,
+	l.code as refno,
+	l.name as name, 
+	count(m.id) as totalmembers,
+	SUM(IF(m.gender =1,1,0)) as male, 
+	SUM(IF(m.gender =2,1,0)) as female, 
+	SUM(IF(m.phone <> '',1,0)) as withphone, 
+	SUM(IF(m.phone = '' || m.phone is null ,1,0)) as nophone,
+	SUM(IF(m.email <> '',1,0)) as withemail, 
+	SUM(IF(m.email = '' || m.email is null ,1,0)) as noemail 
+	from location l
+	left join member m on(m.districtid = l.id AND l.locationtype = 2) 
+	".$where_query_district."
+	GROUP BY l.id ".$order_query_district;
+	
+	// debugMessage($all_results_district_query); // exit;
+	$conn = Doctrine_Manager::connection(); 
+	$result_district = $conn->fetchAll($all_results_district_query);
+	$has_no_data_district = (count($result_district) == 0) ? true : false;
+	
+	$this->headTitle($title.$browserappend);
+	$description = '';
+?>
+<script>
+$(document).ready(function() {
+	$('.titlebreadcrumb').html('<?php echo $homedir.'Reports / '.$title; ?>');
+	$('.titlelabel').html('<?php echo $title; ?>');
+	$('.desclabel').html('<?php echo $description; ?>');
+	$('.pageicon').html('<span class="glyphicon glyphicon-signal"></span>');
+	
+	var dateoptions = datepickerOpts;
+	var startfrom = '<?php echo date('Y'); ?>';
+	dateoptions.yearRange = "-<?php echo date('Y')-2010; ?>:-0"; 
+	dateoptions.minDate = "-<?php echo date('Y'); ?>Y";
+	dateoptions.maxDate = new Date("Dec 31, "+startfrom);	
+	$("#startdate, #enddate").datepicker(dateoptions);
+	
+	// export list to excel
+	$(".submitexcel").click(function(e){
+		e.preventDefault();
+		var tableid = $(this).attr('tableid');
+		var csv_value = $('#'+tableid).table2CSV({delivery:'value'});
+		var decoded_value = base64_encode(csv_value);
+		$("#csv_text").val(decoded_value);
+		$("#reportform").attr('action', '<?php echo $this->baseUrl('download/excel'); ?>').attr('method', 'post').submit();
+		
+		// on submit reset the form parameters to previous definition
+		$("#reportform").attr('action', '<?php echo $this->baseUrl("report/reportsearch/page/memberlocation"); ?>').attr('method', 'get');
+		$("#csv_text").val('');
+		return true;
+	});
+	
+	$("#filter").click(function(e){
+		$.blockUI({ message: '<?php echo $blockcontent; ?>'}); 
+		return true;
+	});	
+});
+</script>
+<div class="row margin0">
+    <div class="col-md-12 padding0">
+        <form class="form-search makerelative no" action="<?php echo $this->baseUrl("report/reportsearch/page/memberlocation"); ?>" method="get" id="reportform">
+        	<?php if ($sessionhaserror) { ?>
+            <div class="alert alert-danger"><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
+			<?php } ?>
+            <?php if (!isEmptyString($session->getVar(SUCCESS_MESSAGE))) { ?>
+                <div class="alert alert-success alert-dismissable"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button> <?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
+            <?php } ?>
+            <div class="row-fluid clearfix whitebg">
+            	<div class="divider10"></div>
+                <div class="col-md-12">
+                    <ul class="listfilter">
+                        <li><a href="<?php echo $this->baseUrl('report/dashboard'); ?>" class="btn btn-default btn-sm noimgbutton"><i class="glyphicon glyphicon-arrow-left"></i></a></li>
+                        <li><input type="text" name="startdate" id="startdate" class="form-control input-sm datefield readonly width100" value="<?php echo $request->startdate; ?>" placeholder="From:" /></li>
+                    	<li><input name="enddate" id="enddate" type="text" class="form-control input-sm datefield readonly width100" placeholder="To:" value="<?php echo $request->enddate; ?>" /></li>
+                        <li>
+							<?php
+								$values = getMemberProfilingUsers();
+								$dropdown = new Zend_Form_Element_Select('profilerid',
+													array(
+														'multiOptions' => array_merge_maintain_keys(array('' => 'Profiled By'), $values),
+														'view' => new Zend_View(),
+														'decorators' => array('ViewHelper'),
+														'class' => array("xautofilter", "form-control", 'chosen-select'),
+														'style' => 'width:170px;'
+													)
+								);  
+								$dropdown->setValue($request->getParam('profilerid')); 
+								echo $dropdown->render();
+							?>
+                        </li>
+                        <li>
+							<?php
+                                $allorders = array('1' => 'Order by Total Members', '2'=>'Order Alphabetical');
+                                $ordersdropdown = new Zend_Form_Element_Select('order',
+                                                    array(
+                                                        'multiOptions' => $allorders,
+                                                        'view' => new Zend_View(),
+                                                        'decorators' => array('ViewHelper'),
+                                                        'class' => array('form-control', 'chosen-select', 'width200'),
+                                                        'title' => 'Order list by'		
+                                                    )
+                                );  
+                                $ordersdropdown->setValue($request->getParam('order')); 
+                                echo $ordersdropdown->render();
+                            ?>
+                        </li>
+                        <li>
+                            <button type="submit" class="btn btn-primary btn-sm" title="Generate Report" id="filter"><i class="glyphicon glyphicon-filter"></i> Generate</button> &nbsp;
+                            <input type="hidden" name="csv_text" id="csv_text" value="" />
+                            <a href="<?php echo $this->baseUrl('report/memberlocation'); ?>">Reset</a> &nbsp;
+                        </li>
+					</ul>
+                </div>
+                <div></div>
+           	</div>
+            <div class="divider10"></div>
+            <div id="list_error" class="maxwidth"></div>
+    		<div class="row row-bg" style="margin-bottom:10px;">
+                <div class="col-sm-12 col-md-12">
+                    <div class="widget box makerelative">
+                        <div class="widget-header">
+                            <h4 class="widgettitle blocked maxwidth">Statistics By Region <?php echo $datestring; ?>
+                            <?php if($acl->checkPermission('Members by Location Report', ACTION_EXPORT)) { ?>	
+                                <button type="button" class="btn btn-default btn-xs submitexcel pull-right" tableid="regiontable" style="float:right;"><i class='glyphicon glyphicon-download-alt'></i> Export to Excel</button> &nbsp;
+                            <?php } ?>
+                            </h4>
+                        </div>
+                        <div class="widget-content no-padding whitebg minheight400">
+                            <?php if ($has_no_data_region) { ?>
+                            	<div class="divider10"></div>
+                                <div style="clear:both;" class="alert alert-info margin5">There are no records for this report</div>
+                            <?php } else { ?>
+                                <div style="width:100%; display:block; height:30px;; position:relative;">
+                                    <div class="paginatecustom padding10"><?php echo "Viewing records for ".count($result_region).' Regions'; ?></div>
+                                </div>
+                                <div style="width:100%; height:auto; overflow:auto; margin-bottom:10px; display:block;">
+                                    <table id="datatable" class="table table-bordered datatable" style="margin:10px 0 10px 10px; width:auto;">
+                                        <thead>
+                                            <tr>
+                                                <td style="width:60px;"><label class="control-label">#</label></td>
+                                                <td style="width:200px;"><label class="control-label">Region</label></td>
+                                                <td style="width:120px;"><label class="control-label bolded">Total Members</label></td>
+                                                <td style="width:100px; text-align:center;" colspan="2"><label class="control-label centeralign">Male %</label></td>
+                                                <td style="width:100px; text-align:center;" colspan="2"><label class="control-label centeralign">Female %</label></td>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php
+                                                 $counter = 1;
+                                                 $total = 0;
+                                                 $maletotal = 0; $femaletotal = 0; $phonetotal = 0; $nophonetotal = 0;
+                                                 foreach($result_region as $line){
+                                                     $total += $line['totalmembers'];
+                                                     $maletotal += $line['male']; 
+                                                     $femaletotal += $line['female'];
+                                                     $malepctg = $line['totalmembers'] == 0 ? '--' : round(($line['male']/$line['totalmembers'])*100,1).'%';
+                                                     $femalepctg = $line['totalmembers'] == 0 ? '--' : round(($line['female']/$line['totalmembers'])*100,1).'%';
+                                            ?>
+                                            <tr>
+                                                <td class="centeralign"><span class="nullifempty"><?php echo $line['refno']; ?></span></td>
+                                                <td><span class="nullifempty"><?php echo $line['name']; ?></span></td>
+                                                <td class="centeralign bolded"><span class="nullifempty"><?php echo $line['totalmembers']; ?></span></td>
+                                                <td class="centeralign" style="width:40px;"><span class="nullifempty"><?php echo $line['totalmembers'] == 0 ? '--' : $line['male']; ?></span></td>
+                                                <td class="rightalign"><span class="nullifempty"><?php echo $malepctg; ?></span></td>
+                                                <td class="centeralign" style="width:40px;"><span class="nullifempty"><?php echo $line['totalmembers'] == 0 ? '--' : $line['female']; ?></span></td>
+                                                <td class="rightalign"><span class="nullifempty"><?php echo $femalepctg; ?></span></td>
+                                            </tr>
+                                            <?php $counter++; } ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            <?php } ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row row-bg" style="margin-bottom:10px;">
+                <div class="col-sm-12 col-md-12">
+                    <div class="widget box makerelative">
+                        <div class="widget-header">
+                            <h4 class="widgettitle blocked maxwidth">Statistics By Province <?php echo $datestring; ?>
+                            <?php if($acl->checkPermission('Members by Location Report', ACTION_EXPORT)) { ?>	
+                                <button type="button" class="btn btn-default btn-xs submitexcel pull-right" tableid="provincetable" style="float:right;"><i class='glyphicon glyphicon-download-alt'></i> Export to Excel</button> &nbsp;
+                            <?php } ?>
+                            </h4>
+                        </div>
+                        <div class="widget-content no-padding whitebg minheight400">
+                            <?php if ($has_no_data_province) { ?>
+                            	<div class="divider10"></div>
+                                <div style="clear:both;" class="alert alert-info margin5">There are no records for this report</div>
+                            <?php } else { ?>
+                                <div style="width:100%; display:block; height:30px;; position:relative;">
+                                    <div class="paginatecustom padding10"><?php echo "Viewing records for ".count($result_province).' Provinces'; ?></div>
+                                </div>
+                                <div style="width:100%; height:auto; overflow:auto; margin-bottom:10px; display:block;">
+                                    <table id="provincetable" class="table table-bordered datatable" style="margin:10px 0 10px 10px; width:auto;">
+                                        <thead>
+                                            <tr>
+                                                <td style="width:60px;"><label class="control-label">Ref#</label></td>
+                                                <td style="width:200px;"><label class="control-label">Province</label></td>
+                                                <td style="width:120px;"><label class="control-label bolded">Total Members</label></td>
+                                                <td style="width:100px; text-align:center;" colspan="2"><label class="control-label centeralign">Male %</label></td>
+                                                <td style="width:100px; text-align:center;" colspan="2"><label class="control-label centeralign">Female %</label></td>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php
+                                                 $counter = 1;
+                                                 $total = 0;
+                                                 $maletotal = 0; $femaletotal = 0; $phonetotal = 0; $nophonetotal = 0;
+                                                 foreach($result_province as $line){
+                                                     $total += $line['totalmembers'];
+                                                     $maletotal += $line['male']; 
+                                                     $femaletotal += $line['female'];
+                                                     $malepctg = $line['totalmembers'] == 0 ? '--' : round(($line['male']/$line['totalmembers'])*100,1).'%';
+                                                     $femalepctg = $line['totalmembers'] == 0 ? '--' : round(($line['female']/$line['totalmembers'])*100,1).'%';
+                                            ?>
+                                            <tr>
+                                                <td class="centeralign"><span class="nullifempty"><?php echo $line['refno']; ?></span></td>
+                                                <td><span class="nullifempty"><?php echo $line['name']; ?></span></td>
+                                                <td class="centeralign bolded"><span class="nullifempty"><?php echo $line['totalmembers']; ?></span></td>
+                                                <td class="centeralign" style="width:40px;"><span class="nullifempty"><?php echo $line['totalmembers'] == 0 ? '--' : $line['male']; ?></span></td>
+                                                <td class="rightalign"><span class="nullifempty"><?php echo $malepctg; ?></span></td>
+                                                <td class="centeralign" style="width:40px;"><span class="nullifempty"><?php echo $line['totalmembers'] == 0 ? '--' : $line['female']; ?></span></td>
+                                                <td class="rightalign"><span class="nullifempty"><?php echo $femalepctg; ?></span></td>
+                                            </tr>
+                                            <?php $counter++; } ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            <?php } ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <?php //if(false){ ?>
+            <div class="row row-bg" style="margin-bottom:10px;">
+                <div class="col-sm-12 col-md-12">
+                    <div class="widget box makerelative">
+                        <div class="widget-header">
+                            <h4 class="widgettitle blocked maxwidth">Statistics By District <?php echo $datestring; ?>
+                            <?php if($acl->checkPermission('Members by Location Report', ACTION_EXPORT)) { ?>	
+                                <button type="button" class="btn btn-default btn-xs submitexcel pull-right" tableid="districttable" style="float:right;"><i class='glyphicon glyphicon-download-alt'></i> Export to Excel</button> &nbsp;
+                            <?php } ?>
+                            </h4>
+                        </div>
+                        <div class="widget-content no-padding whitebg minheight400">
+                            <?php if ($has_no_data_district) { ?>
+                            	<div class="divider10"></div>
+                                <div style="clear:both;" class="alert alert-info margin5">There are no records for this report</div>
+                            <?php } else { ?>
+                                <div style="width:100%; display:block; height:30px;; position:relative;">
+                                    <div class="paginatecustom padding10"><?php echo "Viewing records for ".count($result_district).' Districts'; ?></div>
+                                </div>
+                                <div style="width:100%; height:auto; overflow:auto; margin-bottom:10px; display:block;">
+                                    <table id="districttable" class="table table-bordered datatable" style="margin:10px 0 10px 10px; width:auto;">
+                                        <thead>
+                                            <tr>
+                                                <td style="width:60px;"><label class="control-label">Ref#</label></td>
+                                                <td style="width:200px;"><label class="control-label">District</label></td>
+                                                <td style="width:120px;"><label class="control-label bolded">Total Members</label></td>
+                                                <td style="width:100px; text-align:center;" colspan="2"><label class="control-label centeralign">Male %</label></td>
+                                                <td style="width:100px; text-align:center;" colspan="2"><label class="control-label centeralign">Female %</label></td>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php
+                                                 $counter = 1;
+                                                 $total = 0;
+                                                 $maletotal = 0; $femaletotal = 0; $phonetotal = 0; $nophonetotal = 0;
+                                                 foreach($result_district as $line){
+                                                     $total += $line['totalmembers'];
+                                                     $maletotal += $line['male']; 
+                                                     $femaletotal += $line['female'];
+                                                     $malepctg = $line['totalmembers'] == 0 ? '--' : round(($line['male']/$line['totalmembers'])*100,1).'%';
+                                                     $femalepctg = $line['totalmembers'] == 0 ? '--' : round(($line['female']/$line['totalmembers'])*100,1).'%';
+                                            ?>
+                                                <tr>
+                                                    <td class="centeralign"><span class="nullifempty"><?php echo $line['refno']; ?></span></td>
+                                                    <td><span class="nullifempty"><?php echo $line['name']; ?></span></td>
+                                                    <td class="centeralign bolded"><span class="nullifempty"><?php echo $line['totalmembers']; ?></span></td>
+                                                    <td class="centeralign" style="width:40px;"><span class="nullifempty"><?php echo $line['totalmembers'] == 0 ? '--' : $line['male']; ?></span></td>
+                                                    <td class="rightalign"><span class="nullifempty"><?php echo $malepctg; ?></span></td>
+                                                    <td class="centeralign" style="width:40px;"><span class="nullifempty"><?php echo $line['totalmembers'] == 0 ? '--' : $line['female']; ?></span></td>
+                                                    <td class="rightalign"><span class="nullifempty"><?php echo $femalepctg; ?></span></td>
+                                                </tr>
+                                            <?php $counter++; } ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            <?php } ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <?php //} ?>
+		</form>
+	</div>
+</div>
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

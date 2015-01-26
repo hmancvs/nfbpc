@@ -12,6 +12,11 @@
 		$style = $session->getVar('style');
 	}
 	
+	$dtype = $request->dtype;
+	if(isEmptyString($request->dtype)){
+		$dtype = 1;
+	}
+	
 	$title = $this->translate("location_pagetitle_list");
 	$listitems = $this->translate("location_pagetitle_list");
 	$listurl = $this->baseUrl("location/list");
@@ -168,7 +173,14 @@
 	if(!isEmptyString($districtid)){
 		$where_query .= " AND l.districtid = '".$districtid."' ";
 	}
-	
+	if($isdistrict){
+		if($dtype == 1){
+			// $where_query .= " AND l.districtid <> '' ";
+		}
+		if($dtype == 2){
+			$where_query .= " AND l.districtid is null ";
+		}
+	}
 	$countyid = $request->countyid;
 	if(!isEmptyString($countyid)){
 		$where_query .= " AND l.countyid = '".$countyid."' ";
@@ -198,6 +210,7 @@
 	if(!isEmptyString($sortcolumn) && !isEmptyString($sortorder)){
 		$order_query = " ORDER BY " . $sortcolumn. " " .$sortorder. " ";
 	}
+
 	// f.orgname as fundername, concat(u.firstname,' ',u.lastname) as supervisorname
 	$paginate->processPost($request->getParams());
 	if($type == 0 || $type == 7){
@@ -245,10 +258,33 @@
 		$('.desclabel').html('<?php echo $description; ?>');
 		$('.pageicon').html('<span class="glyphicon glyphicon-map-marker"></span>');
 		
-		$(".switchregion").change(function(){
+		$(".switchregion, .switchdistrict").change(function(){
 			window.location.href = $(this).attr('href');
 			$.blockUI({ message: uiblockcontent}); 
 		});
+		
+		// export list to excel
+		$(".submitexcel").click(function(e){
+			<?php if($style == 1){ ?>
+				$("#exporttrigger").val('1');
+				$("#style").val('2');
+				$("#listform").submit();
+			<?php } else { ?>
+				e.preventDefault();
+				var csv_value = $('#datatable').table2CSV({delivery:'value'});
+				var decoded_value = base64_encode(csv_value);
+				$("#csv_text").val(decoded_value);
+				$("#listform").attr('action', '<?php echo $this->baseUrl('download/excel'); ?>').attr('method', 'post').submit();
+				// on submit reset the form parameters to previous definition
+				$("#listform").attr('action', '<?php echo $this->baseUrl($controller."/listsearch"); ?>').attr('method', 'get');
+				$("#csv_text").val('');
+				return true;
+			<?php } ?>
+		});
+		
+		<?php if($request->exporttrigger == '1'){ ?>
+			$(".submitexcel").trigger('click');
+		<?php } ?>
 	});
 </script>
 <style>
@@ -281,7 +317,7 @@ a.updatelink {
         <div class="row-fluid clearfix">
         	<div class="col-md-9 paddingleft0">
             	<ul class="listfilter">
-					<?php if ($acl->checkPermission('Location', ACTION_CREATE)) { ?>
+					<?php if ($acl->checkPermission('Location', ACTION_CREATE) && $dtype != 2) { ?>
                         <li><a class="btn btn-primary btn-sm blockanchor" href="<?php echo $addurl; ?>"><i class="glyphicon glyphicon-plus"></i> Add New <?php echo $moduleitem; ?></a></li>
                     <?php } ?>
                     <?php if($isregion || $isprovince){ ?>
@@ -307,6 +343,12 @@ a.updatelink {
 								echo $dropdown->render();
 							?> 
                             
+                        </li>
+                    <?php } ?>
+                    <?php if($isdistrict){ ?>
+	                    <li>
+                            <label class="radio-inline"><input class="switchdistrict <?php echo $dtype == 1 ? 1 : 0; ?>" type="radio" name="district" id="region_0" value="0" href="<?php echo $this->baseUrl('location/list/type/2/dtype/1'); ?>" /> NFBPC Districts </label>
+                            <label class="radio-inline"><input class="switchdistrict <?php echo $dtype == 2 ? 1 : 0; ?>" type="radio" name="district" id="provinces" value="7" href="<?php echo $this->baseUrl('location/list/type/2/dtype/2'); ?>" /> Political Districts</label>
                         </li>
                     <?php } ?>
                     <?php if($iscounty || $issubcounty || $isparish || $isvillage){ ?>
@@ -396,15 +438,22 @@ a.updatelink {
             	<input type="hidden" name="letter" id="letter" value="<?php echo $request->getParam('letter'); ?>" />
                 <input type="hidden" name="type" id="type" value="<?php echo $type; ?>" />
                 <input type="hidden" name="style" id="style" value="<?php echo $style; ?>" />
+                <input type="hidden" name="exporttrigger" id="exporttrigger" value="<?php echo $request->exporttrigger; ?>" />
                 <?php if($allowclear){ ?>
                     <a href="<?php echo $listurl; ?>" title="Clear Search and Filters" class="reset close button btn resetlink blockanchor">&times;</a>
                 <?php } ?>
             </div>
         </div>
-        <div class="divider10"></div>
+        <?php if($isregion || $isprovince){ ?>
+        <div class="divider30"></div>
+        <?php } ?>
         <div class="stylewidget">
             <a class="gonowhere btn btn-default btn-xs noround styletrigger <?php echo $style == 1 ? 'active' : ''; ?>" id="style1" rel='1'><i class="glyphicon glyphicon-th-large"></i> Grid</a>
             <a class="gonowhere btn btn-default btn-xs noround styletrigger <?php echo $style == 2 ? 'active' : ''; ?>" id="style2" rel='2'><i class="glyphicon glyphicon-list-alt"></i> Table</a>
+            <?php if ($acl->checkPermission("Location", ACTION_EXPORT)) { ?>
+            	<button type="button" class="btn btn-default btn-xs noround submitexcel" title="Export to Excel"><i class='glyphicon glyphicon-download-alt'></i> Export</button>
+                <input type="hidden" name="csv_text" id="csv_text" value="" />
+            <?php } ?>
         </div>
         <?php if($isdistrict || $iscounty || $issubcounty || $isparish || $isvillage){ ?>
         	<?php echo $paginate->getAlphabetString(); ?>
@@ -498,7 +547,7 @@ a.updatelink {
                                                     <?php foreach($listarray as $key => $item){ 
 														
 													?>
-                                                        <li class="nullifmpty" style="display:block; width:50%; float:left; font-size:14px; margin-bottom:2px; list-style:outside;"><a class="blockanchor" href="<?php echo $this->baseUrl('location/view/type/7/id/'.encode($listidsarray[$key])); ?>"><?php echo $item; ?></a></li> 
+                                                        <li class="nullifempty" style="display:block; width:50%; float:left; font-size:14px; margin-bottom:2px; list-style:outside;"><a class="blockanchor" href="<?php echo $this->baseUrl('location/view/type/7/id/'.encode($listidsarray[$key])); ?>"><?php echo $item; ?></a></li> 
                                                     <?php } ?>
                                                 <?php } ?>
                                             </ul>
@@ -636,33 +685,33 @@ a.updatelink {
                                                         <?php } ?>
                                                     </ul>
                                                 </td>
-                                                <td class="nullifmpty"><?php echo $line['Code']; ?></td>
+                                                <td class="nullifempty"><?php echo $line['Code']; ?></td>
                                                 <?php if($isprovince){ ?>
-                                                    <td class="nullifmpty"><a href="<?php echo $viewurl; ?>" class="<?php echo in_array($type, array(1,6)) ? 'blanklink updatelink' : 'blockanchor'; ?>"><?php echo $line['Name']; ?></a></td>
+                                                    <td class="nullifempty"><a href="<?php echo $viewurl; ?>" class="<?php echo in_array($type, array(1,6)) ? 'blanklink updatelink' : 'blockanchor'; ?>"><?php echo $line['Name']; ?></a></td>
                                                     <th class="nullifempty" style="font-weight:normal;">
                                                         <?php if(count($listarray) > 0){?>
                                                             <?php echo implode(', ',$listarray); ?>
                                                         <?php } ?>
                                                     </th>
                                                 <?php } else { ?>
-                                                    <td class="nullifmpty"><a href="<?php echo $viewurl; ?>" class="<?php echo in_array($type, array(1,6)) ? 'blanklink updatelink' : 'blockanchor'; ?>"><?php echo $line['Name']; ?></a></td>
+                                                    <td class="nullifempty"><a href="<?php echo $viewurl; ?>" class="<?php echo in_array($type, array(1,6)) ? 'blanklink updatelink' : 'blockanchor'; ?>"><?php echo $line['Name']; ?></a></td>
                                                     <?php if($isdistrict){ ?>
-                                                        <td class="nullifmpty"><?php echo $line['region']; ?></td>
-                                                        <td class="nullifmpty"><?php echo $line['province']; ?></td>
+                                                        <td class="nullifempty"><?php echo $line['region']; ?></td>
+                                                        <td class="nullifempty"><?php echo $line['province']; ?></td>
                                                     <?php } ?>
                                                     <?php if($iscounty || $issubcounty || $isparish || $isvillage){ ?>
-                                                    	<td class="nullifmpty"><?php echo $line['district']; ?></td>
+                                                    	<td class="nullifempty"><?php echo $line['district']; ?></td>
                                                     <?php } ?>
                                                     <?php if($issubcounty || $isparish || $isvillage){ ?>
-                                                    	<td class="nullifmpty"><?php echo $line['county']; ?></td>
+                                                    	<td class="nullifempty"><?php echo $line['county']; ?></td>
                                                     <?php } ?>
                                                     <?php if($isparish || $isvillage){ ?>
-                                                    	<td class="nullifmpty"><?php echo $line['subcounty']; ?></td>
+                                                    	<td class="nullifempty"><?php echo $line['subcounty']; ?></td>
                                                     <?php } ?>
                                                     <?php if($isvillage){ ?>
-                                                    	<td class="nullifmpty"><?php echo $line['parish']; ?></td>
+                                                    	<td class="nullifempty"><?php echo $line['parish']; ?></td>
                                                     <?php } ?>
-                                                    <td class="nullifmpty"><?php echo $line['Description']; ?></td>
+                                                    <td class="nullifempty"><?php echo $line['Description']; ?></td>
                                                 <?php } ?>
                                             </tr>
                                         <?php } ?>  

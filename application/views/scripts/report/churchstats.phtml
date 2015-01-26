@@ -1,0 +1,289 @@
+<?php
+	include APPLICATION_PATH.'/includes/header.php';
+	// require_once BASE_PATH.'/mpdf/mpdf.php';
+	
+	// $user->populate($userid);
+	$title = "Church Statistics Report";
+	
+	$startdate = $request->getParam('startdate');
+	if(!isEmptyString($startdate)){
+		$startdate = changeDateFromPageToMySQLFormat($startdate);
+	}
+	$enddate = $request->getParam('enddate');
+	if(!isEmptyString($enddate)){
+		$enddate = changeDateFromPageToMySQLFormat($enddate);
+	}
+	
+	$datestring = ''; $where_query = " WHERE o.id <> '' ";
+	if(!isEmptyString($startdate) && !isEmptyString($enddate)){
+		$datestring = '['.changeMySQLDateToPageFormat($startdate).' - '.changeMySQLDateToPageFormat($enddate).']'; 
+		$where_query .= " AND TO_DAYS(o.datecreated) BETWEEN TO_DAYS('".$startdate."') AND TO_DAYS('".$enddate."') ";
+	}
+	
+	$regionid = $request->regionid;
+	if(!isEmptyString($regionid)){
+		$where_query .= " AND o.regionid = '".$regionid."' ";
+		$allowclear = true;
+	}
+	$provinceid = $request->provinceid;
+	if(!isEmptyString($provinceid)){
+		$where_query .= " AND o.provinceid = '".$provinceid."' ";
+		$allowclear = true;
+	}
+	$districtid = $request->districtid;
+	if(!isEmptyString($districtid)){
+		$where_query .= " AND o.districtid = '".$districtid."' ";
+		$allowclear = true;
+	}
+	$profilerid = $request->profilerid;
+	if(!isEmptyString($profilerid)){
+		$where_query .= " AND o.createdby = '".$profilerid."' ";
+		$allowclear = true;
+	}
+	
+	$order = trim($request->order);
+	$order_query = " ";
+	if(isEmptyString($order)){
+		$order = 1;
+	}
+	if($order == 1){
+		$order_query = " ORDER BY totalmembers DESC ";
+	}
+	if($order == 2){
+		$order_query = " ORDER BY o.name ASC ";
+	}
+	if($order == 3){
+		$order_query = " ORDER BY o.datecreated DESC ";
+	}
+	if($order == 4){
+		$order_query = " ORDER BY o.datecreated ASC ";
+	}
+	
+	$all_results_query = "SELECT
+		o.id as id,
+		o.refno as refno,
+		o.name as name, 
+		count(m.id) as totalmembers,
+		SUM(IF(m.gender =1,1,0)) as male, 
+		SUM(IF(m.gender =2,1,0)) as female, 
+		SUM(IF(m.phone <> '',1,0)) as withphone, 
+		SUM(IF(m.phone = '' || m.phone is null ,1,0)) as nophone,
+		SUM(IF(m.email <> '',1,0)) as withemail, 
+		SUM(IF(m.email = '' || m.email is null ,1,0)) as noemail 
+		from organisation o
+		left join member m on(m.organisationid = o.id) 
+		".$where_query."
+		GROUP BY o.id ".$order_query;
+		
+		// debugMessage($all_results_query); exit;
+		$conn = Doctrine_Manager::connection(); 
+		$result = $conn->fetchAll($all_results_query);
+		$has_no_data = (count($result) == 0) ? true : false;
+	
+	$this->headTitle($title.$browserappend);
+	$description = '';
+	$icon = $this->baseUrl('images/icon_report.png');
+?>
+<script>
+$(document).ready(function() {
+	$('.titlebreadcrumb').html('<?php echo $homedir.'Reports / '.$title; ?>');
+	$('.titlelabel').html('<?php echo $title; ?>');
+	$('.desclabel').html('<?php echo $description; ?>');
+	$('.pageicon').html('<span class="glyphicon glyphicon-signal"></span>');
+	
+	var dateoptions = datepickerOpts;
+	var startfrom = '<?php echo date('Y'); ?>';
+	dateoptions.yearRange = "-<?php echo date('Y')-2010; ?>:-0"; 
+	dateoptions.minDate = "-<?php echo date('Y'); ?>Y";
+	dateoptions.maxDate = new Date("Dec 31, "+startfrom);	
+	$("#startdate, #enddate").datepicker(dateoptions);
+	
+	// export list to excel
+	$(".submitexcel").click(function(e){
+		e.preventDefault();
+		var csv_value = $('#datatable').table2CSV({delivery:'value'});
+		var decoded_value = base64_encode(csv_value);
+		$("#csv_text").val(decoded_value);
+		$("#reportform").attr('action', '<?php echo $this->baseUrl('download/excel'); ?>').attr('method', 'post').submit();
+		// on submit reset the form parameters to previous definition
+		$("#reportform").attr('action', '<?php echo $this->baseUrl("report/reportsearch/page/churchstats"); ?>').attr('method', 'get');
+		$("#csv_text").val('');
+		return true;
+	});
+	
+	$("#filter").click(function(e){
+		$.blockUI({ message: '<?php echo $blockcontent; ?>'}); 
+		return true;
+	});	
+});
+</script>
+<div class="row margin0">
+    <div class="col-md-12 padding0">
+        <form class="form-search makerelative no" action="<?php echo $this->baseUrl("report/reportsearch/page/churchstats"); ?>" method="get" id="reportform">
+        	<?php if ($sessionhaserror) { ?>
+            <div class="alert alert-danger"><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
+			<?php } ?>
+            <?php if (!isEmptyString($session->getVar(SUCCESS_MESSAGE))) { ?>
+                <div class="alert alert-success alert-dismissable"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button> <?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
+            <?php } ?>
+            <div class="row-fluid clearfix whitebg">
+            	<div class="divider10"></div>
+                <div class="col-md-12">
+                    <ul class="listfilter">
+                        <li><a href="<?php echo $this->baseUrl('report/dashboard'); ?>" class="btn btn-default btn-sm noimgbutton"><i class="glyphicon glyphicon-arrow-left"></i></a></li>
+                        <li><input type="text" name="startdate" id="startdate" class="form-control input-sm datefield readonly width100" value="<?php echo $request->startdate; ?>" placeholder="From:" /></li>
+                    	<li><input name="enddate" id="enddate" type="text" class="form-control input-sm datefield readonly width100" placeholder="To:" value="<?php echo $request->enddate; ?>" /></li>
+                        <li>
+							<?php
+                                $values = getChurchProfilingUsers();
+                                $dropdown = new Zend_Form_Element_Select('profilerid',
+                                                    array(
+                                                        'multiOptions' => array_merge_maintain_keys(array('' => 'Profiled By'), $values),
+                                                        'view' => new Zend_View(),
+                                                        'decorators' => array('ViewHelper'),
+                                                        'class' => array("xautofilter", "form-control", 'chosen-select'),
+                                                        'style' => 'width:170px;'
+                                                    )
+                                );  
+                                $dropdown->setValue($request->getParam('profilerid')); 
+                                echo $dropdown->render();
+                            ?>
+                        </li>
+                        <li>
+                            <button type="submit" class="btn btn-primary btn-sm" title="Generate Report" id="filter"><i class="glyphicon glyphicon-filter"></i> Generate</button> &nbsp;
+                            <input type="hidden" name="csv_text" id="csv_text" value="" />
+                            <?php if($acl->checkPermission('Church Statistics Report', ACTION_EXPORT)) { ?>	
+                                <button type="button" class="btn btn-default btn-sm submitexcel" title="Export to Excel"><i class='glyphicon glyphicon-download-alt'></i> Export to Excel</button>
+                            <?php } ?>
+                        </li>
+					</ul>
+                    <ul class="listfilter">                       
+                        <li>
+							<?php
+                                $regions = getNFBPCRegions();
+                                $dropdown = new Zend_Form_Element_Select('regionid',
+                                                    array(
+                                                        'multiOptions' => array_merge_maintain_keys(array('' => 'All Regions'), $regions),								
+                                                        'view' => new Zend_View(),
+                                                        'decorators' => array('ViewHelper'),
+                                                        'class' => array("xautofilter", "form-control", 'chosen-select', 'width150')
+                                                    )
+                                                );
+                                $dropdown->setValue($request->getParam('regionid')); 
+                                echo $dropdown->render();
+                            ?> 
+                        </li>
+                        <li>
+                            <?php
+                                $provinces = getProvinces($request->getParam('regionid'));
+                                $dropdown = new Zend_Form_Element_Select('provinceid',
+                                                    array(
+                                                        'multiOptions' => array_merge_maintain_keys(array('' => 'All Provinces'), $provinces),								
+                                                        'view' => new Zend_View(),
+                                                        'decorators' => array('ViewHelper'),
+                                                        'class' => array("xautofilter", "form-control", 'chosen-select', 'width150')
+                                                    )
+                                                );
+                                $dropdown->setValue($request->getParam('provinceid')); 
+                                echo $dropdown->render();
+                            ?> 
+                        </li>
+                        <li>
+                            <?php
+                                $districts = getDistricts($request->getParam('regionid'));
+                                $dropdown = new Zend_Form_Element_Select('districtid',
+                                                    array(
+                                                        'multiOptions' => array_merge_maintain_keys(array('' => 'All Districts'), $districts),								
+                                                        'view' => new Zend_View(),
+                                                        'decorators' => array('ViewHelper'),
+                                                        'class' => array("xautofilter", "form-control", 'chosen-select', 'width150'),
+                                                        'style' => 'width:150px;'
+                                                    )
+                                                );
+                                $dropdown->setValue($request->getParam('districtid')); 
+                                echo $dropdown->render();
+                            ?> 
+                        </li>
+                        <li>
+							<?php
+                                $allorders = array('1' => 'Order by Total Members', '2'=>'Order Alphabetical','3'=>'Latest First', '4'=>'Earliest First');
+                                $ordersdropdown = new Zend_Form_Element_Select('order',
+                                                    array(
+                                                        'multiOptions' => $allorders,
+                                                        'view' => new Zend_View(),
+                                                        'decorators' => array('ViewHelper'),
+                                                        'class' => array('form-control', 'chosen-select', 'width200'),
+                                                        'title' => 'Order list by'		
+                                                    )
+                                );  
+                                $ordersdropdown->setValue($request->getParam('order')); 
+                                echo $ordersdropdown->render();
+                            ?>
+                        </li>
+                        <li><a href="<?php echo $this->baseUrl('report/churchstats'); ?>">Reset</a> &nbsp;</li>
+                    </ul>
+                </div>
+                <div></div>
+           	</div>
+            <div class="divider10"></div>
+            <div id="list_error" class="maxwidth"></div>
+    		<div class="row row-bg" style="margin-bottom:10px;">
+                <div class="col-sm-12 col-md-12">
+                    <div class="widget box makerelative">
+                        <div class="widget-header">
+                            <h4 class="widgettitle">Member Statistics By Church <?php echo $datestring; ?></h4>
+                        </div>
+                        <div class="widget-content no-padding whitebg minheight400">
+                            <?php if ($has_no_data) { ?>
+                                <div style="clear:both;" class="alert alert-info margin5">There are no records for this report</div>
+                            <?php } else { ?>
+                                <div style="width:100%; display:block; height:30px;; position:relative;">
+                                    <div class="paginatecustom padding10"><?php echo "Viewing records for ".count($result).' Churches'; ?></div>
+                                </div>
+                                <div style="width:100%; height:1000px; overflow-y:scroll; margin-bottom:10px; display:block;">
+                                    <table id="datatable" class="table table-bordered" style="margin:10px 0 10px 10px; width:auto;">
+                                        <thead>
+                                            <tr>
+                                                <td style="width:25px;"><label class="control-label">Ref#</label></td>
+                                                <td style="width:400px;"><label class="control-label">Name of Church</label></td>
+                                                <td style="width:120px;"><label class="control-label bolded">Total Members</label></td>
+                                                <td style="width:100px; text-align:center;" colspan="2"><label class="control-label centeralign">Male %</label></td>
+                                                <td style="width:100px; text-align:center;" colspan="2"><label class="control-label centeralign">Female %</label></td>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php
+                                                 $counter = 1;
+                                                 $total = 0;
+                                                 $maletotal = 0; $femaletotal = 0; $phonetotal = 0; $nophonetotal = 0;
+                                                 foreach($result as $line){
+                                                     $total += $line['totalmembers'];
+                                                     $maletotal += $line['male']; 
+                                                     $femaletotal += $line['female'];
+                                                     $malepctg = $line['totalmembers'] == 0 ? '--' : round(($line['male']/$line['totalmembers'])*100,1).'%';
+                                                     $femalepctg = $line['totalmembers'] == 0 ? '--' : round(($line['female']/$line['totalmembers'])*100,1).'%';
+                                            ?>
+                                            <tr>
+                                                <td class="centeralign"><span class="nullifempty"><?php echo $counter; ?></span></td>
+                                                <td><span class="nullifempty"><?php echo $line['name']; ?></span></td>
+                                                <td class="centeralign bolded"><span class="nullifempty"><?php echo $line['totalmembers']; ?></span></td>
+                                                <td class="centeralign" style="width:40px;"><span class="nullifempty"><?php echo $line['totalmembers'] == 0 ? '--' : $line['male']; ?></span></td>
+                                                <td class="rightalign"><span class="nullifempty"><?php echo $malepctg; ?></span></td>
+                                                <td class="centeralign" style="width:40px;"><span class="nullifempty"><?php echo $line['totalmembers'] == 0 ? '--' : $line['female']; ?></span></td>
+                                                <td class="rightalign"><span class="nullifempty"><?php echo $femalepctg; ?></span></td>
+                                            </tr>
+                                            <?php $counter++; } ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            <?php } ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
+		</form>
+	</div>
+</div>
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

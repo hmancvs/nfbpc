@@ -11,6 +11,50 @@
 	$indexurl = $this->baseUrl('committee/index/id/'.encode($committee->getID()));
 	$listurl = $this->baseUrl('committee/list');
 	$listitems = 'All Committees';
+	
+	$posturl = '';
+	$formid = 'viewform';
+	$formmethod = 'get';
+	
+	$step = $request->step;
+	if(isEmptyString($step)){
+		$step = 'list';
+	}
+	
+	if($step == 'add'){
+		$formid = 'indexform';
+		$formmethod = 'post';
+		$posturl = $this->baseUrl("appointment/create");
+		$successurl = encode($this->baseUrl('committee/view/id/'.encode($committee->getID())));
+		$failureurl =  encode($this->viewurl);
+		$successmessage = $this->translate('global_save_success');
+		$button_title = "Save";
+		if(!isEmptyString($request->rid)){
+			$button_title = "Save Changes";
+			$successmessage = $this->translate('global_update_success');
+			$posturl = $this->baseUrl("appointment/edit");
+		}
+		if(!isEmptyString($request->rid) && !isEmptyString($request->terminate)){
+			$button_title = "Terminate Appointment";
+		}
+		
+		$role = new Appointment();
+		$subtitle = 'New Appointment';
+		if(!isEmptyString($request->rid)){
+			$subtitle = 'Update Appointment';
+			$role->populate(decode($request->rid));
+			if(!isEmptyString($request->terminate)){
+				$role->setStatus('0');
+			}
+		} else {
+			$role->setCommitteeID($committee->getID());
+		}
+		
+		$regionid = $role->getRegionID();
+		$provinceid = $role->getProvinceID();
+		$districtid = $role->getDistrictID();
+		$subcountyid = $role->getSubcountyID();
+	}
 	$this->headTitle($title.$browserappend);
 ?>
 <script>
@@ -54,26 +98,27 @@ $(document).ready(function() {
         <div class="alert alert-success alert-dismissable"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button> <?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
     <?php } ?>
     <div class="contentcontainer clearfix">
-    	<form id="viewform" class="form-horizontal" role="form" method="get">
+        <form id="<?php echo $formid; ?>" class="form-horizontal" role="form" method="<?php echo $formmethod; ?>" action="<?php echo $posturl; ?>">
         	<div class="row-fluid margin0">
             	<div class="col-md-12">
                     <fieldset class="fieldsetcontainer">
-                        <legend><?php echo $title; ?></legend>
+                        <legend>About the Committee</legend>
                         <div class="panel-body well-sm">
                             <div class="row-fluid marginleft5">
-                                <div class="col-md-12 paddingleft10">
-                                    <div class="form-group">
-                                        <label class="col-md-2 control-label"><?php echo $this->translate('global_description_label'); ?>:</label>
+                                <div class="col-md-11 paddingleft10 minheight100">
+                                	<p class="form-control-static nullifempty view"><?php echo nl2br($committee->getDescription()); ?></p>
+                                    <!--<div class="form-group">
+                                        <label class="col-md-2 control-label"><?php //echo $this->translate('global_description_label'); ?>:</label>
                                         <div class="col-md-10">
-                                            <p class="form-control-static nullifempty view"><?php echo nl2br($committee->getDescription()); ?></p>
+                                            <p class="form-control-static nullifempty view"><?php //echo nl2br($committee->getDescription()); ?></p>
                                         </div>
                                     </div>
                                     <div class="form-group">
-                                        <label class="col-md-2 control-label"><?php echo $this->translate('global_abbr_label'); ?>:</label>
+                                        <label class="col-md-2 control-label"><?php //echo $this->translate('global_abbr_label'); ?>:</label>
                                         <div class="col-md-10">
-                                            <p class="form-control-static nullifempty view"><?php echo $committee->getAbbr(); ?></p>
+                                            <p class="form-control-static nullifempty view"><?php //echo $committee->getAbbr(); ?></p>
                                         </div>
-                                    </div>
+                                    </div>-->
                                 </div>
                             </div>
                 		</div>
@@ -85,7 +130,517 @@ $(document).ready(function() {
                     <fieldset class="fieldsetcontainer">
                         <legend>Committee Members</legend>
                         <div class="panel-body well-sm" style="min-height:500px;">
-                        
+                        	<?php if($step == 'add'){ ?>
+                            	<script>
+									$(document).ready(function(){
+										$("#indexform").validate({		
+											// define the validation rules one field at a time
+											rules: {
+												committeeid: "required",
+												positionid: "required",
+												memberid: "required",
+												startyear: "required",
+												startmonth: "required",
+												endyear: "required",
+												endmonth: "required",
+												actualendyear: "required",
+												actualendmonth: "required",
+												status: "required",
+												endreason: "required"
+											}, 
+											// the messages for each of the fields being validated
+											messages: {		
+												committeeid: "Please select a Committee",
+												positionid: "Please select a Position",
+												memberid: "Please select a Member",
+												startyear: "Please select a Year",
+												startmonth: "Please select a Month",
+												endyear: "Please select a Year",
+												endmonth: "Please select a Month",
+												actualendyear: "Please select a Year",
+												actualendmonth: "Please select a Month",
+												status: "Please select a Status",
+												endreason: "Please enter reason for termination"
+											},
+											// custom error positions
+											errorPlacement: function(error, element) {
+												switch(element.attr("name")){					
+													default:
+														if(element.hasClass("useid_error")){
+															error.appendTo("#"+element.attr("id")+"_error");
+														} else {
+															error.appendTo("#"+element.attr("name")+"_error");
+														}
+														break;
+												}			
+											},
+											ignore: ":hidden:not(select)"
+										});
+										
+										// show hide termination fields
+										$("#status").change(function(){
+											var value = $(this).val();
+											if(value == 1){
+												disableContainerByClass('terminaterow');
+											} 
+											if(value == 0){
+												enableContainerByClass('terminaterow');
+											} 
+										});
+										$("#status").trigger('change');
+										
+										// show hide location depending on the committee
+										$("#committeeid").change(function(){
+											var id = $(this).val();
+											multipleDisableContainerByClass('locationrow');
+											if(id == '1'){
+												$('#departmentid').val('16');
+											}
+											if(id == '9'){
+												enableContainerByClass('locationrow');
+												disableContainerByClass('locationtype');
+												multipleEnableContainerByClass('regions');
+												$('#departmentid').val('15');
+											}
+											if(id == '10'){
+												enableContainerByClass('locationrow');
+												disableContainerByClass('locationtype');
+												multipleEnableContainerByClass('regions,provinces');
+												$('#departmentid').val('14');
+											}
+											if(id == '11'){
+												enableContainerByClass('locationrow');
+												disableContainerByClass('locationtype');
+												multipleEnableContainerByClass('regions,provinces,districts');
+												$('#departmentid').val('13');
+											}
+											if(id == '12'){
+												enableContainerByClass('locationrow');
+												disableContainerByClass('locationtype');
+												multipleEnableContainerByClass('regions,provinces,districts,subcounties');
+												$('#departmentid').val('12');
+											}
+										});
+										$("#committeeid").trigger('change');
+										
+										$('#regionid').change(function() {
+											autoPopulateSelectChain('regionid', 'provinceid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/region_provinces/regionid/'); ?>', '<?php echo $provinceid; ?>');
+											autoPopulateSelectChain('regionid', 'districtid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/region_districts/regionid/'); ?>', '<?php echo $districtid; ?>');
+										});
+										$('#regionid').trigger('change');
+										
+										$('#districtid').change(function() {
+											autoPopulateSelectChain('districtid', 'subcountyid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/district_subcounties/districtid/'); ?>', '<?php echo $subcountyid; ?>');
+										});
+										$('#districtid').trigger('change');
+										
+									});
+								</script>
+                                <div class="formactions" id="topactions" style="position:relative;">
+                                    <button type="submit" class="btn btn-success button-submit" name="save"><i class="glyphicon glyphicon-ok"></i> <?php echo $button_title; ?></button>
+                                    <a class="btn button-previous cancel" href="<?php echo $this->referer; ?>"><i class="icon-remove"></i> <?php echo $this->translate('global_button_cancel'); ?></a> &nbsp;
+                                    
+                                    <input type="hidden" name="entityname" value="Appointment" />
+                                    <input type="hidden" id="id" name="id" value="<?php echo encode($role->getID()); ?>" />
+                                    <input type="hidden" id="committeeid" name="committeeid" value="<?php echo $role->getCommitteeID(); ?>" />
+                                    <input type="hidden" class="successurl" id="<?php echo URL_SUCCESS; ?>" name="<?php echo URL_SUCCESS; ?>" value="<?php echo $successurl; ?>" />
+                                    <input type="hidden" class="failureurl" id="<?php echo URL_FAILURE; ?>" name="<?php echo URL_FAILURE; ?>" value="<?php echo $failureurl; ?>" />
+                                    <input type="hidden" id="<?php echo SUCCESS_MESSAGE; ?>" name="<?php echo SUCCESS_MESSAGE; ?>" value="<?php echo $successmessage; ?>" />
+                                    <input type="hidden" id="nosuccessid" name="nosuccessid" value="1" />
+                                </div>
+                                <div class="row-fluid margin0">
+                                    <div class="col-md-12">
+                                        <fieldset class="fieldsetcontainer" style="margin-top:0;">
+                                            <legend><?php echo $subtitle; ?></legend>
+                                            <div class="panel-body well-sm">
+                                                <div class="row-fluid marginleft5">
+                                                    <div class="col-md-6">
+                                                        <div class="form-group">
+                                                            <label class="col-md-4 control-label">Committee: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                                            <div class="col-md-8"><?php echo $role->getCommittee()->getName(); ?></div>
+                                                        </div>
+                                                        <div class="form-group">
+                                                            <label class="col-md-4 control-label">Member: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                                            <div class="col-md-8">
+                                                                <?php
+                                                                    $allvalues = getUsers();
+                                                                    $dropdown = new Zend_Form_Element_Select('memberid',
+                                                                                        array(
+                                                                                            'multiOptions' => array_merge_maintain_keys(array('' => '<Select One>'), $allvalues),
+                                                                                            'view' => new Zend_View(),
+                                                                                            'decorators' => array('ViewHelper'),
+                                                                                            'class' => array('form-control','chosen-select')
+                                                                                        )
+                                                                    );  
+                                                                    $dropdown->setValue($role->getMemberID()); 
+                                                                    echo $dropdown->render();
+                                                                ?><div id="memberid_error"></div>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        <div class="form-group">
+                                                            <label class="col-md-4 control-label">Role / Position: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                                            <div class="col-md-8">
+                                                                <?php
+                                                                    $values = getPositions();
+                                                                    $dropdown = new Zend_Form_Element_Select('positionid',
+                                                                            array(
+                                                                                'multiOptions' => array_merge_maintain_keys(array('' => '<Select One>'), $values),
+                                                                                'view' => new Zend_View(),
+                                                                                'decorators' => array('ViewHelper'),
+                                                                                'class' => array('form-control','input-sm','xconfigvariable'),
+                                                                                'lookupid' => 3,
+                                                                                'fieldid' => 'positionid',
+                                                                                'fieldlabel' => "Appointments and Positions"
+                                                                            )
+                                                                    );  
+                                                                    $dropdown->setValue($role->getPositionID()); 
+                                                                    echo $dropdown->render();
+                                                                ?><div id="positionid_error"></div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="form-group">
+                                                            <label class="col-md-4 control-label">Department:</label>
+                                                            <div class="col-md-8">
+                                                                <?php
+                                                                    $values = getDepartments();
+                                                                    $dropdown = new Zend_Form_Element_Select('departmentid',
+                                                                            array(
+                                                                                'multiOptions' => array_merge_maintain_keys(array('' => '<Select One>'), $values),
+                                                                                'view' => new Zend_View(),
+                                                                                'decorators' => array('ViewHelper'),
+                                                                                'class' => array('form-control','input-sm','xconfigvariable')
+                                                                            )
+                                                                    );  
+                                                                    $dropdown->setValue($role->getDepartmentID()); 
+                                                                    echo $dropdown->render();
+                                                                ?><div id="departmentid_error"></div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="form-group locationrow">
+                                                            <label class="col-md-4 control-label">Location:</label>
+                                                            <div class="col-md-8">
+                                                                <div class="regions locationtype">
+                                                                    <b style="font-size:12px;">Region</b>
+                                                                    <div class="divider2"></div>
+                                                                    <?php
+                                                                        $regions = getNFBPCRegions();
+                                                                        $dropdown = new Zend_Form_Element_Select('regionid',
+                                                                                            array(
+                                                                                                'multiOptions' => array_merge_maintain_keys(array('' => '<Select One>'), $regions),								'view' => new Zend_View(),
+                                                                                                'decorators' => array('ViewHelper'),
+                                                                                                'class' => array('form-control','chosen-select','col-md-2')
+                                                                                            )
+                                                                                        );
+                                                                        $dropdown->setValue($regionid); 
+                                                                        echo $dropdown->render(); 
+                                                                    ?><div id="regionid_error"></div>
+                                                                </div>
+                                                                <div class="divider5"></div>
+                                                                <div class="provinces locationtype">
+                                                                    <b style="font-size:12px;">Province</b>
+                                                                    <div class="divider2"></div>
+                                                                    <?php
+                                                                        $provinces = getProvinces();
+                                                                        $dropdown = new Zend_Form_Element_Select('provinceid',
+                                                                                            array(
+                                                                                                'multiOptions' => array_merge_maintain_keys(array('' => '<Select One>'), $provinces),								'view' => new Zend_View(),
+                                                                                                'decorators' => array('ViewHelper'),
+                                                                                                'class' => array('form-control','chosen-select','col-md-2')
+                                                                                            )
+                                                                                        );
+                                                                        $dropdown->setValue($provinceid); 
+                                                                        echo $dropdown->render(); 
+                                                                    ?><div id="provinceid_error"></div>
+                                                                </div>
+                                                                <div class="divider5"></div>
+                                                                <div class="districts locationtype">
+                                                                    <b style="font-size:12px;">District</b>
+                                                                    <div class="divider2"></div>
+                                                                    <?php
+                                                                        $districts = getDistricts();
+                                                                        $dropdown = new Zend_Form_Element_Select('districtid',
+                                                                                            array(
+                                                                                                'multiOptions' => array_merge_maintain_keys(array('' => '<Select One>'), $districts),								'view' => new Zend_View(),
+                                                                                                'decorators' => array('ViewHelper'),
+                                                                                                'class' => array('form-control','chosen-select','col-md-2')
+                                                                                            )
+                                                                                        );
+                                                                        $dropdown->setValue($districtid); 
+                                                                        echo $dropdown->render(); 
+                                                                    ?><div id="districtid_error"></div>
+                                                                </div>
+                                                                <div class="divider5"></div>
+                                                                <div class="subcounties locationtype">
+                                                                    <b style="font-size:12px;">Sub-county</b>
+                                                                    <div class="divider2"></div>
+                                                                    <?php
+                                                                        $values = array();
+                                                                        $dropdown = new Zend_Form_Element_Select('subcountyid',
+                                                                                            array(
+                                                                                                'multiOptions' => array_merge_maintain_keys(array('' => '<Select County First>'), $values),								'view' => new Zend_View(),
+                                                                                                'decorators' => array('ViewHelper'),
+                                                                                                'class' => array('form-control','chosen-select','col-md-2')
+                                                                                            )
+                                                                                        );
+                                                                        $dropdown->setValue($subcountyid); 
+                                                                        echo $dropdown->render(); 
+                                                                    ?><div id="subcountyid_error"></div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div class="form-group">
+                                                            <label class="col-md-4 control-label">Appointment Start: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                                            <div class="col-md-8">
+                                                                <?php 
+                                                                    $startyear = ''; $startmonth = ''; $endyear = ''; $endmonth = ''; $actualendmonth = ''; $actualendyear = '';
+                                                                    $datestyle = 'width:65px; display:inline; font-size:10px; padding-left:2px;';
+                                                                    if(!isEmptyString($role->getStartDate())){
+                                                                        $startyear = date('Y', strtotime($role->getStartDate()));
+                                                                    }
+                                                                    if(!isEmptyString($role->getStartDate())){
+                                                                        $startmonth = date('m', strtotime($role->getStartDate()));
+                                                                    }
+                                                                    if(!isEmptyString($role->getExpectedEnddate())){
+                                                                        $endyear = date('Y', strtotime($role->getExpectedEnddate()));
+                                                                    }
+                                                                    if(!isEmptyString($role->getExpectedEnddate())){
+                                                                        $endmonth = date('m', strtotime($role->getExpectedEnddate()));
+                                                                    }
+                                                                    if(!isEmptyString($role->getActualEnddate())){
+                                                                        $actualendyear = date('Y', strtotime($role->getActualEnddate()));
+                                                                    }
+                                                                    if(!isEmptyString($role->getActualEnddate())){
+                                                                        $actualendmonth = date('m', strtotime($role->getActualEnddate()));
+                                                                    }
+                                                                ?>
+                                                                <?php
+                                                                    $monthdp = new Zend_Form_Element_Select('startmonth',
+                                                                                        array(
+                                                                                            'multiOptions' => array_merge_maintain_keys(array('' => 'Month'), getAllMonthsAsShortNames()),	
+                                                                                            'view' => new Zend_View(),
+                                                                                            'decorators' => array('ViewHelper'),
+                                                                                            'class' => array('birth form-control input-sm'),
+                                                                                            'style' => $datestyle		
+                                                                                        )
+                                                                                    );
+                                                                    $monthdp->setValue($startmonth); 
+                                                                    echo $monthdp->render(); 
+                                                                ?>
+                                                                <?php
+                                                                    $years = getYearsInRage(2000, 2020);
+                                                                    $yeardp = new Zend_Form_Element_Select('startyear',
+                                                                                        array(
+                                                                                            'multiOptions' => array_merge_maintain_keys(array('' => 'Year'), $years),	
+                                                                                            'view' => new Zend_View(),
+                                                                                            'decorators' => array('ViewHelper'),
+                                                                                            'class' => array('birth form-control input-sm'),
+                                                                                            'style' => $datestyle		
+                                                                                        )
+                                                                                    );
+                                                                    $yeardp->setValue($startyear); 
+                                                                    echo $yeardp->render(); 
+                                                                ?>
+                                                                <div id="startmonth_error"></div><div id="startyear_error"></div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="form-group">
+                                                            <label class="col-md-4 control-label">Expected End: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                                            <div class="col-md-8">
+                                                                <?php
+                                                                    $monthdp = new Zend_Form_Element_Select('endmonth',
+                                                                                        array(
+                                                                                            'multiOptions' => array_merge_maintain_keys(array('' => 'Month'), getAllMonthsAsShortNames()),	
+                                                                                            'view' => new Zend_View(),
+                                                                                            'decorators' => array('ViewHelper'),
+                                                                                            'class' => array('birth form-control input-sm'),
+                                                                                            'style' => $datestyle		
+                                                                                        )
+                                                                                    );
+                                                                    $monthdp->setValue($endmonth); 
+                                                                    echo $monthdp->render(); 
+                                                                ?>
+                                                                <?php
+                                                                    $yeardp = new Zend_Form_Element_Select('endyear',
+                                                                                        array(
+                                                                                            'multiOptions' => array_merge_maintain_keys(array('' => 'Year'), $years),	
+                                                                                            'view' => new Zend_View(),
+                                                                                            'decorators' => array('ViewHelper'),
+                                                                                            'class' => array('birth form-control input-sm'),
+                                                                                            'style' => $datestyle		
+                                                                                        )
+                                                                                    );
+                                                                    $yeardp->setValue($endyear); 
+                                                                    echo $yeardp->render(); 
+                                                                ?>
+                                                                <div id="endmonth_error"></div><div id="endyear_error"></div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="form-group">
+                                                            <label class="col-md-4 control-label">Status: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                                            <div class="col-md-8">
+                                                                <?php
+                                                                    $values = array('1'=>'Active', '0'=>'Terminated');
+                                                                    $yeardp = new Zend_Form_Element_Select('status',
+                                                                                        array(
+                                                                                            'multiOptions' => $values,	
+                                                                                            'view' => new Zend_View(),
+                                                                                            'decorators' => array('ViewHelper'),
+                                                                                            'class' => array('form-control input-sm'),
+                                                                                            'style' => 'width:135px;'
+                                                                                        )
+                                                                                    );
+                                                                    $yeardp->setValue($role->getStatus()); 
+                                                                    echo $yeardp->render(); 
+                                                                ?>
+                                                            </div>
+                                                        </div>
+                                                        <div class="form-group terminaterow">
+                                                            <label class="col-md-4 control-label">Actual End: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                                            <div class="col-md-8">
+                                                                <?php
+                                                                    $monthdp = new Zend_Form_Element_Select('actualendmonth',
+                                                                                        array(
+                                                                                            'multiOptions' => array_merge_maintain_keys(array('' => 'Month'), getAllMonthsAsShortNames()),	
+                                                                                            'view' => new Zend_View(),
+                                                                                            'decorators' => array('ViewHelper'),
+                                                                                            'class' => array('birth form-control input-sm'),
+                                                                                            'style' => $datestyle		
+                                                                                        )
+                                                                                    );
+                                                                    $monthdp->setValue($actualendmonth); 
+                                                                    echo $monthdp->render(); 
+                                                                ?>
+                                                                <?php
+                                                                    $yeardp = new Zend_Form_Element_Select('actualendyear',
+                                                                                        array(
+                                                                                            'multiOptions' => array_merge_maintain_keys(array('' => 'Year'), $years),	
+                                                                                            'view' => new Zend_View(),
+                                                                                            'decorators' => array('ViewHelper'),
+                                                                                            'class' => array('birth form-control input-sm'),
+                                                                                            'style' => $datestyle		
+                                                                                        )
+                                                                                    );
+                                                                    $yeardp->setValue($actualendyear); 
+                                                                    echo $yeardp->render(); 
+                                                                ?>
+                                                                <div id="actualendmonth_error"></div><div id="actualendyear_error"></div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="form-group terminaterow">
+                                                            <label class="col-md-4 control-label">Termination Reason: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                                            <div class="col-md-8">
+                                                                <textarea class="expanding form-control" id="endreason" name="endreason"><?php echo $role->getEndReason(); ?></textarea>
+                                                                <div id="endreason_error"></div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </fieldset>
+                                    </div>
+                                </div>
+                            <?php } ?>
+                            <?php if($step == 'list'){ ?>
+								<style>
+                                .peoplelist .peopleinfo {
+                                    margin-left: 160px;
+                                    margin-top: -10px;
+                                }
+                                .peoplelist .thumb {
+                                    width: 140px;
+                                }
+                                .peoplelist .thumb img {
+                                    width: 100%;
+                                }
+                                .peoplelist .peoplewrapper {
+                                    height: 165px;
+                                }
+                                </style>
+                                <?php 
+                                    $roles = $committee->getAppointments();
+                                    $totalroles = $roles->count();
+                                    // debugMessage($roles->toArray());
+                                ?>
+                                <div class="divider20"></div>
+                                <?php if ($acl->checkPermission('Appointment', ACTION_CREATE)) { ?>
+                                	<a class="btn btn-primary btn-sm blockanchor makeabsolute" style="right:25px; top:30px;" href="<?php echo $this->viewurl.'/step/add'; ?>"><i class="glyphicon glyphicon-plus"></i> Appoint Member</a>
+                                <?php } ?>
+                                <?php if ($totalroles == 0) { ?>
+                                    <div class="divider10"></div>
+                                    <div style="clear:both;" class="alert alert-warning margin5">There are currently no members Appointed to this Committee</div>
+                                <?php } else { ?>
+                                    <h5 class="inline" style="padding-left:15px;"><b>Total Number of Members:</b> <?php echo $totalroles; ?></h5>
+                                    <div class="divider10"></div>
+                                    <div class="row-fluid peoplelist clearfix">
+                                        <div class="divider10"></div>
+                                        <?php
+                                            $i = 1;
+                                            foreach($roles as $role){
+												$locationtext = ''; $departtext = '';
+												if(!isEmptyString($role->getLocationID())){
+													$locationtext = ' - <span style="font-weight:normal;">'.$role->getLocation()->getName().' '.$role->getLocationType().'</span>';
+												}
+												if(!isEmptyString($role->getDepartmentID()) && !in_array($role->getCommitteeID(), array(9,10,11,12))){
+													$departtext = ' - <span style="font-weight:normal;">'.$role->getDepartment()->getName().'</span>';
+												}
+                                        ?>
+                                            <div class="col-xs-12 col-md-12">
+                                                <div class="peoplewrapper makerelative">
+                                                    <div class="btn-group gridactions">
+                                                        <button type="button" class="btn btn-default btn-xs dropdown-toggle noround" data-toggle="dropdown">Action <span class="caret"></span></button>
+                                                        <ul class="dropdown-menu" role="menu" style="left:-102px;">
+                                                            <?php if ($acl->checkPermission('Appointment', ACTION_EDIT)) { ?>
+                                                                <li><a class="blockanchor" href="<?php echo $this->viewurl.'/step/add/rid/'.encode($role->getID()); ?>"><i class="glyphicon glyphicon-pencil"></i> Update Appointment</a></li>
+                                                            <?php } ?>
+                                                            <?php if ($acl->checkPermission('Appointment', ACTION_DELETE)) { ?>
+                                                                <li><a class="deleteline gonowhere" action="<?php echo $this->baseUrl('appointment/delete/id/'.encode($role->getID())."/entityname/Appointment/successurl/".encode($this->viewurl)); ?>" message="<?php echo $this->translate('global_delete_confirm_message'); ?>" title="Delete Entry"><i class="glyphicon  glyphicon-trash"></i>&nbsp; Remove Appointment</a></li>
+                                                            <?php } ?>
+                                                            
+                                                            <?php if ($acl->checkPermission('Member', ACTION_VIEW)) { ?>
+                                                                <li><a class="blockanchor" href="<?php echo $this->baseUrl('member/view/id/'.encode($role->getMemberID())); ?>"><i class="glyphicon glyphicon-list"></i> View Member</a></li>
+                                                            <?php } ?>
+                                                        </ul>
+                                                    </div>
+                                                    <div class="thumb img-thumbnail">
+                                                        <a href="<?php echo $this->baseUrl('member/view/id/'.encode($role->getMemberID())); ?>" class="blockanchor"><img class="imagecontainer" src="<?php echo getImagePath($role->getMemberID(), $role->getMember()->getProfilePhoto(), $role->getMember()->getGender()); ?>" /></a>
+                                                    </div>
+                                                    <div class="peopleinfo">
+                                                        <h4><a href="<?php echo $this->baseUrl('member/view/id/'.encode($role->getMemberID())); ?>" class="blockanchor"><?php echo $role->getMember()->getName(); ?></a></h4>
+                                                        <div class="row-fluid margin0">
+                                                            <div class="col-md-6 padding0">
+                                                                <ul>
+                                                                    <li><span class="bolded" style="font-size:15px;"><?php echo $role->getPosition()->getName().$locationtext.$departtext; ?></span></li>
+                                                                    <div class="divider20"></div>
+                                                                    <li><span class="bolded">Phone:</span> <span class="nullifempty"><?php echo $role->getMember()->getPhone(); ?></span></li>
+                                                                    <li><span class="bolded">Email:</span> <span class="nullifempty"><?php echo $role->getMember()->getEmail(); ?></span></li>
+                                                                </ul>
+                                                            </div>
+                                                            <div class="col-md-6 padding0">
+                                                                <ul>
+                                                                	<?php if($role->getStatus() != 0){ ?>
+                                                                    	<li><div class="divider30"></div><div class="divider10"></div></li>
+                                                                    <?php } ?>
+                                                                    <li><span class="bolded">Start:</span> <span class="nullifempty"><?php echo date('M Y', strtotime($role->getStartDate())); ?></span></li>
+                                                                    <li><span class="bolded">Expected End:</span> <span class="nullifempty"><?php echo date('M Y', strtotime($role->getExpectedEndDate())); ?></span></li>
+                                                                    <li><span class="bolded">Status:</span> <span class="nullifempty"><?php echo $role->getStatusText(); ?></span></li>
+                                                                    <?php if($role->getStatus() == 0){ ?>
+                                                                    	<li><span class="bolded">Actual End:</span> <span class="nullifempty"><?php echo $role->getStatusText(); ?></span></li>
+                                                                        <li><span class="bolded">Termination Reason:</span> <span class="nullifempty"><?php echo $role->getEndReason(); ?></span></li>
+                                                                    <?php } ?>
+                                                                </ul>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        <?php } ?>
+                                    </div>
+                                <?php } ?>
+                           	<?php } ?>
                         </div>
                    	</fieldset>
                	</div>

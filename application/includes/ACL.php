@@ -2,6 +2,8 @@
 require_once 'Zend/Acl.php';
 require_once 'Zend/Exception.php';
 
+error_reporting(E_ALL & ~E_STRICT & ~E_NOTICE);
+
 class ACL extends Zend_Acl   {
 	private $availableGroups; 
 	

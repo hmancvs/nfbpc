@@ -24,9 +24,8 @@
 		$style = $session->getVar('style');
 	}
 ?>
-<?php if(false){ ?>
 
-<?php } ?>
+<script type="text/javascript" src="<?php echo $this->serverUrl($this->baseUrl('javascript/plugins/jquery.customscrollbar.min.js')); ?>"></script>
 <script type="text/javascript" src="<?php echo $this->serverUrl($this->baseUrl('javascript/plugins/jquery-ui-1.11.1.min.js')); ?>"></script>
 <script type="text/javascript">
 var datepickerOpts = {
@@ -72,6 +71,8 @@ $(document).ready(function() {
 			clearValue("searchterm"); 
 			// submit the form containing the dropdown
 			$(this).parents("form:first").submit(); 
+			$.blockUI({ message: uiblockcontent}); 
+	        return true;
 		});
 	});
 	
@@ -83,7 +84,7 @@ $(document).ready(function() {
     });
 	
 	// show block ui when transfering to another page
-	$('a.blockanchor').click(function(){
+	$('a.blockanchor, .blockanchor, a.block, .block').click(function(){
 		$.blockUI({ message: uiblockcontent}); 
         return true;
     });
@@ -103,6 +104,8 @@ $(document).ready(function() {
 		// alert(letter);
 		$('#letter').val(letter);
 		$("#listform").submit();
+		$.blockUI({ message: uiblockcontent}); 
+		return true;
 	});
 	
 	$("a.gonowhere").each(function(e){
@@ -338,10 +341,12 @@ $(document).ready(function() {
 									// alert(data); return false;
 									var url = successurl;    
 									$(location).attr('href',url);
+									$.blockUI({ message: uiblockcontent}); 
+									return true;
 								}  
 							); // close the $.post
-							$("#dialogcontent").hide(); 										
-							$("#dialogbody #loading").show();
+							$("#dialogcontent").hide(); 		
+							$("#dialogbody").html('<img style="margin-left:50%;" src="<?php echo $this->baseUrl('images/loader.gif'); ?>" />');
 						}
 					});
 				} else {
@@ -358,9 +363,10 @@ $(document).ready(function() {
 							$.blockUI({ message: uiblockcontent }); 
 							var url = successurl;
 							$(location).attr('href',url);							
+							return true;						
 						}  
 					); // close the $.post
-					// $("#dialogcontent").hide(); 										
+					$("#dialogcontent").hide(); 										
 					$("#dialogbody").html('<img style="margin-left:50%;" src="<?php echo $this->baseUrl('images/loader.gif'); ?>" />');
 				}
 			}
@@ -368,6 +374,7 @@ $(document).ready(function() {
 		// cancel model
 		$(".modelcancel").on('click', function(e){
 			$("#dialog").modal('hide');
+			$(".dialog, body").css("overflow", "auto");
 		});		
 		$('#dialog').on('hidden', function () {
 			// location.reload(true);
@@ -464,6 +471,8 @@ $(document).ready(function() {
 			if(confirmed){
 				$.blockUI({ message: uiblockcontent}); 
 				window.location.href = url;					
+				$.blockUI({ message: uiblockcontent}); 
+				return true;				
 			} else {
 				bootbox.hideAll();
 				return false;
@@ -482,6 +491,8 @@ $(document).ready(function() {
 					var submiturl = url+'/reason/'+result; // alert(submiturl);
 					$.blockUI({ message: uiblockcontent}); 
 					window.location.href = submiturl;	    
+					$.blockUI({ message: uiblockcontent}); 
+					return true;    
 				}
 			}
 		});
@@ -613,20 +624,32 @@ $(document).ready(function() {
 						}
 					}
 				}
+				$('a.blockanchor').click(function(){
+					$.blockUI({ message: uiblockcontent}); 
+					return true;
+				});
 			}
 			return false;    
 		});
-		$("#divResult").on("click",function(e){ 
+		
+		$("#divResult").live("click",function(e){ 
 			  var $clicked = $(e.target);
 			  var $name = $clicked.find('.name').html();
 			  var decoded = $("<div/>").html($name).text();
 			  $('#inputSearch').val(decoded);
+			  
 		});
-		$(document).on("click", function(e) { 
+		$(document).live("click", function(e) { 
 			  var $clicked = $(e.target);
-			  if (!$clicked.hasClass("search")){
+			  if (! $clicked.hasClass("search")){
 			  	$("#divResult").fadeOut(); 
 			  }
+		});
+		$(".display_box").live("click",function(e){ 
+			 var url = $(this).attr('url');
+			 // alert(url);
+			 window.location.href = url;
+			 $.blockUI({ message: uiblockcontent}); 
 		});
 		$('#inputSearch').click(function(){
 			  $("#divResult").fadeIn();
@@ -639,7 +662,7 @@ $(document).ready(function() {
 	// UI tabs
 	$("#tabs").tabs();
 	
-	$("#indexform").submit(function(){
+	$("#indexform, #signupform").submit(function(){
 		if ($(this).valid()) {
 			$.blockUI({ message: uiblockcontent}); 
 		}
@@ -775,7 +798,7 @@ $(document).ready(function() {
 							}
 							if(!isEmptyString(appendclass) && appendclass != 'undefined'){
 								var altselectoption = '<option label="'+labelname+'" value="'+data.id+'">'+labelname+'</option>';
-								$("."+appendclass).append(altselectoption);
+								$("."+appendclass+":not(#"+fieldid+")").append(altselectoption);
 							}
 							
 							$("#dialog").modal('hide');
@@ -864,6 +887,7 @@ $(document).ready(function() {
 						function(data){
 							// alert(data); return false;
 							data = jQuery.parseJSON(data);
+							if(data.error == ''){
 							var labelname = data.name;
 							if(hasalias == '1'){
 								var labelname = data.alias+' - '+data.name;
@@ -879,11 +903,16 @@ $(document).ready(function() {
 							}
 							if(!isEmptyString(appendclass) && appendclass != 'undefined'){
 								var altselectoption = '<option label="'+labelname+'" value="'+data.id+'">'+labelname+'</option>';
-								$("."+appendclass).append(altselectoption);
+									$("."+appendclass+":not(#"+fieldid+")").append(altselectoption);
+							}
+								enableContainerByID('indexform');
+							$("#dialog").modal('hide');
+							} else {
+							enableContainerByID('indexform');
+								$("#dialog").modal('hide');
+								bootbox.alert(data.error); 
 							}
 							
-							$("#dialog").modal('hide');
-							enableContainerByID('indexform');
 						}  
 					); // close the $.post					
 					$("#dialogcontent").html($("#dialogbody #loading").html());
@@ -980,99 +1009,6 @@ $(document).ready(function() {
 		return false;
 	});
 	
-	$(function(){
-		$(".search").keyup(function(e){
-			var keyCode = e.keyCode || e.which; //alert('code '+keyCode);
-			if(keyCode !== 38 && keyCode !== 40 && keyCode !== 13){
-				var inputSearch = $(this).val();
-				// var dataString = 'searchword='+ inputSearch;
-				var searchurl = '<?php echo $this->baseUrl('search/index'); ?>/searchword/'+inputSearch;
-				if(!isEmptyString(inputSearch) && inputSearch.length > 2){
-					$.ajax({
-						type: "POST",
-						url: searchurl,
-						cache: false,
-						success: function(data) {
-							// alert(data);
-							$("#divResult").html(data).show().css({'display':'block','padding':'0'});
-							$('li.display_box:first').addClass('selected');
-							
-							$("li.display_box").on("mouseover mouseout", function(e) {
-							  if(e.type == "mouseover") {
-								$(this).addClass("selected");
-							  } else {
-								$(this).removeClass("selected");
-							  }
-							});
-						}
-					});
-				}
-				var imageurl = '<?php echo $this->baseUrl('images/loader.gif'); ?>';
-				if(!isEmptyString(inputSearch)){
-					$("#divResult").html("<a id='loading' class='xhidden' style='text-align:center; display:block;'><img style='width:22px;' src='<?php echo $this->baseUrl('images/loader.gif'); ?>' /></a>").css({'display':'block','padding':'10px 0'});
-				} else {
-					$("#divResult").html("");
-				}
-				
-			} else {
-				// if( $('li.display_box').length > 0) {
-				var li = $('li.display_box');
-				var liSelected = $("li.display_box").eq(0);
-				
-				if(keyCode === 40){
-					liSelected = $('li.display_box.selected');
-					liSelected.removeClass('selected');
-					var curentindex = parseInt(liSelected.index());					
-					next = li.eq(curentindex);					
-					if(next.length > 0){
-						liSelected = next.addClass('selected');
-					} else {
-						liSelected = $("li.display_box").eq(0).addClass('selected');
-					}
-				} 
-				if(keyCode === 38) {
-					liSelected = $('li.display_box.selected');
-					liSelected.removeClass('selected');
-					var curentindex = parseInt(liSelected.index());
-					next = li.eq(curentindex-1);
-					var lastindex = parseInt($("li.display_box").length);
-					// alert(lastindex);
-					if(next.length > 0){
-						liSelected = next.addClass('selected');
-					} else {
-						liSelected = li.last().addClass('selected');
-						// liSelected = $("li.display_box").eq(lastindex-1).addClass('selected');
-					}
-				}
-				if(keyCode === 13) {
-					var liSelected = $("li.display_box.selected");
-					if(liSelected){
-						var url = $("li.display_box.selected").attr('url'); // alert(url);
-						if(!isEmptyString(url)){
-							window.location.href = url;
-						}
-					}
-				}
-			}
-			return false;    
-		});
-		$("#divResult").on("click",function(e){ 
-			  var $clicked = $(e.target);
-			  var $name = $clicked.find('.name').html();
-			  var decoded = $("<div/>").html($name).text();
-			  $('#inputSearch').val(decoded);
-		});
-		$(document).on("click", function(e) { 
-			  var $clicked = $(e.target);
-			  if (!$clicked.hasClass("search")){
-			  	$("#divResult").fadeOut(); 
-			  }
-		});
-		$('#inputSearch').click(function(){
-			  $("#divResult").fadeIn();
-		});
-	});
-	
 	$('a.blanklink').removeAttr('href');
 	$(".styletrigger").click(function(){
 		var id = $(this).attr('id');
@@ -1142,6 +1078,24 @@ $(document).ready(function() {
 	<?php } ?>
 	
 	$("#bottomactions").html($("#topactions").html());
+	
+	$("#headercontainer #headermenu li a:hover").on("mouseover mouseout", function(e) {
+		if(e.type == "mouseover") {
+			$(this, "span i.icon-large").addClass("white");
+		} else {
+			$(this, "span i.icon-large").removeClass("white");
+		}
+	});
+	
+	$("ul.nav.nav-tabs li a").click(function(){
+		var url = $(this).attr('goto');
+		var id = $(this).attr('theid');
+		if(!isEmptyString(url) && url != 'undefined'){
+			$(".tab-content #"+id).html("<a id='loading' class='xhidden' style='text-align:center; display:block; margin-top:75px;'><span style='display:block; margin-bottom:15px; font-weight:bold;'>Loading...</span><img style='margin-left:-10px;' src='<?php echo $this->baseUrl('images/ui-anim_basic_16x16.gif'); ?>' /></a>").css({'display':'block'});
+			window.location.href = url;
+		}
+	}); 
+	
 });
 
 //Use window.load and not document.ready for effective equal heights

@@ -1,0 +1,525 @@
+<?php
+	include APPLICATION_PATH.'/includes/header.php';
+	
+	$title = "Transaction AuditTrail";
+	$subtitle = 'System Transactions ';
+	$datestring = ''; $where_query = '';
+	
+	$startdate = $request->getParam('startdate');
+	if(!isEmptyString($startdate)){
+		$startdate = changeDateFromPageToMySQLFormat($startdate);
+	}
+	$enddate = $request->getParam('enddate');
+	if(!isEmptyString($enddate)){
+		$enddate = changeDateFromPageToMySQLFormat($enddate);
+	}
+	$userid = $request->getParam('userid');
+	if(!isEmptyString($userid)){
+		$where_query .= " AND (a.userid = '".$userid."') ";
+	}
+	$mod = $request->getParam('mod');
+	if(!isEmptyString($mod)){
+		$where_query .= " AND (a.module = '".$mod."') ";
+	}
+	$type = $request->getParam('type');
+	if(!isEmptyString($type)){
+		$where_query .= " AND (a.usecase = '".$type."') ";
+	}
+	$status = $request->getParam('status');
+	if(!isEmptyString($status)){
+		$where_query .= " AND (a.status = '".$status."') ";
+	}
+	
+	if(!isEmptyString($startdate) && !isEmptyString($enddate)){
+		$datestring = '['.changeMySQLDateToPageFormat($startdate).' - '.changeMySQLDateToPageFormat($enddate).']'; 
+		$subtitle = $subtitle.'  '.$datestring;		
+		$where_query .= " AND (TO_DAYS(a.transactiondate) BETWEEN TO_DAYS('".$startdate."') AND TO_DAYS('".$enddate."')) ";
+		
+		$order = trim($request->order);
+		$order_query = " ";
+		if(isEmptyString($order)){
+			$order = 1;
+		}
+		if($order == 1){
+			$order_query = " ORDER BY a.transactiondate DESC ";
+		}
+		if($order == 2){
+			$order_query = " ORDER BY a.transactiontype ASC ";
+		}
+		
+		$all_results_query = "SELECT
+		a.*,
+		IF(m.displayname <> '', m.displayname, concat(m.firstname, ' ', m.lastname, ' ', m.othername)) as user
+		from audittrail a
+		left join member m on (a.userid = m.id)
+		WHERE a.id <> '' ".$where_query." GROUP BY a.id	".$order_query;
+		
+		// debugMessage($all_results_query); 
+		$conn = Doctrine_Manager::connection(); 
+		$result = $conn->fetchAll($all_results_query); // debugMessage($result); 
+		$has_no_data = (count($result) == 0) ? true : false;
+		//exit;
+	}
+	
+	$tab = trim($request->tab);
+	if(isEmptyString($request->tab)){
+		$tab = 'report';
+	}
+	
+	if($tab == 'details'){
+		$audit = new AuditTrail;
+		$audit->populate($request->id);
+		$subtitle = "Transaction - ".$audit->getTransactionType()." - ".formatDateAndTime($audit->getTransactiondate())." - ".$audit->getUser()->getName();
+		$before = objectToArray(json_decode($audit->getPreJson())); //debugMessage($before);
+		$after = objectToArray(json_decode($audit->getPostJson())); //debugMessage($after);
+		//$diff = array_diff($after, $before); 
+		if(is_array($before) && is_array($after)){
+			$audithistory = array_deep_diff($before, $after);
+		} else { 
+			$audithistory = array();
+		}
+	}
+	
+	$this->headTitle($title.$browserappend);
+	$description = '';
+?>
+<script>
+$(document).ready(function() {
+	$('.titlebreadcrumb').html('<?php echo $homedir.'Reports / '.$title; ?>');
+	$('.titlelabel').html('<?php echo $title; ?>');
+	$('.desclabel').html('<?php echo $description; ?>');
+	$('.pageicon').html('<span class="glyphicon glyphicon-signal"></span>');
+	
+	$("#reportform").validate({		
+		// define the validation rules one field at a time
+		rules: {
+			startdate: "required",
+			enddate: {
+				required: true,
+				enddateafterstartdate:true
+			}
+		}, 
+		// the messages for each of the fields being validated
+		messages: {		
+			startdate: "Select Report Start Date",
+			enddate: {
+				required: "Select Report End Date"
+			}
+		},
+		// custom error positions
+		errorPlacement: function(error, element) {
+			error.appendTo("#list_error")		
+		}
+	});
+	
+	// function to validate the enddate being greater than the start date
+	$.validator.addMethod("enddateafterstartdate", function(value, element) {            
+		var startDate = $("#startdate").val();  
+		if($.trim(value) == ""){
+			return true;
+		}
+		if($.trim(startDate) == ""){
+			return false;
+		}
+		return Date.parse(startDate) <= Date.parse(value);        
+	}, "End Date should be after Start Date");
+	
+	var dateoptions = datepickerOpts;
+	var startfrom = '<?php echo date('Y'); ?>';
+	dateoptions.yearRange = "-<?php echo date('Y')-2010; ?>:-0"; 
+	dateoptions.minDate = "-<?php echo date('Y'); ?>Y";
+	dateoptions.maxDate = new Date("Dec 31, "+startfrom);	
+	$("#startdate, #enddate").datepicker(dateoptions);
+	
+	// export list to excel
+	$(".submitexcel").click(function(e){
+		e.preventDefault();
+		var csv_value = $('#datatable').table2CSV({delivery:'value'});
+		var decoded_value = base64_encode(csv_value);
+		$("#csv_text").val(decoded_value);
+		$("#reportform").attr('action', '<?php echo $this->baseUrl('download/excel'); ?>').attr('method', 'post').submit();
+		// on submit reset the form parameters to previous definition
+		$("#reportform").attr('action', '<?php echo $this->baseUrl("report/reportsearch/page/audittrail"); ?>').attr('method', 'get');
+		$("#csv_text").val('');
+		return true;
+	});
+	
+	$("#filter").click(function(e){
+		if ($("#reportform").valid()) {
+			$.blockUI({ message: '<?php echo $blockcontent; ?>'}); 
+			return true;
+		}
+	});	
+	$("#reportform").submit(function(){
+		if ($(this).valid()) {
+			$.blockUI({ message: uiblockcontent}); 
+		}
+	});
+	
+});
+</script>
+<div class="row margin0">
+    <div class="col-md-12 padding0">
+        <form class="form-search makerelative" action="<?php echo $this->baseUrl("report/reportsearch/page/audittrail"); ?>" method="get" id="reportform">
+        	<?php if ($sessionhaserror) { ?>
+            <div class="alert alert-danger"><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
+			<?php } ?>
+            <?php if (!isEmptyString($session->getVar(SUCCESS_MESSAGE))) { ?>
+                <div class="alert alert-success alert-dismissable"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button> <?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
+            <?php } ?>
+            <div class="row-fluid clearfix whitebg">
+            	<div class="divider10"></div>
+                <div class="col-md-12">
+                    <ul class="listfilter">
+                        <li><input type="text" name="startdate" id="startdate" class="form-control input-sm datefield readonly width100" value="<?php echo $request->startdate; ?>" placeholder="From:" /></li>
+                    	<li><input name="enddate" id="enddate" type="text" class="form-control input-sm datefield readonly width100" placeholder="To:" value="<?php echo $request->enddate; ?>" /></li>
+                        <li>
+							<?php
+                                $values = getSystemModules();
+                                $dropdown = new Zend_Form_Element_Select('mod',
+                                                    array(
+                                                        'multiOptions' => array_merge_maintain_keys(array('' => 'All Modules'), $values),
+                                                        'view' => new Zend_View(),
+                                                        'decorators' => array('ViewHelper'),
+                                                        'class' => array("xautofilter", "form-control", 'chosen-select'),
+                                                        'style' => 'width:120px;'
+                                                    )
+                                );  
+                                $dropdown->setValue($request->getParam('mod')); 
+                                echo $dropdown->render();
+                            ?>
+                        </li>
+                        <li>
+							<?php
+                                $values = getTransactionTypes();
+                                $dropdown = new Zend_Form_Element_Select('type',
+                                                    array(
+                                                        'multiOptions' => array_merge_maintain_keys(array('' => 'All Types'), $values),
+                                                        'view' => new Zend_View(),
+                                                        'decorators' => array('ViewHelper'),
+                                                        'class' => array("xautofilter", "form-control", 'chosen-select'),
+                                                        'style' => 'width:150px;'
+                                                    )
+                                );  
+                                $dropdown->setValue($request->getParam('type')); 
+                                echo $dropdown->render();
+                            ?>
+                        </li>
+                        <li>
+							<?php
+                                $values = array('Y'=>'Success', 'N'=>'Failed');
+                                $dropdown = new Zend_Form_Element_Select('status',
+                                                    array(
+                                                        'multiOptions' => array_merge_maintain_keys(array('' => 'All Statuses'), $values),
+                                                        'view' => new Zend_View(),
+                                                        'decorators' => array('ViewHelper'),
+                                                        'class' => array("xautofilter", "form-control", 'chosen-select'),
+                                                        'style' => 'width:120px;'
+                                                    )
+                                );  
+                                $dropdown->setValue($request->getParam('status')); 
+                                echo $dropdown->render();
+                            ?>
+                        </li>
+                        <li>
+							<?php
+                                $values = getUsers('', '', '', '', " AND m.status = '1' AND m.type <> '' ");
+                                $dropdown = new Zend_Form_Element_Select('userid',
+                                                    array(
+                                                        'multiOptions' => array_merge_maintain_keys(array('' => 'All Users'), $values),
+                                                        'view' => new Zend_View(),
+                                                        'decorators' => array('ViewHelper'),
+                                                        'class' => array("xautofilter", "form-control", 'chosen-select'),
+                                                        'style' => 'width:170px;'
+                                                    )
+                                );  
+                                $dropdown->setValue($request->getParam('userid')); 
+                                echo $dropdown->render();
+                            ?>
+                        </li>
+                        <li><button type="submit" class="btn btn-primary btn-sm" id="filter"><i class="glyphicon glyphicon-filter"></i> Generate</button> &nbsp;<a href="<?php echo $this->baseUrl('report/audittrail'); ?>" class="blockanchor">Reset</a>
+                        	<input type="hidden" name="csv_text" id="csv_text" value="" />
+                        </li>
+                    </ul>
+                </div>
+                <div></div>
+           	</div>
+            <div class="divider10"></div>
+            <div id="list_error" class="maxwidth"></div>
+    		<div class="row row-bg" style="margin-bottom:10px;">
+                <div class="col-sm-12 col-md-12">
+                    <div class="widget box makerelative">
+                        <div class="widget-header">
+                            <h4 class="widgettitle blocked maxwidth"><?php echo $subtitle; ?>
+								<div class="pull-right" style="float:right;">
+									<?php if($acl->checkPermission('Audit Trail Report', ACTION_EXPORT) && !isEmptyString($startdate) && !isEmptyString($enddate) && $tab == 'report') { ?>	
+                                        <button type="button" class="btn btn-default btn-xs submitexcel" tableid="regiontable"><i class='glyphicon glyphicon-download-alt'></i> Export to Excel</button> &nbsp;
+                                    <?php } ?>
+                                    <?php if($tab == 'details') { ?>	
+                                        <?php if($audit->getTransactionType() == 'user.update' || !isEmptyString($audit->getUrl())){ ?>
+                                            <a class="btn btn-primary btn-sm" href="<?php echo $audit->getUrl(); ?>" target="_blank">Go to System Entry</a> &nbsp;
+                                        <?php } ?>
+                                        <a class="btn btn-default btn-sm blockanchor" href="<?php echo stripUrl(str_replace('tab/details/id/'.$request->id,'', $this->viewurl)); ?>">Back</a> 
+                                    <?php } ?>
+                                </div>
+                            </h4>
+                        </div>
+                        <div class="widget-content no-padding whitebg minheight400">
+                        	<?php if($tab == 'report'){ ?>
+								<?php if(!isEmptyString($startdate) && !isEmptyString($enddate)){ ?>
+                                    <?php if($has_no_data) { ?>
+                                        <div class="divider10"></div>
+                                        <div style="clear:both;" class="alert alert-info margin5">There are no records for this report</div>
+                                    <?php } else { ?>
+                                        <div style="width:100%; display:block; height:30px;; position:relative;">
+                                            <div class="paginatecustom padding10"><?php echo count($result).' transactions found'; ?></div>
+                                        </div>
+                                        
+                                        <div class="wrapper1">
+                                            <div class="div1" style="width:2000px;"></div>
+                                        </div>
+                                        <div class="wrapper2" style="max-height:800px; min-height:0; height:auto;">
+                                            <div class="div2" style="width:2000px;">
+                                                <table class="table list table-bordered table-striped data-table" id="datatable" style="width:auto;">
+                                                    <thead class="paginationheader">
+                                                        <th style="width: 130px;" class="nowrapping">Trxn Date</th>
+                                                        <th style="width: 175px;" class="nowrapping">Trxn Type</th>
+                                                        <th style="width: 250px;" class="nowrapping">Trxn Details</th>
+                                                        <th style="width: 175px;" class="nowrapping">Executed By</th>
+                                                        <th style="width: 100px;" class="nowrapping">Status</th>
+                                                        <th style="width: 175px;" class="nowrapping">Browser</th>
+                                                        <th style="width: 100px;" class="nowrapping">Version</th>
+                                                        <th style="width: 300px;" class="nowrapping">User Agent</th>
+                                                        <th style="width: 100px;" class="nowrapping">O.S</th>
+                                                        <th style="width: 150px;" class="nowrapping">IP Address</th>
+                                                    </thead>
+                                                    <tbody>
+                                                        <?php
+                                                             $counter = 1;
+                                                             foreach($result as $line){
+                                                        ?>
+                                                            <tr>
+                                                                <td><span class="nullifempty">
+                                                                        <?php if($line['isupdate'] == '1' && !isEmptyString($line['jsondiff'])){ ?>
+                                                                            <a href="<?php echo stripUrl($this->viewurl).'/tab/details/id/'.$line['id']; ?>" class="blockanchor"><?php echo formatDateAndTime($line['transactiondate']); ?></a>
+                                                                        <?php } else { ?>
+                                                                            <?php echo formatDateAndTime($line['transactiondate']); ?>
+                                                                        <?php } ?>
+                                                                    </span>
+                                                                </td>
+                                                                <td><span class="nullifempty"><?php echo $line['transactiontype']; ?></span></td>
+                                                                <td><span class="nullifempty"><?php echo $line['transactiondetails']; ?>
+                                                                	<?php if($line['isupdate'] == '1' && !isEmptyString($line['jsondiff'])){ ?>
+                                                                    	<div class="divider5"></div>
+                                                                    	<a href="<?php echo stripUrl($this->viewurl).'/tab/details/id/'.$line['id']; ?>" class="blocked blockanchor clearfix">Change Log</a>
+                                                                    <?php } ?>
+                                                                	</span>
+                                                                </td>
+                                                                <td><span class="nullifempty"><?php echo $line['user']; ?></span></td>
+                                                                <td><span class="nullifempty"><?php echo $line['status'] == 'Y' ? 'Success' : 'Failed'; ?></span></td>
+                                                                <td><span class="nullifempty"><?php echo $line['browser']; ?></span></td>
+                                                                <td><span class="nullifempty"><?php echo $line['version']; ?></span></td>
+                                                                <td><span class="nullifempty"><?php echo $line['useragent']; ?></span></td>
+                                                                <td><span class="nullifempty"><?php echo $line['os']; ?></span></td>
+                                                                <td><span class="nullifempty"><?php echo $line['ipaddress']; ?></span></td>
+                                                            </tr>
+                                                        <?php $counter++; } ?>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    <?php } ?>
+                                <?php } else { ?>
+                                    <label class="labeldescription noresults">Select reporting period to Generate</label>
+                                <?php } ?>
+                           	<?php } ?>
+                            <?php if($tab == 'details'){ ?>
+                            	<div style="width:100%; height:auto; margin-bottom:10px; display:block;">
+                                    <table id="datatable" class="table table-bordered" style="margin:10px 0 10px 10px; width:98%;">
+                                        <thead>
+                                            <tr>
+                                                <td style="width:20%;" class="nowrapping"><label class="control-label">Attribute</label></td>
+                                                <td style="width:40%;" class="nowrapping"><label class="control-label bolded">Pre-Update</label></td>
+                                                <td style="width:40%;" class="nowrapping"><label class="control-label centeralign">Post-Update</label></td>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php
+												$labels = getTranslations();
+												
+                                                foreach($audithistory as $key => $value){
+													// debugMessage($value);
+													$dataarray = is_array($value) ? array() : explode('->', $value); // debugMessage($dataarray);
+													if($key == 'country'){
+														$countries = getCountries(); 
+													}
+													if($key == 'regionid'){
+														$regions = getNFBPCRegions();
+                                                    }
+                                                    if($key == 'provinceid'){ 
+                                                        $provinces = getProvinces();
+                                                    }
+                                                    if($key == 'districtid'){
+                                                        $districts = getDistricts();
+                                                    }
+													if($key == 'countyid'){
+                                                        $county_pre = isEmptyString($dataarray[0])? '' : ' - '.getLocationName($dataarray[0], 3);
+														$county_post = isEmptyString($dataarray[1])? '' : ' - '.getLocationName($dataarray[1], 3);
+                                                    }
+													if($key == 'subcountyid'){
+                                                        $subcounty_pre = isEmptyString($dataarray[0])? '' : ' - '.getLocationName($dataarray[0], 4);
+														$subcounty_post = isEmptyString($dataarray[1])? '' : ' - '.getLocationName($dataarray[1], 4);
+                                                    }
+													if($key == 'parishid'){
+                                                        $parish_pre = isEmptyString($dataarray[0])? '' : ' - '.getLocationName($dataarray[0], 5);
+														$parish_post = isEmptyString($dataarray[1])? '' : ' - '.getLocationName($dataarray[1], 5);
+                                                    }
+													if($key == 'villageid'){
+                                                        $village_pre = isEmptyString($dataarray[0])? '' : ' - '.getLocationName($dataarray[0], 6);
+														$village_post = isEmptyString($dataarray[1])? '' : ' - '.getLocationName($dataarray[1], 6);
+                                                    }
+													if($key == 'memberdistrictid'|| $key == 'orgdistrictid'){
+                                                        $nfbpcdistricts = getDistricts('', false);
+                                                    }
+                                                    if($key == 'organisationid'){
+                                                        $churches = getChurches();
+                                                    }
+                                                    if($key == 'maritalstatus'){
+                                                        $maritalstatuses = getAllMaritalStatuses();
+                                                    }
+                                                    if($key == 'salutation'){
+                                                        $salutations = getSalutations();
+                                                    }
+                                                    if($key == 'profession'){
+                                                        $professions = getProfessions();
+                                                    }
+                                                    if($key == 'createdby' || $key == 'lastupdatedby' || $key == 'invitedbyid'){
+                                                        $users = getUsers();
+                                                    }
+                                                    if($key == 'contactrshp'){
+                                                        $rshiptypes = getRelationshipTypes();
+                                                    }
+													// debugMessage($key);
+                                            ?>
+                                                <tr>
+                                                    <td class="nowrapping"><span class="nullifempty"><?php echo isArrayKeyAnEmptyString($key, $labels) ? $key : $labels[$key]; ?></span></td>
+                                                    <td>
+                                                    	<span class="nullifempty">
+															<?php echo isArrayKeyAnEmptyString(0, $dataarray) ? 'NULL' : $dataarray[0]; ?>
+                                                            <?php if($audit->getTransactionType() == 'user.update' || $audit->getTransactionType() == 'member.update' || $audit->getTransactionType() == 'organisation.update'){ ?>
+																<?php if($key == 'country'){ ?>
+                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[0], $countries) ? '' : ' - '.$countries[$dataarray[0]]; ?>
+                                                                <?php } ?>
+																<?php if($key == 'regionid'){ ?>
+                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[0], $regions) ? '' : ' - '.$regions[$dataarray[0]]; ?>
+                                                                <?php } ?>
+																<?php if($key == 'provinceid'){ ?>
+                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[0], $provinces) ? '' : ' - '.$provinces[$dataarray[0]]; ?>
+                                                                <?php } ?>
+                                                                <?php if($key == 'districtid'){ ?>
+                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[0], $districts) ? '' : ' - '.$districts[$dataarray[0]]; ?>
+                                                                <?php } ?>
+                                                                <?php if($key == 'memberdistrictid'|| $key == 'orgdistrictid'){ ?>
+                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[0], $nfbpcdistricts) ? '' : ' - '.$nfbpcdistricts[$dataarray[0]]; ?>
+                                                                <?php } ?>
+                                                                <?php if($key == 'countyid'){ ?>
+                                                                	<?php echo $county_pre; ?>
+                                                                <?php } ?>
+                                                                <?php if($key == 'subcountyid'){ ?>
+                                                                	<?php echo $subcounty_pre; ?>
+                                                                <?php } ?>
+                                                                <?php if($key == 'parishid'){ ?>
+                                                                	<?php echo $parish_pre; ?>
+                                                                <?php } ?>
+                                                                <?php if($key == 'villageid'){ ?>
+                                                                	<?php echo $village_pre; ?>
+                                                                <?php } ?>
+                                                                <?php if($key == 'organisationid'){ ?>
+                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[0], $churches) ? '' : ' - '.$churches[$dataarray[0]]; ?>
+                                                                <?php } ?>
+                                                                <?php if($key == 'maritalstatus'){ ?>
+                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[0], $maritalstatuses) ? '' : ' - '.$maritalstatuses[$dataarray[0]]; ?>
+                                                                <?php } ?>
+                                                                <?php if($key == 'salutation'){ ?>
+                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[0], $salutations) ? '' : ' - '.$salutations[$dataarray[0]]; ?>
+                                                                <?php } ?>
+                                                                <?php if($key == 'profession'){ ?>
+                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[0], $professions) ? '' : ' - '.$professions[$dataarray[0]]; ?>
+                                                                <?php } ?>
+                                                                <?php if($key == 'createdby' || $key == 'lastupdatedby' || $key == 'invitedbyid'){ ?>
+                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[0], $users) ? '' : ' - '.$users[$dataarray[0]]; ?>
+                                                                <?php } ?>
+                                                                <?php if($key == 'contactrshp'){ ?>
+                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[0], $rshiptypes) ? '' : ' - '.$rshiptypes[$dataarray[0]]; ?>
+                                                                <?php } ?>
+                                                            <?php } ?>
+                                                       	</span>
+                                                    </td>
+                                                    <td>
+                                                    	<span class="nullifempty">
+                                                            <?php echo isArrayKeyAnEmptyString(1, $dataarray) ? 'NULL' : $dataarray[1]; ?>
+                                                            <?php if($audit->getTransactionType() == 'user.update' || $audit->getTransactionType() == 'member.update' || $audit->getTransactionType() == 'organisation.update'){ ?>
+                                                            	<?php if($key == 'country'){ ?>
+                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[1], $countries) ? '' : ' - '.$countries[$dataarray[1]]; ?>
+                                                                <?php } ?>
+																<?php if($key == 'regionid'){ ?>
+                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[1], $regions) ? '' : ' - '.$regions[$dataarray[1]]; ?>
+                                                                <?php } ?>
+																<?php if($key == 'provinceid'){ ?>
+                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[1], $provinces) ? '' : ' - '.$provinces[$dataarray[1]]; ?>
+                                                                <?php } ?>
+                                                                <?php if($key == 'districtid'){ ?>
+                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[1], $districts) ? '' : ' - '.$districts[$dataarray[1]]; ?>
+                                                                <?php } ?>
+                                                                <?php if($key == 'memberdistrictid' || $key == 'orgdistrictid'){ ?>
+                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[1], $nfbpcdistricts) ? '' : ' - '.$nfbpcdistricts[$dataarray[1]]; ?>
+                                                                <?php } ?>
+                                                                <?php if($key == 'countyid'){ ?>
+                                                                	<?php echo $county_post; ?>
+                                                                <?php } ?>
+                                                                <?php if($key == 'subcountyid'){ ?>
+                                                                	<?php echo $subcounty_post; ?>
+                                                                <?php } ?>
+                                                                <?php if($key == 'parishid'){ ?>
+                                                                	<?php echo $parish_post; ?>
+                                                                <?php } ?>
+                                                                <?php if($key == 'villageid'){ ?>
+                                                                	<?php echo $village_post; ?>
+                                                                <?php } ?>
+                                                                <?php if($key == 'organisationid'){ ?>
+                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[1], $churches) ? '' : ' - '.$churches[$dataarray[1]]; ?>
+                                                                <?php } ?>
+                                                                <?php if($key == 'maritalstatus'){ ?>
+                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[1], $maritalstatuses) ? '' : ' - '.$maritalstatuses[$dataarray[1]]; ?>
+                                                                <?php } ?>
+                                                                <?php if($key == 'salutation'){ ?>
+                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[1], $salutations) ? '' : ' - '.$salutations[$dataarray[1]]; ?>
+                                                                <?php } ?>
+                                                                <?php if($key == 'profession'){ ?>
+                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[1], $professions) ? '' : ' - '.$professions[$dataarray[1]]; ?>
+                                                                <?php } ?>
+                                                                <?php if($key == 'createdby' || $key == 'lastupdatedby' || $key == 'invitedbyid'){ ?>
+                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[1], $users) ? '' : ' - '.$users[$dataarray[1]]; ?>
+                                                                <?php } ?>
+                                                                <?php if($key == 'contactrshp'){ ?>
+                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[1], $rshiptypes) ? '' : ' - '.$rshiptypes[$dataarray[1]]; ?>
+                                                                <?php } ?>
+                                                            <?php } ?>
+                                                       	</span>
+                                                    </td>
+                                                </tr>
+                                            <?php } ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            <?php } ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
+		</form>
+	</div>
+</div>
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

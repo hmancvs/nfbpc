@@ -1,0 +1,37 @@
+<div class="row-fluid margin0">
+    <div class="col-md-12">
+        <fieldset class="fieldsetcontainer" style="margin-bottom:0;">
+            <legend><?php echo $subtitle; ?></legend>
+            <div class="panel-body well-sm minheight400 makerelative">
+                <?php if($step == 'view'){ ?>
+                    <div class="btn-group gridactions" style="right:2px;top:-5px;">
+                        <?php if ($allowedit) { ?>
+                            <a class="blockanchor btn btn-primary btn-xs" href="<?php echo $this->viewurl.'/step/edit'; ?>"><i class="glyphicon glyphicon-pencil"></i> Update</a>
+                        <?php } ?>
+                    </div>
+                    <?php if (isEmptyString($member->getBio())) { ?>
+                        <div class="divider20"></div>
+                        <div style="clear:both;" class="alert alert-warning margin5">No Biography currently available for <?php echo $member->getName(); ?></div>
+                    <?php } else { ?>
+                        <div class="col-md-11"><?php echo nl2br($member->getBio()); ?></div>
+                    <?php } ?>
+                <?php } ?>
+                <?php if($step == 'edit'){ ?>
+                    <div class="formactions" id="topactions" style="position:relative;">
+                        <button type="submit" class="btn btn-success button-submit" name="save"><i class="glyphicon glyphicon-ok"></i> <?php echo $button_title; ?></button>
+                        <a class="btn button-previous cancel" href="<?php echo $this->referer; ?>"><i class="icon-remove"></i> <?php echo $this->translate('global_button_cancel'); ?></a> &nbsp;
+                        
+                        <input type="hidden" name="entityname" value="Member" />
+                        <input type="hidden" id="id" name="id" value="<?php echo encode($member->getID()); ?>" />
+                        <input type="hidden" class="successurl" id="<?php echo URL_SUCCESS; ?>" name="<?php echo URL_SUCCESS; ?>" value="<?php echo $successurl; ?>" />
+                        <input type="hidden" class="failureurl" id="<?php echo URL_FAILURE; ?>" name="<?php echo URL_FAILURE; ?>" value="<?php echo $failureurl; ?>" />
+                        <input type="hidden" id="<?php echo SUCCESS_MESSAGE; ?>" name="<?php echo SUCCESS_MESSAGE; ?>" value="<?php echo $successmessage; ?>" />
+                        <input type="hidden" id="nosuccessid" name="nosuccessid" value="1" />
+                    </div>
+                    <div class="divider10"></div>
+                    <div class="col-md-12"><textarea id="bio" name="bio" class="expanding form-control minheight400"><?php echo $member->getBio(); ?></textarea></div>
+                <?php } ?>
+            </div>
+        </fieldset>
+    </div>
+</div>

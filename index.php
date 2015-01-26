@@ -23,13 +23,21 @@ set_include_path(implode(PATH_SEPARATOR, array(
 
 // environment constant
 if(APPLICATION_ENV == 'production'){
-	
+	define('PORTAL_URL', 'http://nfbpc.org');
+	define('WEBSITE_CONNECT_STRING', 'mysql://nfbadmin_nfbuser:YESnfbPW2014/nfbadmin_nfbdb');
+	define('WEBSITE_DB', 'nfbadmin_nfbdb');
+	define('WEBSITE_USER', 'nfbadmin_nfbuser');
+	define('WEBSITE_PASS', 'YESnfbPW2014');
 } 
 if(APPLICATION_ENV == 'staging'){
 	
 }
 if(APPLICATION_ENV == 'development'){
-	
+	define('PORTAL_URL', 'http://127.0.0.1/nfbpcjoomla');
+	define('WEBSITE_CONNECT_STRING', 'mysql://dev:dev@localhost/nfbpcjoomla');
+	define('WEBSITE_DB', 'nfbpcjoomla');
+	define('WEBSITE_USER', 'dev');
+	define('WEBSITE_PASS', 'dev');
 }
 
 require_once APPLICATION_PATH.'/includes/commonfunctions.php';

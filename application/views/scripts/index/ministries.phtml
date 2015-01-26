@@ -1,0 +1,135 @@
+<?php
+	include APPLICATION_PATH.'/includes/header.php';
+	
+	$id = '';
+	$ministryid = $request->id;
+	$title = "Ministries";
+	
+	$paginate = new Pagination();	
+	$paginate->setView($this);
+	$paginate->setSearchColumns(array("d.name"));
+	$paginate->setFilterColumns(array());
+	$paginate->setDefaultSortBy("d.name");	
+	$paginate->setItemCountPerPage('ALL');
+	
+	# define the letter to be clicked to ease navigation 
+	$where_query = " WHERE d.id <> '' AND d.level = 1 ";
+	$allowclear = false;
+
+	if(!isEmptyString($request->searchterm)){
+		$allowclear = true;
+	}
+	
+	$order = trim($request->order);
+	$order_query = " ORDER BY d.name ASC ";
+	if(isEmptyString($order)){
+		$order = 1;
+	}
+	
+	$sortcolumn = $request->sortby;
+	$sortorder = $request->sortorder;
+	if(!isEmptyString($sortcolumn) && !isEmptyString($sortorder)){
+		$order_query = " ORDER BY " . $sortcolumn. " " .$sortorder. " ";
+	}
+	// f.orgname as fundername, concat(u.firstname,' ',u.lastname) as supervisorname
+	$paginate->processPost($request->getParams());
+	$all_results_query = "SELECT d.id as id, d.code as Code, d.name as Name, d.description as `Description`, d.abbr, d.filename, d.level, d.parentid FROM department d
+		".$where_query." ".$paginate->getSearchAndFilterSQL()." GROUP BY d.id ".$order_query;
+	// debugMessage($all_results_query); exit;
+	
+	// determine total number of records found
+	$conn = Doctrine_Manager::connection(); 
+	$count_query = "SELECT count(d.id) as total FROM department d ".$where_query." ".$paginate->getSearchAndFilterSQL(); // debugMessage($count_query); 
+	$total = $conn->fetchOne($count_query);
+	$paginate->setItemCount($total); //debugMessage('>> '.$total);	
+	$current_results_query = $all_results_query." ".$paginate->getSQLLimit();
+	
+	$conn = Doctrine_Manager::connection(); 
+	$departments = $conn->fetchAll($current_results_query);
+	$has_no_data = (count($departments) == 0) ? true : false;
+	
+	if(!isEmptyString($ministryid)){
+		$department = new Department();
+		$department->populate($ministryid);
+		$title = $department->getName();
+		$subtitle = 'Ministries';
+	} else {
+		$subtitle = 'Leadership';
+	}
+?>
+<?php require APPLICATION_PATH."/views/scripts/index/publictop.phtml"; ?>
+<div class="row">
+	<div class="row xk2catstyles itemView" id="k2Container">
+		<?php if(!isEmptyString($ministryid)){ ?>
+			<h3 class="publiclefttitle"><?php echo $subtitle; ?></h3>
+			<div class="large-3 columns xleftside">
+				<?php require APPLICATION_PATH."/views/scripts/index/publicleftcolumn.phtml"; ?>
+			</div>
+			<div class="large-9 columns xmainside" style="margin-top:-55px;">
+		<?php } else { ?>	
+			<div class="large-12 columns xmainside" style="margin-top:10px; border:none !important; margin-left:30px; width:auto;">
+		<?php } ?>
+			<div class="itemHeader">
+				<h2 class="itemTitle"><?php echo $title; ?></h2>
+			</div>
+			<div class="itemBody" style="clear:both; display:inline-block; width:100%;">
+				<?php if(isEmptyString($ministryid)){ ?>
+					<?php if ($has_no_data) { ?>
+						<div style="clear:both;" class="alert alert-danger"><?php echo $this->translate("global_list_noentries"); ?></div>
+					<?php } else { ?>
+						<ul style="list-style:none; margin:0; padding:0; width:100%;">
+							<?php
+								foreach($departments as $line){
+									$viewurl = $this->baseUrl('index/ministries/id/'.$line['id']);
+							?>
+								<li style="list-style:none; display:block; width:90%; height:auto; min-height:120px; margin-bottom:20px; margin-top:15px; clear:both; padding-bottom:10px; border:1px dotted #ccc; padding-top:5px;" class="clearfix">
+									<div style="float:left; width:28%;">
+										<a style="font-size:16px;" href="<?php echo $viewurl; ?>"><img class="imagecontainer" style="width:275px; height:130px; margin-left:5px;" src="<?php echo $this->baseUrl('uploads/departments/'.$line['filename'].'.jpg'); ?>" /></a>
+									</div>
+									<div style="float:right; width:68%; padding-right:15px;">
+										<a style="font-size:16px;" href="<?php echo $viewurl; ?>"><strong><?php echo $line['Name']; ?></strong></a>
+										<p style="font-size:14px;" class="clearfix"><?php echo nl2br(snippet($line['Description'], 300, '<a href="'.$viewurl.'">...<br>Read more</a>')); ?></p>
+									</div>
+								</li>
+							<?php } ?>
+						</ul>
+					<?php } ?>
+				<?php } ?>
+				<?php if(!isEmptyString($ministryid)){ ?>
+					<div style="display:block; width:100%; height:auto; min-height:250px; margin-bottom:20px; margin-top:15px; clear:both; padding-bottom:15px; border:1px dotted #ccc; padding-top:30px; position:relative;" class="clearfix">
+						<div style="position:absolute; right:5px; top:5px;">
+							<img class="imagecontainer" style="width:160px; height:80px;" src="<?php echo $this->baseUrl('uploads/departments/'.$department->getFileName().'.jpg'); ?>" />
+						</div>
+						<div style="float:left; width:90%; padding-left: 25px; padding-top: 10px;">
+							<strong>About the Ministry</strong>
+							<p style="font-size:14px; margin-top:30px;"><?php echo isEmptyString($department->getDescription()) ? 'Coming soon' : nl2br($department->getDescription()); ?></p>
+						</div>
+					</div>
+					<?php
+						$minister = $department->getMinister();
+						$member = $minister->getMember();
+						// debugMessage($minister->toArray());
+					?>
+					<div style="display:block; width:100%; min-height:300px; height:auto;  margin-bottom:20px; margin-top:15px; padding-bottom:15px; border:1px dotted #ccc; padding-top:20px;" class="clearfix">
+						<div style="float:left; width:30%; margin-bottom:10px;">
+							<img id="profileimage" class="imagecontainer" src="<?php echo $member->getMediumPicturePath(); ?>" style="width:250px; height:auto; margin-left:10px;" />
+							<?php if(!isEmptyString($member->getID())){ ?>
+								<span class="bolded" style="font-size:15px; text-align:center; display:block; width:100%; margin-top:10px; margin-bottom:10px;"><a href="<?php echo $this->baseUrl('index/profile/id/'.$member->getID()); ?>"><?php echo $member->getName(); ?></a></span>
+								<a href="<?php echo $this->baseUrl('index/profile/id/'.$member->getID()); ?>" class="btn btn-primary button" id="login" style="padding:5px 8px; color: #ffffff !important; display:block; margin-top: 15px; text-align:center; margin-left:10px;"> View Full Profile</a>
+							<?php } ?>
+						</div>
+						<div style="float:right; width:66%; display:inline;" class="clearfix">
+							<strong>Minister's Profile</strong>
+							<p style="font-size:14px; margin-top:15px; min-height:200px; clear:both; padding:10px 25px 10px 0;">
+							<?php echo isEmptyString($member->getBio()) ? 'Coming soon' : snippet(nl2br($member->getBio()), 600, '<a href="'.$this->baseUrl('index/profile/id/'.$member->getID()).'">... <br />Read more</a>'); ?></p>
+						</div>
+					</div>
+				<?php } ?>
+			</div>
+		</div>
+	</div>
+</div>
+<?php require APPLICATION_PATH."/views/scripts/index/publicbottom.phtml"; ?>
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

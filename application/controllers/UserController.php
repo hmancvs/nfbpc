@@ -3,6 +3,8 @@
 class UserController extends IndexController  {
 
     function checkloginAction() {
+    	$this->_helper->layout->disableLayout();
+    	$this->_helper->viewRenderer->setNoRender(TRUE);
     	$session = SessionWrapper::getInstance();
     	$formvalues = $this->_getAllParams();
     	// debugMessage($formvalues); 
@@ -25,7 +27,7 @@ class UserController extends IndexController  {
     	$login = (string)trim($this->_getParam("email"));
     	
     	# check if credcolumn is phone 
-    	if(strlen($login) == 10 && is_numeric(substr($login, -6, 6))){
+    	if(is_numeric(substr($login, -6, 6))){
     		$credcolumn = 'phone';
     	}
     	
@@ -37,8 +39,17 @@ class UserController extends IndexController  {
            		$credcolumn = 'email';
             }
         }
-        /* debugMessage($credcolumn); // exit();
-        debugMessage(decode($formvalues['redirecturl']));  */
+        // debugMessage($credcolumn);
+        $browser = new Browser();
+        $audit_values = $browser_session = array(
+        		"browserdetails" => $browser->getBrowserDetailsForAudit(),
+        		"browser"=>$browser->getBrowser(),
+        		"version"=>$browser->getVersion(),
+        		"useragent"=>$browser->getUserAgent(),
+        		"os"=>$browser->getPlatform(),
+        		"ismobile"=>$browser->isMobile() ? '1' : 0,
+        		"ipaddress"=>$browser->getIPAddress()
+        ); // debugMessage($audit_values);
         
         if($credcolumn == 'email' || $credcolumn == 'username'){
 	        $authAdapter = new Zend_Auth_Adapter_DbTable(Zend_Registry::get("dbAdapter"));
@@ -52,16 +63,16 @@ class UserController extends IndexController  {
 			$authAdapter->setCredential($this->_getParam("password")); 
 	
 			// new class to audit the type of Browser and OS that the visitor is using
-			$browser = new Browser();
-			$audit_values = array("browserdetails" => $browser->getBrowserDetailsForAudit());
-			
-			if(!$authAdapter->authenticate()->isValid()) { debugMessage('failed');
+			if(!$authAdapter->authenticate()->isValid()) {
 				// add failed login to audit trail
-	    		$audit_values['transactiontype'] = USER_LOGIN;
-	    		$audit_values['success'] = "N";
-	    		$audit_values['transactiondetails'] = "Login for user with email '".$this->_getParam("email")."' failed. Invalid username or password";
-				$this->notify(new sfEvent($this, USER_LOGIN, $audit_values));
-				
+				$audit_values['module'] = 1;
+				$audit_values['usecase'] = '1.1';
+				$audit_values['transactiontype'] = USER_LOGIN;
+	    		$audit_values['status'] = "N";
+	    		$audit_values['transactiondetails'] = "Login for user with id '".$this->_getParam("email")."' failed. Invalid username or password";
+	    		 // exit();
+	    		$this->notify(new sfEvent($this, USER_LOGIN, $audit_values));
+	    		
 				// return to the home page
 				if(!isArrayKeyAnEmptyString(URL_FAILURE, $formvalues)){
 					$session->setVar(ERROR_MESSAGE, "Invalid Email or Username or Password. <br />Please Try Again."); 
@@ -79,26 +90,56 @@ class UserController extends IndexController  {
 			$useraccount->populate($user->id);
         }
 		
-		/* debugMessage($useraccount->toArray());
-		exit(); */
-		$session->setVar("userid", $user->id);
+        # if user is loggin with phone
+        if($credcolumn == 'phone'){
+        	$useracc = new Member();
+        	$result = $useracc->validateUserUsingPhone($this->_getParam("password"), $this->_getParam("email"));
+        	// debugMessage($result); exit();
+        	if(!$result){
+        		$audit_values['module'] = 1;
+        		$audit_values['usecase'] = '1.1';
+        		$audit_values['transactiontype'] = USER_LOGIN;
+        		$audit_values['status'] = "N";
+        		$audit_values['transactiondetails'] = "Login for user with id '".$this->_getParam("email")."' failed. Invalid username or password";
+        		$this->notify(new sfEvent($this, USER_LOGIN, $audit_values));
+        
+        		$session->setVar(ERROR_MESSAGE, "Invalid Email Address, Phone or Password. <br />Please Try Again.");
+        		$session->setVar(FORM_VALUES, $this->_getAllParams());
+        		// return to the home page
+        		if(!isArrayKeyAnEmptyString(URL_FAILURE, $formvalues)){
+        			$this->_helper->redirector->gotoUrl(decode($this->_getParam(URL_FAILURE)));
+        		} else {
+        			$this->_helper->redirector->gotoSimple('login', "user");
+        		}
+        		 
+        		return false;
+        	} else {
+        		$useraccount = new Member();
+        		$useraccount->populate($result['id']);
+        	}
+        }
+        
+		// debugMessage($useraccount->toArray()); exit();
+		$session->setVar("userid", $useraccount->getID());
+		$session->setVar("username", $useraccount->getUserName());
 		$session->setVar("type", $useraccount->getType());
+		$session->setVar("browseraudit", $browser_session);
 
 		// clear user specific cache, before it is used again
     	$this->clearUserCache();
     
 		// Add successful login event to the audit trail
+    	$audit_values['module'] = 1;
+    	$audit_values['usecase'] = '1.1';
 		$audit_values['transactiontype'] = USER_LOGIN;
-    	$audit_values['success'] = "Y";
+    	$audit_values['status'] = "Y";
 		$audit_values['userid'] = $useraccount->getID();
-		$audit_values['executedby'] = $useraccount->getID();
    		$audit_values['transactiondetails'] = "Login for user with id '".$this->_getParam("email")."' successful";
 		$this->notify(new sfEvent($this, USER_LOGIN, $audit_values));
 		
 		if (isEmptyString($this->_getParam("redirecturl"))) {
 			# forward to the dashboard
-			// $this->_helper->redirector->gotoSimple("index", "dashboard");
-			$this->_helper->redirector->gotoSimple("list", "member");
+			$this->_helper->redirector->gotoSimple("index", "dashboard");
 		} else {
 			# redirect to the page the user was coming from
 			if(!isEmptyString($this->_getParam(SUCCESS_MESSAGE))) {
@@ -139,7 +180,7 @@ class UserController extends IndexController  {
 	    	$login = (string)$formvalues['email'];
 	    	
 	    	# check if credcolumn is phone 
-	    	if(strlen($login) == 10 && is_numeric(substr($login, -6, 6))){
+	    	if(strlen($login) == 12 && is_numeric(substr($login, -6, 6))){
 	    		$credcolumn = 'phone';
 	    	}
 	    	
@@ -158,7 +199,7 @@ class UserController extends IndexController  {
 	        		}
 	        		break;
 	        	case 'phone':
-	        		$useraccount = $user->populateByPhone(getFullPhone($formvalues['email']));
+	        		$useraccount = $user->populateByPhone($formvalues['email']);
 	        		if(!isEmptyString($useraccount->getID())){
 	        			$userfond = true;
 	        			// debugMessage($useraccount->toArray());
@@ -173,12 +214,29 @@ class UserController extends IndexController  {
 	        	default:
 	        		break;
 	        }
-    		// debugMessage($user->toArray());
+    		// exit;
 	        if(!isEmptyString($useraccount->getID())){
     			$useraccount->recoverPassword();
     			// send a link to enable the user to recover their password 
-    			$this->_helper->redirector->gotoUrl($this->view->baseUrl("user/recoverpasswordconfirmation"));	
+    			$session->setVar(SUCCESS_MESSAGE, "Instructions on how to reset your password have been sent to your email (".$useraccount->getEmail().")");
+    			$this->_helper->redirector->gotoUrl($this->view->baseUrl("user/login"));	
     		} else {
+    			$usecase = '1.14';
+    			$module = '1';
+    			$type = USER_RECOVER_PASSWORD;
+    			$details = "Recover password request for user with Identity ".$formvalues['email']." failed. No match found.";
+    			
+    			$browser = new Browser();
+    			$audit_values = $session->getVar('browseraudit');
+    			$audit_values['module'] = $module;
+    			$audit_values['usecase'] = $usecase;
+    			$audit_values['transactiontype'] = $type;
+    			$audit_values['userid'] = $session->getVar('userid');
+    			$audit_values['transactiondetails'] = $details;
+    			$audit_values['status'] = "N";
+    			// debugMessage($audit_values);
+    			$this->notify(new sfEvent($this, $type, $audit_values));
+    			
     			// send an error message that no user with that email was found 
     			$session = SessionWrapper::getInstance(); 
     			$session->setVar(FORM_VALUES, $this->_getAllParams()); 
@@ -186,19 +244,20 @@ class UserController extends IndexController  {
     			$this->_helper->redirector->gotoUrl($this->view->baseUrl("user/recoverpassword"));
     		}
     	}
-    	// exit();
     }
     
     public function resetpasswordAction() {
+    	$session = SessionWrapper::getInstance();
     	$user = new Member(); 
     	$user->populate(decode($this->_getParam('id')));
 
     	// verify that the activation key in the url matches the one in the database
 	    if ($user->getActivationKey() != $this->_getParam('actkey')) {
     		// send a link to enable the user to recover their password 
-    		$this->_helper->redirector->gotoUrl($this->view->baseUrl("user/activationerror"));
+	    	$error = "Invalid reset link. <br />Please try to recover your password again";
+	    	$session->setVar(ERROR_MESSAGE, $error);
+    		$this->_helper->redirector->gotoUrl($this->view->baseUrl("user/login"));
     	} 
-    	
     }
     
     public function processresetpasswordAction(){
@@ -212,14 +271,33 @@ class UserController extends IndexController  {
     	$user->populate(decode($this->_getParam('id')));
     	// debugMessage($user->toArray());
     	$user->setUsername($formvalues['username']);
-    	$user->setIsActive(1);
+    	$user->setStatus(1);
       	$user->setAgreedToTerms(1);
       	if(isEmptyString($user->getActivationDate())){
-      		$startdate = date("Y-m-d H:i:s");
+      		$startdate = date("Y-m-d H:i:s", mktime());
 			$user->setActivationDate($startdate);
       	}
     	// exit();
    		if ($user->resetPassword($this->_getParam('password'))) {
+   			// save to audit 
+   			$url = $this->view->serverUrl($this->view->baseUrl('profile/view/id/'.encode($user->getID())));
+   			$usecase = '1.10';
+   			$module = '1';
+   			$type = USER_RESET_PASSWORD_CONFIRM;
+   			$details = "Reset password confirmed for <a href='".$url."' class='blockanchor'>".$user->getName()."</a>";
+   			
+   			$browser = new Browser();
+   			$audit_values = $session->getVar('browseraudit');
+   			$audit_values['module'] = $module;
+   			$audit_values['usecase'] = $usecase;
+   			$audit_values['transactiontype'] = $type;
+   			$audit_values['userid'] = $session->getVar('userid');
+   			$audit_values['url'] = $url;
+   			$audit_values['transactiondetails'] = $details;
+   			$audit_values['status'] = "Y";
+   			// debugMessage($audit_values);
+   			$this->notify(new sfEvent($this, $type, $audit_values));
+   			
     		// send a link to enable the user to recover their password 
     		$session->setVar(SUCCESS_MESSAGE, "Sucessfully saved. You can now log in using your new Password");
     		$this->_helper->redirector->gotoUrl($this->view->baseUrl("user/login"));
@@ -232,26 +310,28 @@ class UserController extends IndexController  {
     		$this->_helper->redirector->gotoUrl(decode($this->_getParam(URL_FAILURE)));
     	}
     }
-    public function resetpasswordconfirmationAction() {}
-    
-    public function activationerrorAction() {}
     	
-    public function recoverpasswordconfirmationAction() {}
-	
-	public function changepasswordconfirmationAction() {}
-    
 	/**
      * Action to display the Login page 
      */
     public function logoutAction()  {
+    	$this->_helper->layout->disableLayout();
+    	$this->_helper->viewRenderer->setNoRender(TRUE);
+    	
+    	$session = SessionWrapper::getInstance();
+    	$browser = new Browser();
+    	$audit_values = $session->getVar('browseraudit');
+    	$audit_values['module'] = 1;
+    	$audit_values['usecase'] = '1.2';
+    	$audit_values['transactiontype'] = USER_LOGOUT;
+    	$audit_values['status'] = "Y";
+    	$audit_values['userid'] = $session->getVar('userid');
+    	$audit_values['transactiondetails'] = "Logout for user with id '".$session->getVar('username')."' successful";
+    	// debugMessage($audit_values);
+    	$this->notify(new sfEvent($this, USER_LOGIN, $audit_values));
+    	
     	$this->clearSession();
         // redirect to the login page 
-        $this->_helper->redirector("login", "user");
-    }
-    
-	public function changeemailAction(){
-     	$this->_helper->layout->disableLayout();
-		$this->_helper->viewRenderer->setNoRender(TRUE);
-		
+    	$this->_helper->redirector->gotoUrl($this->view->baseUrl("user/login"));
     }
 }

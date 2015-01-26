@@ -28,27 +28,28 @@ class DownloadController extends IndexController {
 	function excelAction(){
 		$this->_helper->layout->disableLayout();
 		$this->_helper->viewRenderer->setNoRender(TRUE);
-		
-		$session = SessionWrapper::getInstance(); 
+	
+		$session = SessionWrapper::getInstance();
 		$formvalues = $this->_getAllParams(); // debugMessage($formvalues);
 		$title = $this->_getParam('reporttitle');
-		
+	
 		// debugMessage($formvalues);
-		$cvsdata = decode($formvalues['csv_text']); 
+		$cvsdata = decode($formvalues['csv_text']);
 		if(!isEmptyString($title)){
-			$cvsdata = str_replace('"--"', '""', $cvsdata); 
+			$cvsdata = str_replace('"--"', '""', $cvsdata);
 			$title = str_replace(', ',' ',$title);
 			$cvsdata = $title."\r\n".$cvsdata;
 		}
-		// debugMessage($cvsdata); exit(); 
+		// debugMessage($cvsdata); exit();
 		$currenttime = mktime();
 		$filename = $currenttime.'.csv';
-		
-		/*$full_path = APPLICATION_PATH.DIRECTORY_SEPARATOR."..".DIRECTORY_SEPARATOR."public".DIRECTORY_SEPARATOR."temp".DIRECTORY_SEPARATOR.$filename;
-		file_put_contents($full_path, $cvsdata);*/
-		$data=stripcslashes($cvsdata); // exit();
-		
-	    //OUPUT HEADERS
+	
+		/*$full_path = BASE_PATH.DIRECTORY_SEPARATOR."temp".DIRECTORY_SEPARATOR.$filename;
+			file_put_contents($full_path, $cvsdata);*/
+		$data=stripcslashes($cvsdata); // debugMessage($data);
+		// exit();
+	
+		//OUPUT HEADERS
 		header("Pragma: public");
 		header("Expires: 0");
 		header("Cache-Control: must-revalidate, post-check=0, pre-check=0");
@@ -56,7 +57,7 @@ class DownloadController extends IndexController {
 		header("Content-Type: application/octet-stream");
 		header("Content-Disposition: attachment; filename=\"$filename\";" );
 		header("Content-Transfer-Encoding: binary");
-		 
+			
 		//OUTPUT CSV CONTENT
 		echo $data;
 		exit();

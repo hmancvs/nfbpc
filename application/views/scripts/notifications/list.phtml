@@ -1,0 +1,338 @@
+<?php
+	include APPLICATION_PATH.'/includes/header.php';
+	
+	$loggedinuser = new Member(); 
+	$loggedinuser->populate($userid);
+	
+	$paginate = new Pagination();	
+	$paginate->setView($this);
+	# set the search columns to be used on this list
+	$paginate->setSearchColumns(array("m.contents","m.subject","us.firstname","us.lastname"));
+	$paginate->setFilterColumns(array("mr.isread"));
+	$paginate->setDefaultSortBy("m.datecreated");
+	$paginate->setDefaultSortOrder("DESC");
+	$paginate->setItemCountPerPage("10");
+	
+	# define the letter to be clicked to ease navigation 
+	$where_query = " WHERE mr.recipientid = '".$userid."' ";
+	$allowclear = false;
+	
+	if(!isEmptyString($request->searchterm)){
+		$allowclear = true;
+	}
+	
+	$readstatus = $request->getParam('mr'.HTML_TABLE_COLUMN_SEPARATOR.'isread');
+	if($readstatus == '0'){
+		$where_query = " AND mr.isread = '0' ";
+	}
+	
+	$order = trim($request->order);
+	$order_query = " ";
+	if(isEmptyString($order)){
+		$order = 1;
+		$request->setParam('order', $order);
+	}
+	if($order == 1){
+		$order_query = " ORDER BY m.datecreated DESC ";
+	}
+	if($order == 2){
+		$order_query = " ORDER BY m.datecreated ASC ";
+	}
+	
+	$sortcolumn = $request->sortby;
+	$sortorder = $request->sortorder;
+	if(!isEmptyString($sortcolumn) && !isEmptyString($sortorder)){
+		$order_query = " ORDER BY " . $sortcolumn. " " .$sortorder. " ";
+	}
+	
+	$paginate->processPost($request->getParams());
+	$all_results_query = "SELECT mr.id as id, m.senderid as senderid, mr.recipientid as recipientid, mr.id as messagerecipientid, m.parentid as parentid, concat(us.firstname, ' ', us.lastname) as `Sender`, us.profilephoto as profilephoto, us.gender as gender, concat(ur.firstname, ' ', ur.lastname) as `Recipient`, m.subject as `Subject`, m.contents as 'Contents', mr.isread as `Is Read`, m.datecreated as `Message Date`, us.type as sendertype FROM messagerecipient mr left join message m on (mr.messageid = m.id) left join member ur on (mr.recipientid = ur.id) left join member us on (m.senderid = us.id) ".$where_query." ".$paginate->getSearchAndFilterSQL()." ".$paginate->getSortSQL();;
+	
+	// debugMessage($all_results_query); exit;
+	$paginate->setItemCountFromSQLQuery($all_results_query);
+	$current_results_query = $all_results_query." ".$paginate->getSQLLimit();
+	
+	$conn = Doctrine_Manager::connection(); 
+	$result = $conn->fetchAll($current_results_query);
+	$has_no_data = (count($result) == 0) ? true : false;
+	
+	$c = new Doctrine_RawSql();
+	$c->select('{m.*}, {mr.*}');
+	$c->from('message m INNER JOIN messagerecipient mr ON (m.id = mr.messageid)');
+	$c->where("(mr.recipientid = '".$userid."' AND mr.isread = 0) ORDER BY m.datecreated");
+	$c->addComponent('m', 'Message m');
+	$c->addComponent('mr', 'm.recipients mr');
+	$unread_messages = $c->execute()->count();
+	$unread_label = ' &nbsp;<span class="pagedescription" style="color:red; font-size:14px;">('.$unread_messages.' Unread)</span>';
+	
+	$title = "Messaging: Inbox";
+	$description = '';
+	$listurl = $this->baseUrl('notifications/list');	
+	$addurl = $this->baseUrl('notifications');
+	$listitems = "Notifications";
+	$moduleitem = "Message";
+	$icon = 'glyphicon glyphicon-envelope';
+	$resourcename = 'Message';
+	
+	# Page title
+	$this->headTitle($title.$browserappend);
+?>
+<script>
+$(document).ready(function() {
+	$('.titlebreadcrumb').html('<?php echo $homedir.$title; ?>');
+	$('.titlelabel').html('<?php echo $title.$unread_label; ?>');
+	$('.desclabel').html('<?php echo $description; ?>');
+	$('.pageicon').html('<span class="<?php echo $icon; ?>"></span>');
+
+	// when page first loads, force all checkboxes not to be checked and no action is mark as dropdown
+	$(".isread, #all").attr('checked', false);
+	$("#markaction").val('');
+	
+	// select or unselect all checkboxes on click all
+	$("#all").click(function(){		
+		if(this.checked == true) {
+			$(".messagechecker").trigger('click');
+		} else {			
+			$(".messagechecker").attr('checked', false);
+		} 
+	});
+	
+	// if user clicks any of the check boxes for multiple actions, force markmessagesasread select value to empty string 
+	$(".isread, #all").click(function(){
+		$("#markaction").val('');
+	});
+	
+	// force all hidden fields for marking and deleting messages to empty string
+	$(".empty").val('');
+			
+	$("#markaction").change(function(){
+		// if no message is selected, prompt user to select atleast one	
+		if($("#markaction").val() != '' && $("input[name=checkor]:checked").size() == 0){
+			bootbox.alert('<label class="blockcontainer">Please select atleast one message to mark');
+			$("#markaction").val('');
+			return false;
+		} else {
+			
+			$(".empty").val('');
+			// set the hidden array field for ids to be marked			
+			$("input[name=checkor]:checked").each(function(){				
+				var msgid = $('input.'+$(this).attr('id')).val();		
+				$("#marked_"+msgid).val($(this).val());					
+			});			
+			// alert($("input.mark").val());			
+			// send the message
+			$.post(  
+				"<?php echo $this->baseUrl("notifications/markasread"); ?>",  
+				$("#listform").serialize(),  
+				function(data){  
+					// alert(data); 						
+					// add read class to the rows having selected checkboxes
+					$("li").has("input[name=checkor]:checked").each(function(){										
+						if($("#markaction").val() == '1'){
+							$(this).removeClass('unread');
+							$(this).addClass('read');
+						} 
+						if($("#markaction").val() == '0'){
+							$(this).addClass('unread');
+							$(this).removeClass('read');
+						}							
+					});
+					// uncheck the checkboxes after marking them as read
+					$(".isread, #all").attr('checked', false);
+					// reset mark select	
+					$("#markaction").val('');				
+					$('#wait').hide().addClass('hidden');
+					
+					//alert(unread);
+					// $("#messages").html(data);				
+										
+				}  
+			); // close the $.post 	
+			$('#wait').show().removeClass('hidden');		
+		}		
+	});
+	
+	// Delete all selected messages	
+	$("#deletemessages").click(function(){		
+		// force user to select atleat one message
+		if($("input[name=checkor]:checked").size() == 0){
+			bootbox.alert('<label class="blockcontainer">Please select atleast one message to delete');
+			return false;
+		} else {
+			// force all hidden fields for selected messages to empty string
+			$(".empty").val('');
+			// set the hidden array field for ids to be deleted		
+			$("input[name=checkor]:checked").each(function(){	
+				var msgid = $('input.'+$(this).attr('id')).val();		
+				$("#selected_"+msgid).val(msgid);				
+			});			
+			
+			// confirm that user wants to delete the message
+			bootbox.confirm('<label class="blockcontainer">Are you sure you want to delete this message(s). <br /><br /> Click <b>OK</b> to confirm or <b>Cancel</b> to stay on this page', function(confirmed) {
+				if(confirmed){
+					// alert($("#inboxform").serialize());
+					$.post(  
+						"<?php echo $this->baseUrl("notifications/delete"); ?>",  
+						$("#listform").serialize(), 
+						function(data){
+							// alert(data);
+							if(data.search("success") != -1){
+								// remove message from list item from the DOM
+								$("input[name=checkor]:checked").each(function(){	
+									var msgid = $('input.'+$(this).attr('id')).val();		
+									$("li#row_"+msgid).fadeOut('slow', function(){ $(this).remove(); });		
+								});		
+								// hide loading image 						
+								$("#wait").hide();	
+							} else {
+								alert('An error occured in removing the comment. Please try again');
+							}
+						}  
+					); // close the $.post 	
+					$("#wait").show();	
+									
+					return true;
+				} else {
+					return false;
+				}
+			});	
+		}	
+	});	
+});
+</script>
+<div class="row margin0">
+    <div class="col-md-12 padding0">
+    <form class="form margin0 listform makerelative" action="<?php echo $this->baseUrl("notifications/listsearch"); ?>" method="get" id="listform">
+		<?php if ($sessionhaserror) { ?>
+            <div class="alert alert-danger"><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
+        <?php } ?>
+        <?php if (!isEmptyString($session->getVar(SUCCESS_MESSAGE))) { ?>
+            <div class="alert alert-success alert-dismissable"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button> <?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
+        <?php } ?>
+        <div class="row-fluid clearfix whitebg" style="border: 1px solid #D9D9D9; padding:2px;">
+            <div class="col-md-9 padding0">
+                <div class="divider5"></div>
+                <ul class="clearfix managelist">
+                    <li class="selector" style="width:30px; padding-left:15px;"><input type="checkbox" name="all" class="all" id="all" /></li>
+                    <?php if ($acl->checkPermission($resourcename, ACTION_DELETE)) { ?>
+                    	<li><a class="gonowhere removesorttitle btn btn-default btn-sm padding3" style="" id="deletemessages" title="Delete message(s)">Delete</a></li>
+                    <?php } ?>
+                    <li>
+                        <?php							
+                            $read = new Zend_Form_Element_Select('markaction',
+                                        array(
+                                            'multiOptions' => array("" => "Mark As", "1" => "Read", "0" => "Unread"), 
+                                            'view' => new Zend_View(),
+                                            'decorators' => array('ViewHelper'),
+                                            'class' => array("removesorttitle","form-control","input-sm","inline"),
+											'style' => 'width:90px;'
+                                        )
+                            );
+                            $read->setValue(''); 
+                            echo $read->render();	
+                        ?>
+                   	</li>
+                    <li style="width:110px; position:relative;">                                                      
+                        <?php							
+                            $read = new Zend_Form_Element_Select('mr'.HTML_TABLE_COLUMN_SEPARATOR.'isread',
+                                        array(
+                                            'multiOptions' => array("" => "Show All", "0" => "Unread", "1" => "Read"), 
+                                            'view' => new Zend_View(),
+                                            'decorators' => array('ViewHelper'),
+                                            'class' => array("autofilter","form-control","input-sm"),
+											'style' => 'width:90px;'
+                                        )
+                            );
+                            $read->setValue($request->getParam('mr'.HTML_TABLE_COLUMN_SEPARATOR.'isread')); 
+                            echo $read->render();	
+                        ?> &nbsp;<img id="wait" class="hidden" src="<?php echo $this->baseUrl('images/loader.gif'); ?>" style="position:absolute; right:0; top:7px;" />
+                    </li>
+                    <?php if($acl->checkPermission($resourcename, ACTION_CREATE)) { ?>
+                        <li>
+                            <a href="<?php echo $this->baseUrl('notifications/index/type/1'); ?>" class="btn btn-sm btn-primary blockanchor"><i class="icon-email"></i> Compose Email</a>
+                        </li>
+                    <?php } ?>
+                    <?php if($acl->checkPermission('SMS', ACTION_CREATE)) { ?>
+                    	<li>
+                            <a href="<?php echo $this->baseUrl('notifications/index/type/2'); ?>" class="btn btn-sm btn-primary blockanchor"><i class="icon-email"></i> Compose SMS</a>
+                        </li>
+                    <?php } ?>
+                    <li>
+                        <label class="control-label">Key: </label>
+                    </li>
+                    <li>
+                       <div style="width:auto; padding:4px 10px; background-color:#e0eef8; border:1px solid #999999; color:#333333; text-align:center;">Unread</div>
+                    </li>
+                    <li>
+                    	<div style="width:auto; padding:4px 10px; background-color:#f9fcfd; border:1px solid #999999; color:#333333; text-align:center;">Read</div>
+                    </li>
+                </ul>
+                <div class="errors"><div id="errormessage"></div></div>
+            </div>
+            <div class="col-md-3 padding0">
+            	<div class="divider5"></div>
+            	<div class="col-md-12 padding0"><input name="searchterm" id="searchterm" class="form-control form-search" value="<?php echo $request->searchterm; ?>" type="text" placeholder="Search..." /><button type="submit" class="btn btn-default blockanchor searchbtn"><i class="glyphicon glyphicon-search"></i></button></div>
+                <?php if($allowclear){ ?>
+                    <a href="<?php echo $listurl; ?>" title="Clear Search and Filters" class="reset close button btn resetlink blockanchor">&times;</a>
+                <?php } ?>
+            </div>
+        </div>
+		<?php if($has_no_data) { ?>
+            <div class="divider30"></div>
+            <div style="clear:both;" class="alert alert-warning margin5"><?php echo $this->translate("message_list_norecords"); ?></div>
+        <?php } ?>
+        <div class="divider5"></div>
+        <div class="row margin0">
+            <div class="col-md-12 padding0">
+                <div class="widget-content well" style="background:none;background-color:#fff; padding:5px;">
+                    <ul id="datalist" class="nav nav-stacked">
+                        <?php 				  		
+                            foreach($result as $line){
+                                $readclass = "read";
+                                if($line['Is Read'] == 0){
+                                    $readclass = "unread";
+                                }
+                                $message_title = "View message details";
+                                $reply_path = $this->baseUrl("notifications/view/id/".encode($line['id']));
+								if(!isEmptyString($line['parentid'])){
+									$reply_path = $this->baseUrl("notifications/view/id/".encode($line['parentid'])."/readid/".encode($line['id']));
+								}
+                                $reply_title = "Reply this message";
+                                $sendtype = '';
+                        	?>
+                                <li class="<?php echo $readclass; ?>" id="row_<?php echo $line['id']; ?>">
+                                    <div class="col-md-12 padding10 clearfix">
+                                        <div class="selector col-md-2 padding0">
+                                        	<div class="divider5"></div>
+                                        	<input type="checkbox" name="checkor" class="isread messagechecker" id="message_<?php echo $line['id']; ?>" value="<?php echo $line['messagerecipientid']; ?>" style="margin-right:15px; vertical-align:top;" /> 
+                                        	<img class="imagecontainer" src="<?php echo getImagePath($line['senderid'], $line['profilephoto'], $line['gender']); ?>" style="width:65px; display:inline;" />
+                                            <div class="divider10"></div>
+                                        </div>
+                                        <div class="message col-md-10 padding0">
+                                        	<a href="<?php echo $reply_path; ?>" id="link_<?php echo $line['id']; ?>" class="blockanchor" title="<?php echo $message_title; ?>">
+                                                <h3 class="sender col-md-12 padding0"><?php echo $line['Sender'].$sendtype; ?> </h3>
+                                                <div class="summary clearfix col-md-12 padding0">   
+                                                    <span>Subject: <?php echo isEmptyString($line['Subject']) ? snippet($line['Contents'], 100, '...' ) : $line['Subject']; ?></span>
+                                                </div>
+                                            </a>
+                                            <div class="divider10"></div>
+                                            <div class="actions clearfix col-md-12 padding0">
+                                                <label class="messagedate">Sent on <?php echo date('m/d/Y - g:i A', strtotime($line['Message Date'])); ?></label>
+                                            </div>
+                                            <input type="hidden" class="message_<?php echo $line['id']; ?> link_<?php echo $line['id']; ?>" title="<?php echo $line['messagerecipientid']; ?>" value="<?php echo $line['id']; ?>" />
+                                            <input type="hidden" class="empty" name="messagesfordelete[]" id="selected_<?php echo $line['id']; ?>" value="" />
+                                            <input type="hidden" class="empty" name="messagesformarking[]" id="marked_<?php echo $line['id']; ?>" value="" />
+                                            <input type="hidden" name="deletemultiple" id="deletemultiple" value="1" />
+                                        </div>
+                                    </div>
+                                </li>
+                    	<?php } ?>
+                    </ul>
+               	</div>
+         	</div>
+      	</div>
+    </form>
+</div>            
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

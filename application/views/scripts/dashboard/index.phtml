@@ -1,28 +1,636 @@
 <?php
-	require_once APPLICATION_PATH.'/includes/header.php';
+	include APPLICATION_PATH.'/includes/header.php';
 		
 	$user->populate($userid);
 	$role = getUserType($user->getType());
 	$title = $role." ".$this->translate("dashboard_pagetitle");
 	$description = 'Welcome to '.getAppName();
+	$loadgmap = loadMaps();
+	
+	$where_query = " WHERE l.id <> '' ";
+	$all_results_query = "
+			SELECT l.id as id, 
+			l.name as district,
+			l.name as name,
+			l.gpslat as gpslat,
+			l.gpslng as gpslng,
+			l.population as population,
+			count(m.id) as totalmembers,
+			SUM(IF(m.gender =1,1,0)) as male, 
+			SUM(IF(m.gender =2,1,0)) as female			
+			from location l 
+			left join member m on (m.districtid = l.id)
+			".$where_query."
+			GROUP BY l.id
+			HAVING count(m.id) > 0
+			order by l.name asc ";
+	
+	// debugMessage($all_results_query); exit;
+	$conn = Doctrine_Manager::connection(); 
+	$result_coverage = $conn->fetchAll($all_results_query);
+	$has_no_data = (count($result_coverage) == 0) ? true : false; 
+	// debugMessage($result_coverage);exit();
+	
+	$where_query = " WHERE o.id <> '' AND o.gpslat <> '' AND o.gpslng <> '' ";
+	$all_results_query = "
+			SELECT o.id as id, 
+			o.name as church,
+			o.gpslat as gpslat,
+			o.gpslng as gpslng
+			from organisation o 
+			".$where_query."
+			GROUP BY o.id
+			order by o.name asc ";
+	
+	//debugMessage($all_results_query); //exit;
+	$conn = Doctrine_Manager::connection(); 
+	$result_church = $conn->fetchAll($all_results_query);
+	$has_no_data_church = (count($result_church) == 0) ? true : false; 
+	
+	if(date('m') == 1){
+		$rangestart = $this->startofmonth_6monthago;
+	} else { 
+		$rangestart = $this->firstdayofyear_iso;
+	}
+	
+	// debugMessage('start>'.$rangestart);
+	$users_sql = "select 
+		COUNT(DISTINCT(m.id)) as totalmembers, 
+		month(m.datecreated) as month, 
+		year(m.datecreated) as year,
+		concat(year(m.datecreated), LPAD(MONTH(m.datecreated), 2, '0')) as `yearmonth`
+		from member as m 
+		where m.id <> '' AND TO_DAYS(m.datecreated) >= TO_DAYS('".$rangestart."') group by year(m.datecreated), month(m.datecreated) 
+		"; //debugMessage($users_sql); 
+	$usersintrend = $conn->fetchAll($users_sql); 
+	// debugMessage($usersintrend); // exit;
+	$users_no_data = (count($usersintrend) == 0) ? true : false; 
+	
+	$org_sql = "select 
+		COUNT(DISTINCT(o.id)) as totalchurches, 
+		month(o.datecreated) as month, 
+		year(o.datecreated) as year,
+		concat(year(o.datecreated), LPAD(MONTH(o.datecreated), 2, '0')) as `yearmonth`
+		from organisation as o
+		where o.id <> '' AND TO_DAYS(o.datecreated) >= TO_DAYS('".$rangestart."') group by year(o.datecreated), month(o.datecreated) 
+		"; //debugMessage($org_sql); 
+	$orgsintrend = $conn->fetchAll($org_sql); 
+	// debugMessage($orgsintrend); debugMessage(array_merge_maintain_keys($usersintrend, $orgsintrend));  exit;
+	$orgs_no_data = (count($orgsintrend) == 0) ? true : false; 
+	
+	$rangemonths = get_months($rangestart, date('Y-m-d'));
+	// $months = getAllMonthsAsShortNames();
+	$memberarray = array(); $churcharray = array(); $montharray = array(); $monthdisplay = array();
+	foreach($usersintrend as $key => $value){
+		$rangemonths[$value['yearmonth']]['totalmembers'] = $value['totalmembers'];
+	}
+	foreach($orgsintrend as $key => $value){
+		$rangemonths[$value['yearmonth']]['totalchurches'] = $value['totalchurches'];
+	}
+	foreach($rangemonths as $key => $value){
+		if(isArrayKeyAnEmptyString('totalmembers', $value)){
+			$memberarray[$key] = 0;
+		} else {
+			$memberarray[$key] = $value['totalmembers'];
+		}
+		if(isArrayKeyAnEmptyString('totalchurches', $value)){
+			$churcharray[$key] = 0;
+		} else {
+			$churcharray[$key] = $value['totalchurches'];
+		}
+		$montharray[$key] = $value['monthnumber'];
+		$monthdisplay[$key] = $value['monthdisplay'];
+	}
+	
+	// create list for periods
+	$periodlist = "'".implode("', '", $monthdisplay)."'";
+	$memberlist = implode(", ", $memberarray);
+	$churchlist = implode(", ", $churcharray);
+	
+	$latestmembers = getLatestMembers(5);
+	$latestorgs = getLatestOrganisations(5);
 	
 	$this->headTitle($title.$browserappend);
 	
 ?>
+<script type="text/javascript" src="<?php echo $this->baseUrl('javascript/plugins/highcharts.js'); ?>"></script>
+<script type="text/javascript" src="<?php echo $this->baseUrl('javascript/plugins/exporting.js'); ?>"></script>
+<?php if($loadgmap){ ?>
+	<script src="<?php echo getGoogleMapsUrl(); ?>" type="text/javascript"></script>
+	<script type="text/javascript" src="<?php echo $this->serverUrl($this->baseUrl('javascript/plugins/gmaps.min.js')); ?>"></script>
+<?php } ?>
 <script>
-	$(document).ready(function() {
-		$('.titlebreadcrumb').html('<?php echo 'System / '.$this->translate("dashboard_pagetitle"); ?>');
-		$('.titlelabel').html('<?php echo 'Dashboard'; ?>');
-		$('.desclabel').html('<?php echo $description; ?>');
-		$('.pageicon').html('<span class="glyphicon glyphicon-home"></span>');
+$(document).ready(function() {
+	$('.titlebreadcrumb').html('<?php echo 'System / '.$this->translate("dashboard_pagetitle"); ?>');
+	$('.titlelabel').html('<?php echo 'Dashboard'; ?>');
+	$('.desclabel').html('<?php echo $description; ?>');
+	$('.pageicon').html('<span class="glyphicon glyphicon-home"></span>');
+	
+	$(".reload").click(function(){
+		var id = $(this).attr('id');
+		// alert('clicked fetch '+id);
+		$("#"+id+"_today, tr#"+id+"_row td label").html('');
+		initialise(id+"_today");
+		var url = "<?php echo $this->baseUrl('dashboard/'); ?>"+id+'stats'; // alert(url);
 		
+		$.get(url, {                        
+			cachebuster: new Date().getTime()},                            
+			function(data){
+				// alert(data);      
+				data = jQuery.parseJSON(data);	                        
+				$('#'+id+'_today').html(isEmptyString(data.today) ? '0' : numberWithCommas(data.today));
+				$('#'+id+'_yesterday').html(isEmptyString(data.yesterday) ? '0' : numberWithCommas(data.yesterday));
+				$('#'+id+'_thisweek').html(isEmptyString(data.thisweek) ? '0' : numberWithCommas(data.thisweek));
+				$('#'+id+'_lastweek').html(isEmptyString(data.lastweek) ? '0' : numberWithCommas(data.lastweek));
+				$('#'+id+'_thismonth').html(isEmptyString(data.thismonth) ? '0' : numberWithCommas(data.thismonth));
+				$('#'+id+'_lastmonth').html(isEmptyString(data.lastmonth) ? '0' : numberWithCommas(data.lastmonth));
+				$('#'+id+'_thisyear').html(isEmptyString(data.thisyear) ? '0' : numberWithCommas(data.thisyear));
+				$('#'+id+'_allentries').html(isEmptyString(data.allentries) ? '0' : numberWithCommas(data.allentries));
+			}
+		);
+	});
+
+	// reload all on page load
+	$(".reload").trigger('click').attr('Reload');
+	// reload all data on clicking all trigger
+	$("#reloadall, .reloadall").click(function(){
+		$(".reload").trigger('click');
+	});
+	// show wait function
+	function initialise(id){
+		$("#"+id).html($("#wait").html());
+		return true;
+	}
+	
+	<?php if($loadgmap){ ?>
+		var gpslat = '1.31799';
+		var gpslng = '32.28459';
+		var title = "Google Map";
+		var map = new GMaps({
+			div: '#mapcanvas',
+			lat: gpslat,
+			lng: gpslng,
+			minZoom: 7,
+			maxZoom:16,
+			zoomControlOptions: {
+				style: google.maps.ZoomControlStyle.SMALL //zoom control size
+			},
+			scaleControl: true, // enable scale control
+			mapTypeId: google.maps.MapTypeId.ROADMAP // google map type
+		});
+		
+		var map2 = new GMaps({
+			div: '#mapcanvas2',
+			lat: gpslat,
+			lng: gpslng,
+			minZoom: 7,
+			maxZoom:16,
+			zoomControlOptions: {
+				style: google.maps.ZoomControlStyle.SMALL //zoom control size
+			},
+			scaleControl: true, // enable scale control
+			mapTypeId: google.maps.MapTypeId.ROADMAP // google map type
+		});
+		
+		<?php
+			foreach($result_coverage as $location){
+				$hasgps = false;
+				if(!isEmptyString($location['gpslat']) && !isEmptyString($location['gpslng'])){
+					$hasgps = true;
+				}
+		?>
+			<?php if($hasgps){ ?>
+				var mgpslat = '<?php echo $location['gpslat']; ?>';
+				var mgpslng = '<?php echo $location['gpslng']; ?>';
+				var locationname = "<?php echo $location['name']; ?>";
+				
+				var id = '<?php echo $location['id']; ?>';
+				var contentdetails= $("#location_"+id).html();
+				var contentString = '<div id="content" style="margin-left:10px; min-height:250px; height:auto; width:410px;">'+
+					  '<div id="bodyContent">'+contentdetails+'</div>'+
+					'</div>';
+	
+				map.addMarker({
+					lat: mgpslat,
+					lng: mgpslng,
+					title: locationname,
+					infoWindow: {
+						content: contentString
+					}
+				});
+			<?php } ?>	
+		<?php } ?>
+		map.setZoom(8);
+		map.setOptions({scrollwheel: false, disableDoubleClickZoom: true});
+		
+		<?php
+			foreach($result_church as $church){
+				$hasgps = false;
+				if(!isEmptyString($church['gpslat']) && !isEmptyString($church['gpslng'])){
+					$hasgps = true;
+				}
+		?>
+			<?php if($hasgps){ ?>
+				var mgpslat = '<?php echo $church['gpslat']; ?>';
+				var mgpslng = '<?php echo $church['gpslng']; ?>';
+				var churchname = "<?php echo $church['church']; ?>";
+				
+				var id = '<?php echo $church['id']; ?>';
+				var contentdetails= $("#church_"+id).html();
+				var contentString = '<div id="content" style="margin-left:10px; min-height:250px; height:auto; width:460px;">'+
+					  '<div id="bodyContent">'+contentdetails+'</div>'+
+					'</div>';
+	
+				map2.addMarker({
+					lat: mgpslat,
+					lng: mgpslng,
+					title: churchname,
+					infoWindow: {
+						content: contentString
+					}
+				});
+			<?php } ?>	
+		<?php } ?>
+		map2.setZoom(8);
+		map2.setOptions({scrollwheel: false, disableDoubleClickZoom: true});
+		
+	<?php } ?>
+});
+</script>
+<script type="text/javascript">
+	// Radialize the colors
+	// Make monochrome colors and set them as default for all pies
+	Highcharts.getOptions().plotOptions.pie.colors = (function () {
+		var colors = ['#cff3c4','#42B521'], base = Highcharts.getOptions().colors[0], i;
+		for (i = 0; i < 10; i++) {
+			colors.push(Highcharts.Color(base).brighten((i - 3) / 7).get());
+		}
+		return colors;
+	}());
+	
+	$(function () {
+		$('#reghistory').highcharts({
+			chart: {
+				type: 'area',
+				height: 400,
+				borderWidth: 0
+			},
+			credits: {
+				enabled: false
+			},
+			exporting: {
+			  enabled: false
+			},
+			title: {
+				text: 'Registration History'
+			},
+			xAxis: {
+				categories: [<?php echo $periodlist; ?>]
+			},
+			yAxis: {
+				title: {
+					text: 'Number of Members'
+				}
+			},
+			tooltip: {
+				formatter: function() {
+					return this.x+', <br/>'+this.series.name+' : '+numberWithCommas(this.y);
+				}
+			},
+			series: [{
+				name: 'Churches',
+				data: [<?php echo $churchlist; ?>]
+			},{
+				name: 'Members',
+				data: [<?php echo $memberlist; ?>]
+			}]
+		});
 	});
 </script>
-<style>
-</style>
-<div>
-
+<div class="row row-bg" style="margin-bottom:10px;">
+    <div class="col-sm-12 col-md-12">
+        <div class="widget box makerelative">
+            <div class="widget-header">
+                <h4><i class="glyphicon glyphicon-align-justify"></i> System Summary</h4>
+            </div>
+            <div class="widget-content no-padding">
+                <table class="table table-striped margin0">
+                    <thead class="monitor">
+                        <tr>
+                            <th style="width:15px;" class="monitorhead"></th>
+                            <th style="width:130px; text-align:left; padding-left:0;" class="monitorhead">Variable</th>
+                            <th style="width:15px; text-align:center; padding:0;"><a class="gonowhere btn btn-mini centeralign reloadall margin5" id="reloadall" title="Reload All"><i class="glyphicon glyphicon-refresh"></i> </a></th>
+                            <th class="monitorhead">Today</th>
+                            <th class="monitorhead">Yesterday</th>
+                            <th class="monitorhead">This week</th>
+                            <th class="monitorhead">Last week</th>
+                            <th class="monitorhead">This month</th>
+                            <th class="monitorhead">Last month</th>
+                            <th class="monitorhead">This year</th>
+                            <th class="monitorhead" style="width:50px;">All</th>
+                        </tr>
+                    </thead>
+                    <tbody class="monitorbody">
+                        <tr id="members_row">
+                            <td class="icontd"><span class="label label-primary blocked">&nbsp;</span></td>
+                            <td class="variabletd">Members</td>
+                            <td><a class="gonowhere btn btn-mini centeralign reload" id="members"><i class="glyphicon glyphicon-refresh"></i> </a></td>
+                            <td><label id="members_today"></label></td>
+                            <td><label id="members_yesterday"></label></td>
+                            <td><label id="members_thisweek"></label></td>
+                            <td><label id="members_lastweek"></label></td>
+                            <td><label id="members_thismonth"></label></td>
+                            <td><label id="members_lastmonth"></label></td>
+                            <td><label id="members_thisyear"></label></td>
+                            <td class="last"><label id="members_allentries"></label></td>
+                        </tr>
+                        <tr id="users_row">
+                            <td class="icontd"><span class="label label-danger blocked">&nbsp;</span></td>
+                            <td class="variabletd">Users</td>
+                            <td><a class="gonowhere btn btn-mini centeralign reload" id="users"><i class="glyphicon glyphicon-refresh"></i></a></td>
+                            <td><label id="users_today"></label></td>
+                            <td><label id="users_yesterday"></label></td>
+                            <td><label id="users_thisweek"></label></td>
+                            <td><label id="users_lastweek"></label></td>
+                            <td><label id="users_thismonth"></label></td>
+                            <td><label id="users_lastmonth"></label></td>
+                            <td><label id="users_thisyear"></label></td>
+                            <td class="last"><label id="users_allentries"></label></td>
+                        </tr>
+                        <tr id="churches_row">
+                            <td class="icontd"><span class="label label-primary blocked">&nbsp;</span></td>
+                            <td class="variabletd">Churches</td>
+                            <td><a class="gonowhere btn btn-mini centeralign reload" id="churches"><i class="glyphicon glyphicon-refresh"></i></a></td>
+                            <td><label id="churches_today"></label></td>
+                            <td><label id="churches_yesterday"></label></td>
+                            <td><label id="churches_thisweek"></label></td>
+                            <td><label id="churches_lastweek"></label></td>
+                            <td><label id="churches_thismonth"></label></td>
+                            <td><label id="churches_lastmonth"></label></td>
+                            <td><label id="churches_thisyear"></label></td>
+                            <td class="last"><label id="churches_allentries"></label></td>
+                        </tr>
+                        <tr id="appoints_row">
+                            <td class="icontd"><span class="label label-danger blocked">&nbsp;</span></td>
+                            <td class="variabletd">Appointments</td>
+                            <td><a class="gonowhere btn btn-mini centeralign reload" id="appoints"><i class="glyphicon glyphicon-refresh"></i></a></td>
+                            <td><label id="appoints_today"></label></td>
+                            <td><label id="appoints_yesterday"></label></td>
+                            <td><label id="appoints_thisweek"></label></td>
+                            <td><label id="appoints_lastweek"></label></td>
+                            <td><label id="appoints_thismonth"></label></td>
+                            <td><label id="appoints_lastmonth"></label></td>
+                            <td><label id="appoints_thisyear"></label></td>
+                            <td class="last"><label id="appoints_allentries"></label></td>
+                        </tr>
+                        <tr id="sms_row">
+                            <td class="icontd"><span class="label label-primary blocked">&nbsp;</span></td>
+                            <td class="variabletd">SMS Outbound</td>
+                            <td><a class="gonowhere btn btn-mini centeralign reload" id="sms"><i class="glyphicon glyphicon-refresh"></i></a></td>
+                            <td><label id="sms_today"></label></td>
+                            <td><label id="sms_yesterday"></label></td>
+                            <td><label id="sms_thisweek"></label></td>
+                            <td><label id="sms_lastweek"></label></td>
+                            <td><label id="sms_thismonth"></label></td>
+                            <td><label id="sms_lastmonth"></label></td>
+                            <td><label id="sms_thisyear"></label></td>
+                            <td class="last"><label id="sms_allentries"></label></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>
+<div class="row row-bg" style="margin-bottom:10px;">
+    <div class="col-sm-12 col-md-12">
+        <div class="widget box hidden-xs">
+            <div class="widget-header">
+                <h4><i class="glyphicon glyphicon-align-justify"></i> NFBPC Member Coverage</h4>
+                <div class="toolbar no-padding">
+                    <div class="btn-group">
+                        <span class="btn btn-xs widget-collapse" style="padding:11px; margin:0;"><i class="icon-angle-down"></i></span>
+                    </div>
+                </div>
+            </div>
+            <div class="widget-content no-padding whitebg minheight400">
+            	<div id="mapcanvas" class="maxwidth" style="height:1000px; xborder: 2px solid #878787; border-radius: 3px; margin:4px; width:99%;"></div>
+                <div class="row span12 margin0 padding0 clearfix">
+                    <?php
+                         $counter = 1;
+                         $total = 0;
+                         $maletotal = 0; $femaletotal = 0;
+                         foreach($result_coverage as $line){
+                             $total += $line['totalmembers'];
+                             $maletotal += $line['male']; 
+                             $femaletotal += $line['female'];
+							 $district = new Location();
+							 $district->populate($line['id']);
+                    ?>
+                        <div class="row hidden" id="location_<?php echo $line['id']; ?>" style="margin-left:10px;">
+                            <div class="widget-content" style="padding-left:0;">
+                                <h4><i class="glyphicon glyphicon-th"></i><?php echo $line['district']; ?> &nbsp;Statistics</h4>
+                                <table class="table table-hover table-bordered table-condensed noround margin0" style="font-size:12px; width:400px;">
+                                    <thead>
+                                        <tr>
+                                            <th class="bolded" style="width:30%; font-size:12px;">Variable</th>
+                                            <th class="centeralign" style="width:20%; font-size:10px;">Count</th>
+                                            <th class="bolded" style="width:30%; font-size:12px;">Variable</th>
+                                            <th class="centeralign" style="width:20%; font-size:10px;">Count</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>Total Churches</td>
+                                            <td class="maptablecell"><span class="nullifempty"><?php echo formatNumber($district->getNumberOfChurches()); ?></span></td>
+                                            <td>No of Counties</td>
+                                            <td class="maptablecell"><span class="nullifempty"><?php echo formatNumber($district->getNumberOfLocations(3)); ?></span></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Total Members</td>
+                                            <td class="maptablecell"><span class="nullifempty"><?php echo formatNumber($line['totalmembers']); ?></span></td>
+                                            <td>No of Sub-counties</td>
+                                            <td class="maptablecell"><span class="nullifempty"><?php echo formatNumber($district->getNumberOfLocations(4)); ?></span></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Male Members</td>
+                                            <td class="maptablecell"><span class="nullifempty"><?php echo formatNumber($line['male']); ?></span></td>
+                                            <td>No of Parishes</td>
+                                            <td class="maptablecell"><span class="nullifempty"><?php echo formatNumber($district->getNumberOfLocations(5)); ?></span></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Female Members</td>
+                                            <td class="maptablecell"><span class="nullifempty"><?php echo formatNumber($line['female']); ?></span></td>
+                                            <td>No of Villages</td>
+                                            <td class="maptablecell"><span class="nullifempty"><?php echo formatNumber($district->getNumberOfLocations(6)); ?></span></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Population</td>
+                                            <td class="maptablecell"><span class="nullifempty"><?php echo formatNumber($line['population']); ?></span></td>
+                                            <td></td>
+                                            <td class="maptablecell"></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                <div class="divider15"></div>
+                            </div>
+                        </div>
+                    <?php } ?>
+                </div>
+          	</div>
+      	</div>
+   	</div>
+</div>
+<div class="row row-bg" style="margin-bottom:10px;">
+    <div class="col-sm-12 col-md-12">
+        <div class="widget box hidden-xs">
+            <div class="widget-header">
+                <h4><i class="glyphicon glyphicon-align-justify"></i> NFBPC Church Coverage</h4>
+                <div class="toolbar no-padding">
+                    <div class="btn-group">
+                        <span class="btn btn-xs widget-collapse" style="padding:11px; margin:0;"><i class="icon-angle-down"></i></span>
+                    </div>
+                </div>
+            </div>
+            <div class="widget-content no-padding whitebg minheight400">
+            	<div id="mapcanvas2" class="maxwidth" style="height:1000px; xborder: 2px solid #878787; border-radius: 3px; margin:4px; width:99%;"></div>
+                <div class="row span12 margin0 padding0 clearfix">
+                    <?php
+                         $counter = 1;
+                         foreach($result_church as $line){
+							 $org = new Organisation();
+							 $org->populate($line['id']);
+                    ?>
+                    	<div class="row hidden" id="church_<?php echo $line['id']; ?>" style="margin-left:10px;">
+                            <div class="widget-content" style="padding-left:0;">
+                                <h4><i class="glyphicon glyphicon-th"></i><?php echo $line['church']; ?> &nbsp;Statistics</h4>
+                                <table class="table table-hover table-bordered table-condensed noround margin0" style="font-size:12px; width:450px;">
+                                    
+                                    <tbody>
+                                        <tr>
+                                            <td class="bolded">Total Members</td>
+                                            <td class="maptablecell" style="text-align:left;"><span class="nullifempty"><?php echo formatNumber($org->countRegistered()); ?></span></td>
+                                            <td class="bolded">County</td>
+                                            <td class="maptablecell" style="text-align:left;"><span class="nullifempty"><?php echo $org->getCounty()->getName(); ?></span></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="bolded">Region</td>
+                                            <td class="maptablecell" style="text-align:left;"><span class="nullifempty"><?php echo $org->getRegion()->getName(); ?></span></td>
+                                            <td class="bolded">Sub-county</td>
+                                            <td class="maptablecell" style="text-align:left;"><span class="nullifempty"><?php echo $org->getSubCounty()->getName(); ?></span></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="bolded">Province</td>
+                                            <td class="maptablecell" style="text-align:left;"><span class="nullifempty"><?php echo $org->getProvince()->getName(); ?></span></td>
+                                            <td class="bolded">Parish</td>
+                                            <td class="maptablecell" style="text-align:left;"><span class="nullifempty"><?php echo $org->getParish()->getName(); ?></span></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="bolded">District</td>
+                                            <td class="maptablecell" style="text-align:left;"><span class="nullifempty"><?php echo $org->getDistrict()->getName(); ?></span></td>
+                                            <td class="bolded">Village</td>
+                                            <td class="maptablecell" style="text-align:left;"><span class="nullifempty"><?php echo $org->getVillage()->getName(); ?></span></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                <div class="divider15"></div>
+                            </div>
+                        </div>
+                    <?php } ?>
+                </div>
+          	</div>
+      	</div>
+   	</div>
+</div>
+<div class="row row-bg" style="margin-bottom:10px;">
+    <div class="col-sm-12 col-md-12">
+        <div class="widget box makerelative">
+            <div class="widget-header">
+                <h4><i class="glyphicon glyphicon-align-justify"></i> Registration Trends</h4>
+            </div>
+            <div class="widget-content no-padding whitebg minheight400">
+        		<div id="reghistory"></div>
+        	</div>
+		</div>
+	</div>
+</div> 
+<div class="row row-bg" style="margin-bottom:10px;">
+    <div class="col-sm-6 col-md-6">
+        <div class="widget box hidden-xs">
+            <div class="widget-header">
+                <h4><i class="glyphicon glyphicon-align-justify"></i> Latest Members</h4>
+                <div class="toolbar no-padding">
+                    <div class="btn-group">
+                        <span class="btn btn-xs widget-collapse" style="padding:11px; margin:0;"><i class="icon-angle-down"></i></span>
+                    </div>
+                </div>
+            </div>
+            <div class="widget-content no-padding whitebg minheight200">
+                <table class="table xtable-condensed xtable-bordered noround margin0">
+                    <?php if(count($latestmembers) == 0) { ?>
+                        <div style="clear:both;" class="alert alert-info margin5"><?php echo $this->translate("global_list_norecords"); ?></div>
+                    <?php } else { ?>
+                        <tbody>
+                            <?php 
+                                $i = 1;
+                                foreach($latestmembers as $member){
+                                    $useracc = new Member();
+                                    $useracc->populate($member['id']);
+                            ?>
+                                <tr>
+                                    <td class="centeralign" style="width:20px;"><?php echo $i; ?></td>
+                                    <td><a class="blockanchor" href="<?php echo $this->baseUrl('member/view/id/'.encode($useracc->getID())); ?>"><?php echo snippet($useracc->getName(), 40, '..'); ?></a></td>
+                                    <td style="width:35%; font-size:13px;"><?php echo changeMySQLDateToPageFormat($useracc->getDateCreated()).' '.date("g:i A", strtotime($useracc->getDateCreated())); ?></td>
+                                </tr>
+                            <?php $i++; } ?>
+                            <tr>
+                            	<tr><td colspan="3" class="centeralign"><span class="centeralign inlineblocked"><a href="<?php echo $this->baseUrl('member/list'); ?>" class="btn btn-default btn-sm blockanchor">View all</a></span></td></tr>
+                            </tr>
+                        </tbody>
+                    <?php } ?>
+                </table>
+        	</div>
+       	</div>
+  	</div>
+    <div class="col-sm-6 col-md-6 paddingleft0">
+    	<div class="widget box hidden-xs">
+            <div class="widget-header">
+                <h4><i class="glyphicon glyphicon-align-justify"></i> Latest Churches</h4>
+                <div class="toolbar no-padding">
+                    <div class="btn-group">
+                        <span class="btn btn-xs widget-collapse" style="padding:11px; margin:0;"><i class="icon-angle-down"></i></span>
+                    </div>
+                </div>
+            </div>
+            <div class="widget-content no-padding whitebg minheight200">
+        		<table class="table xtable-condensed xtable-bordered noround margin0">
+                    <?php if(count($latestorgs) == 0) { ?>
+                        <div style="clear:both;" class="alert alert-info margin5"><?php echo $this->translate("global_list_norecords"); ?></div>
+                    <?php } else { ?>
+                        <tbody>
+                            <?php 
+                                $i = 1;
+                                foreach($latestorgs as $org){
+                                    $church = new Organisation();
+                                    $church->populate($org['id']);
+                            ?>
+                                <tr>
+                                    <td class="centeralign" style="width:20px;"><?php echo $i; ?></td>
+                                    <td><a href="<?php echo $this->baseUrl('organisation/view/id/'.encode($useracc->getID())); ?>" class="blockanchor"><?php echo snippet($church->getName(), 40, '..'); ?></a></td>
+                                    <td style="width:30%; font-size:13px;"><?php echo changeMySQLDateToPageFormat($church->getDateCreated()).' '.date("g:i A", strtotime($church->getDateCreated())); ?></td>
+                                </tr>
+                            <?php $i++; } ?>
+                            <tr>
+                            	<tr><td colspan="3" class="centeralign"><span class="centeralign inlineblocked"><a href="<?php echo $this->baseUrl('organisation/list'); ?>" class="btn btn-default btn-sm blockanchor">View all</a></span></td></tr>
+                            </tr>
+                        </tbody>
+                    <?php } ?>
+                </table>
+        	</div>
+       	</div>
+    </div>
+</div>
+<div class="divider10"></div>                            
 <?php
 	require_once APPLICATION_PATH.'/includes/footer.php';
 ?>

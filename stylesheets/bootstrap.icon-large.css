@@ -8,6 +8,9 @@
     vertical-align: text-bottom;
     width: 36px;
 }
+.icon-large.white {
+	background-image: url("../images/glyphicons_white.png");
+}
 .icon-large.icon-glass{ background-position: 0 0;  } 
 .icon-large.icon-leaf{ background-position: 0 -34px;  } 
 .icon-large.icon-dog{ background-position: 0 -69px;  } 

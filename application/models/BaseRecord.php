@@ -48,6 +48,15 @@ abstract class BaseRecord extends Doctrine_Record {
 	 */
 	protected $logger; 
 	
+	protected $preupdatedata;
+	
+	function getPreUpdateData(){
+		return $this->preupdatedata;
+	}
+	function setPreUpdateData($preupdatedata) {
+		$this->preupdatedata = $preupdatedata;
+	}
+	
 	/**
 	 * Add custom validation messages
 	 *
@@ -296,7 +305,7 @@ abstract class BaseRecord extends Doctrine_Record {
 	        foreach ($errorStack as $field => $errors) {
            		foreach ($errors as $value) {
            			// debugMessage($field);
-           			if($value == "type" || $value == "notnull"){
+           			if($value == "type" || $value == "notnull" || $value == "length"){
            				$message.= "<li>".$this->getCustomErrorMessage($field, $value)." error on field ".$field."</li>"; 
            			} else {
            				$message.= "<li>".$this->getCustomErrorMessage($field, $value)."</li>"; 

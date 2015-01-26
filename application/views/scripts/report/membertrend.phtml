@@ -1,0 +1,235 @@
+<?php
+	include APPLICATION_PATH.'/includes/header.php';
+	// require_once BASE_PATH.'/mpdf/mpdf.php';
+	
+	$title = "Member Registration Trend";
+	
+	$startdate = $request->getParam('startdate');
+	if(!isEmptyString($startdate)){
+		$startdate = changeDateFromPageToMySQLFormat($startdate);
+	}
+	$enddate = $request->getParam('enddate');
+	if(!isEmptyString($enddate)){
+		$enddate = changeDateFromPageToMySQLFormat($enddate);
+	}
+	
+	$datestring = ''; $custom_query = '';
+	if(!isEmptyString($startdate) && !isEmptyString($enddate)){
+		$datestring = '['.changeMySQLDateToPageFormat($startdate).' - '.changeMySQLDateToPageFormat($enddate).']'; 
+		$days = getDaysBetweenDates($startdate,$enddate); 
+		
+		if(intval($days) <= 30){
+			$grpby = "WEEK(u.datecreated)";
+			$rangevalues = get_weeks($startdate, $enddate); // debugMessage($rangevalues); exit;
+		} else { 
+			$grpby = " YEAR(u.datecreated), MONTH(u.datecreated) ";
+			$rangevalues = get_months($startdate, $enddate);
+		}
+		
+		$users_sql = "select 
+			COUNT(DISTINCT(u.id)) as totalmembers, 
+			MONTH(u.datecreated) as month, 
+			YEAR(u.datecreated) as year,
+			concat(YEAR(u.datecreated), LPAD(MONTH(u.datecreated), 2, '0')) as `yearmonth`, 
+			WEEK(u.datecreated) as week_no,
+			YEARWEEK(u.datecreated) as yearweek
+			from member as u 
+			where u.id <> '' AND TO_DAYS(u.datecreated) BETWEEN TO_DAYS('".$startdate."') AND TO_DAYS('".$enddate."') 
+			group by ".$grpby." "; // debugMessage($users_sql); 
+			
+		$conn = Doctrine_Manager::connection(); 			
+		$usersintrend = $conn->fetchAll($users_sql); 
+		// debugMessage($usersintrend); // exit;
+		$users_no_data = (count($usersintrend) == 0) ? true : false; 
+		
+		// $months = getAllMonthsAsShortNames();
+		$memberarray = array(); $churcharray = array(); $periodarray = array(); $perioddisplay = array();
+		foreach($usersintrend as $key => $value){
+			if(intval($days) <= 30){
+				$rangevalues[$value['yearweek']]['totalmembers'] = $value['totalmembers'];
+			} else {
+				$rangevalues[$value['yearmonth']]['totalmembers'] = $value['totalmembers'];
+			}
+		}
+		
+		foreach($rangevalues as $key => $value){
+			if(isArrayKeyAnEmptyString('totalmembers', $value)){
+				$memberarray[$key] = 0;
+				$rangevalues[$key]['totalmembers'] = 0;
+			} else {
+				$memberarray[$key] = $value['totalmembers'];
+			}
+			if(intval($days) <= 30){
+				$periodarray[$key] = $key;
+				$start = (date('d M', strtotime($value['year'].'W'.str_pad($value['week']+1, 2, '0', STR_PAD_LEFT)))); //debugMessage($start);
+				$end = (date('d M', strtotime($value['year'].'W'.str_pad($value['week']+2, 2, '0', STR_PAD_LEFT).' -1 day'))); //debugMessage($end);
+				$perioddisplay[$key] = 'Week '.$value['week'].' <br>('.$start.' - '.$end.') ';
+			} else {
+				$periodarray[$key] = $value['monthnumber'];
+				$perioddisplay[$key] = $value['monthdisplay'];
+			}
+		}
+		//debugMessage($rangevalues);
+		// debugMessage($perioddisplay);
+		// create list for periods
+		$periodlist = "'".implode("', '", $perioddisplay)."'";
+		$memberlist = implode(", ", $memberarray);
+	}
+	// exit;
+	$this->headTitle($title.$browserappend);
+	$description = '';
+	$icon = $this->baseUrl('images/icon_report.png');
+?>
+<script type="text/javascript" src="<?php echo $this->baseUrl('javascript/plugins/highcharts.js'); ?>"></script>
+<script type="text/javascript" src="<?php echo $this->baseUrl('javascript/plugins/exporting.js'); ?>"></script>
+<script>
+$(document).ready(function() {
+	$('.titlebreadcrumb').html('<?php echo $homedir.'Reports / '.$title; ?>');
+	$('.titlelabel').html('<?php echo $title; ?>');
+	$('.desclabel').html('<?php echo $description; ?>');
+	$('.pageicon').html('<span class="glyphicon glyphicon-signal"></span>');
+	
+	$("#reportform").validate({		
+		// define the validation rules one field at a time
+		rules: {
+			startdate: "required",
+			enddate: {
+				required: true,
+				enddateafterstartdate:true
+			}
+		}, 
+		// the messages for each of the fields being validated
+		messages: {		
+			startdate: "Select Report Start Date",
+			enddate: {
+				required: "Select Report End Date"
+			}
+		},
+		// custom error positions
+		errorPlacement: function(error, element) {
+			error.appendTo("#list_error")		
+		}
+	});
+	
+	var dateoptions = datepickerOpts;
+	var startfrom = '<?php echo date('Y'); ?>';
+	dateoptions.yearRange = "-<?php echo date('Y')-2010; ?>:-0"; 
+	dateoptions.minDate = "-<?php echo date('Y'); ?>Y";
+	dateoptions.maxDate = new Date("Dec 31, "+startfrom);	
+	$("#startdate, #enddate").datepicker(dateoptions);
+	
+	// function to validate the enddate being greater than the start date
+	$.validator.addMethod("enddateafterstartdate", function(value, element) {            
+		var startDate = $("#startdate").val();  
+		if($.trim(value) == ""){
+			return true;
+		}
+		if($.trim(startDate) == ""){
+			return false;
+		}
+		return Date.parse(startDate) <= Date.parse(value);        
+	}, "End Date should be after Start Date");
+	
+	$("#reportform").submit(function(){
+		if ($(this).valid()) {
+			$.blockUI({ message: uiblockcontent}); 
+		}
+	});
+	
+	<?php if(!isEmptyString($startdate) && !isEmptyString($enddate)){ ?>
+		// Radialize the colors
+		Highcharts.getOptions().colors = Highcharts.map(Highcharts.getOptions().colors, function(color) {
+			return {
+				radialGradient: { cx: 0.5, cy: 0.3, r: 0.7 },
+				stops: [
+					[0, color],
+					[1, Highcharts.Color(color).brighten(-0.3).get('rgb')] // darken
+				]
+			};
+		});
+		
+		$(function () {
+			$('#reghistory').highcharts({
+			chart: {
+				type: 'area',
+				height: 400,
+				borderWidth: 0
+			},
+			credits: {
+				enabled: false
+			},
+			exporting: {
+			  enabled: true
+			},
+			title: {
+				text: 'Registered Members <?php echo $datestring; ?>'
+			},
+			xAxis: {
+				categories: [<?php echo $periodlist; ?>]
+			},
+			yAxis: {
+				title: {
+					text: 'Number of Members'
+				}
+			},
+			tooltip: {
+				formatter: function() {
+					return this.x+', <br/>'+this.series.name+' : '+numberWithCommas(this.y);
+				}
+			},
+			series: [{
+				name: 'Members',
+				data: [<?php echo $memberlist; ?>]
+			}]
+		});
+		});	
+	<?php } ?>
+});
+</script>
+<div class="row margin0">
+    <div class="col-md-12 padding0">
+        <form class="form-search makerelative" action="<?php echo $this->baseUrl("report/reportsearch/page/membertrend"); ?>" method="get" id="reportform">
+        	<?php if ($sessionhaserror) { ?>
+            <div class="alert alert-danger"><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
+			<?php } ?>
+            <?php if (!isEmptyString($session->getVar(SUCCESS_MESSAGE))) { ?>
+                <div class="alert alert-success alert-dismissable"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button> <?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
+            <?php } ?>
+            <div class="row-fluid clearfix whitebg">
+            	<div class="divider10"></div>
+                <div class="col-md-9">
+                    <ul class="listfilter">
+                        <li><a href="<?php echo $this->baseUrl('report/dashboard'); ?>" class="btn btn-default btn-sm"><i class="glyphicon glyphicon-arrow-left"></i> Dashboard</a></li>
+                        <li><input type="text" name="startdate" id="startdate" class="form-control input-sm datefield readonly width100" value="<?php echo $request->startdate; ?>" placeholder="From:" /></li>
+                    	<li><input name="enddate" id="enddate" type="text" class="form-control input-sm datefield readonly width100" placeholder="To:" value="<?php echo $request->enddate; ?>" /></li>
+                        <li><button type="submit" class="btn btn-primary btn-sm" title="Generate Report" style=""><i class="glyphicon glyphicon-filter"></i> Generate Report</button></li>
+                        <li><a href="<?php echo $this->baseUrl('report/membertrend'); ?>">Reset</a></li>
+                    </ul>
+                </div>
+                <div></div>
+           	</div>
+            <div class="divider10"></div>
+            <div id="list_error" class="maxwidth"></div>
+    		<div class="row row-bg" style="margin-bottom:10px;">
+                <div class="col-sm-12 col-md-12">
+                    <div class="widget box makerelative">
+                        <div class="widget-header">
+                            <h4 class="widgettitle">Registration History <?php //echo $datestring; ?></h4>
+                        </div>
+                        <div class="widget-content no-padding whitebg minheight400">
+                            <?php if(!isEmptyString($startdate) && !isEmptyString($enddate)){ ?>
+                                <div id="reghistory"></div>
+                            <?php } else { ?>
+                                <label class="labeldescription noresults">Select reporting period to Generate</label>
+                            <?php } ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+		</form>
+	</div>
+</div>
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

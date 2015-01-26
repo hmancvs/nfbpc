@@ -1,0 +1,264 @@
+<script>
+$(document).ready(function(){
+	
+	$("#committeid").change(function(){
+		var comid = $(this).val();
+		window.location.href = $(this).attr('url')+comid;
+	});
+	
+	$("#regionid").change(function(){
+		var previd = '<?php echo $request->regionid; ?>';
+		var newid = $(this).val();
+		var viewurl = '<?php echo stripURL($this->viewurl); ?>';
+		var newurl = viewurl; 
+		if(!isEmptyString(previd)){
+			var prevkey = '/regionid/'+previd
+			newurl = viewurl.replace(prevkey, '');
+		}
+		// alert(newurl);
+		var gotourl = newurl;
+		if(!isEmptyString(newid)){
+			var newkey = '/regionid/'+newid
+			gotourl = newurl+newkey;
+		}
+		// alert(gotourl);
+		if(gotourl != viewurl){
+			window.location.href = gotourl;
+		}
+		if(newid == ''){
+			window.location.href = newurl;
+		}
+	});
+	
+	$("#districtid").change(function(){
+		var id = $(this).val();
+		window.location.href = $(this).attr('url')+id;
+	});
+	
+	$("#indexform").validate({		
+		// define the validation rules one field at a time
+		rules: {
+			sendername: "required",
+			senderemail: "required",
+			subject: "required",
+			contents: "required"
+		}, 
+		// the messages for each of the fields being validated
+		messages: {	
+			sendername: "Please enter Name",
+			senderemail: "Please enter Email",
+			subject: "<?php echo $this->translate("message_subject_error"); ?>",
+			contents: "<?php echo $this->translate("message_contents_error"); ?>"
+		},
+		// custom error positions
+		errorPlacement: function(error, element) {
+			switch(element.attr("name")){					
+				default:
+					if(element.hasClass("useid_error")){
+						error.appendTo("#"+element.attr("id")+"_error");
+					} else {
+						error.appendTo("#"+element.attr("name")+"_error");
+					}
+					break;
+			}			
+		},
+		ignore: ":hidden:not(select)"
+	});
+});
+</script>
+<div class="k2ItemsBlock" id="k2ModuleBox105">
+	<ul style="margin-left:0;">
+		<?php 
+			$committees = getAllCommitteesPrioritised();
+			$showall = true;
+			$locationid = ''; $locationname = '';
+			$committeeid = $id;
+			$regionid = $provinceid = $districtid = $subcountyid = '';
+			
+			$regions = getNFBPCRegions();
+			$regionid = $request->regionid;
+			if(isEmptyString($request->regionid)){
+				// $regionid = 1;
+			}
+			
+			if($committeeid == 9){
+				$showall = false;
+				$locationid = $regionid;
+				if(!isEmptyString($request->regionid)){
+					$locationname = ' - '.$regions[$regionid];
+				} else {
+					$locationname = ' - All Regions';
+				}
+			}
+			if($committeeid == 10){
+				$showall = false;
+				$provinces = getProvinces(); // debugMessage($provinces);
+				$provinceid = $request->provinceid;
+				if(isEmptyString($request->provinceid)){
+					// $provinceid = 34;
+				}
+				$locationid = $provinceid; 
+				if(!isEmptyString($request->provinceid)){
+					$locationname = ' - '.$provinces[$locationid];
+				} else {
+					$locationname = ' - All Provinces';
+				}
+			}
+			if($committeeid == 11 || $committeeid == 12){
+				$showall = false;
+				$districts = getDistricts(); // debugMessage(districts);
+				$districtid = $request->districtid;
+				if(isEmptyString($request->districtid)){
+					$districtid = 67709;
+				}
+				$locationid = $districtid; 
+				$locationname = $districtlabel = ' - '.$districts[$locationid].' District';
+				if($committeeid == 12){
+					$dist = new Location();
+					$dist->populate($districtid);
+					$did = $districtid;
+					if(!isEmptyString($dist->getDistrictID())){
+						$did = $dist->getDistrictID();
+					}
+					$subcounties = getCounties($did);
+					if(!isEmptyString($request->subcountyid)){
+						$subcountyid = $locationid = $request->subcountyid;
+						$locationname = $subcountylabel = $districtlabel.' - '.$subcounties[$subcountyid];
+					}
+				}
+			}
+			
+			if($request->getActionName() == 'ministries' && !isEmptyString($request->id)){
+				$showall = false;
+			}
+		?>
+		<?php if($showall){ ?>
+			<?php foreach($committees as $theid => $committeename){ ?>
+				<li class="even">
+					<div class="row xarticle <?php echo $theid == $id ? 'activemenu' : ''; ?>" style="padding:10px 0;">
+						<div class="large-12 columns">
+							<a href="<?php echo $this->baseUrl('index/committee/id/'.$theid); ?>" class="moduleItemTitle"><?php echo $committeename; ?></a>
+						</div>
+					</div>
+				</li>
+			<?php } ?>
+		<?php } else { ?>
+			<?php 
+				ob_start();
+			?>
+				<li class="even" style="height: 50px;">
+					<div style="padding:0;">
+						<?php
+							$values = getCommittees();
+							$dropdown = new Zend_Form_Element_Select('committeid',
+												array(
+													'multiOptions' => $values,
+													'view' => new Zend_View(),
+													'decorators' => array('ViewHelper'),
+													'class' => array("xautofilter", "form-control", 'chosen-select'),
+													'style' => 'width:253px; margin-left:-15px;',
+													'url' => $this->baseUrl('index/committee/id/')
+												)
+							);  
+							$dropdown->setValue($committeeid); 
+							echo $dropdown->render();
+						?>
+					</div>
+				</li>
+				<?php if($committeeid == 12){ ?>
+					<li class="even" style="height: 50px;">
+						<div style="padding:0;">
+							<?php
+								$dropdown = new Zend_Form_Element_Select('districtid',
+													array(
+														'multiOptions' => $districts,
+														'view' => new Zend_View(),
+														'decorators' => array('ViewHelper'),
+														'class' => array("xautofilter", "form-control", 'chosen-select'),
+														'style' => 'width:253px; margin-left:-15px;',
+														'url' => $this->baseUrl('index/committee/id/'.$request->id.'/districtid/')
+													)
+								);  
+								$dropdown->setValue($districtid); 
+								echo $dropdown->render();
+							?>
+						</div>
+					</li>
+				<?php } ?>
+			<?php $comhtml = ob_get_clean(); ?>
+			<?php if($id == 9){ ?>
+				<?php echo $comhtml; ?>
+				<li class="even">
+					<div class="row xarticle <?php echo isEmptyString($regionid) ? 'activemenu' : ''; ?>" style="padding:2px 0;">
+						<div class="large-12 columns">
+							<a href="<?php echo $this->baseUrl('index/committee/id/'.$id); ?>" class="moduleItemTitle">All Regions</a>
+						</div>
+					</div>
+				</li>
+				<?php foreach($regions as $key => $regionname){ ?>
+					<li class="even">
+						<div class="row xarticle <?php echo $key == $regionid ? 'activemenu' : ''; ?>" style="padding:10px 0;">
+							<div class="large-12 columns">
+								<a href="<?php echo $this->baseUrl('index/committee/id/'.$id.'/regionid/'.$key); ?>" class="moduleItemTitle"><?php echo $regionname; ?></a>
+							</div>
+						</div>
+					</li>
+				<?php } ?>
+			<?php } ?>
+			<?php if($id == 10){ ?>
+				<?php echo $comhtml; ?>
+				<li class="even">
+					<div class="row xarticle <?php echo isEmptyString($provinceid) ? 'activemenu' : ''; ?>" style="padding:2px 0;">
+						<div class="large-12 columns">
+							<a href="<?php echo $this->baseUrl('index/committee/id/'.$id); ?>" class="moduleItemTitle">All Provinces</a>
+						</div>
+					</div>
+				</li>
+				<?php foreach($provinces as $key => $provincename){ ?>
+					<li class="even">
+						<div class="row xarticle <?php echo $key == $provinceid ? 'activemenu' : ''; ?>" style="padding:2px 0;">
+							<div class="large-12 columns">
+								<a href="<?php echo $this->baseUrl('index/committee/id/'.$id.'/provinceid/'.$key); ?>" class="moduleItemTitle"><?php echo $provincename; ?></a>
+							</div>
+						</div>
+					</li>
+				<?php } ?>
+			<?php } ?>
+			<?php if($id == 11){ ?>
+				<?php echo $comhtml; ?>
+				<?php foreach($districts as $key => $districtname){ ?>
+					<li class="even">
+						<div class="row xarticle <?php echo $key == $districtid ? 'activemenu' : ''; ?>" style="padding:2px 0;">
+							<div class="large-12 columns">
+								<a href="<?php echo $this->baseUrl('index/committee/id/'.$id.'/districtid/'.$key); ?>" class="moduleItemTitle"><?php echo $districtname; ?></a>
+							</div>
+						</div>
+					</li>
+				<?php } ?>
+			<?php } ?>
+			<?php if($id == 12){ ?>
+				<?php echo $comhtml; ?>
+				<?php foreach($subcounties as $key => $subcountyname){ ?>
+					<li class="even">
+						<div class="row xarticle <?php echo $key == $subcountyid ? 'activemenu' : ''; ?>" style="padding:2px 0;">
+							<div class="large-12 columns">
+								<a href="<?php echo $this->baseUrl('index/committee/id/'.$id.'/districtid/'.$districtid.'/subcountyid/'.$key); ?>" class="moduleItemTitle"><?php echo $subcountyname; ?></a>
+							</div>
+						</div>
+					</li>
+				<?php } ?>
+			<?php } ?>
+			<?php if($action == 'ministries' && !isEmptyString($request->id)){ ?>
+				<?php foreach($departments as $line){ ?>
+					<li class="even">
+						<div class="row xarticle <?php echo $line['id'] == $request->id ? 'activemenu' : ''; ?>" style="padding:2px 0;">
+							<div class="large-12 columns">
+								<a href="<?php echo $this->baseUrl('index/ministries/id/'.$line['id']); ?>" class="moduleItemTitle"><?php echo $line['Name']; ?></a>
+							</div>
+						</div>
+					</li>
+				<?php } ?>
+			<?php } ?>
+		<?php } ?>
+	</ul>
+</div>

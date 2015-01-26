@@ -1,0 +1,105 @@
+<div class="row-fluid margin0">
+                                                <div class="col-md-12">
+                                                    <fieldset class="fieldsetcontainer" style="margin-bottom:0;">
+                                                        <legend>Account</legend>
+                                                        <div class="panel-body well-sm minheight400">
+                                                        	<div class="row-fluid margin0">
+                                                                <div class="col-md-12">
+                                                                	<?php if(!isEmptyString($member->getType())){ ?>
+                                                                        <fieldset class="fieldsetcontainer">
+                                                                            <legend>Login Credentials</legend>
+                                                                            <div class="panel-body well-sm">
+                                                                                <div class="row-fluid marginleft5">
+                                                                                    <div class="col-md-12 paddingleft10">
+                                                                                        <div class="form-group">
+                                                                                            <label class="col-md-2 control-label"><?php echo $this->translate('profile_email_label'); ?>:</label>
+                                                                                            <div class="col-md-10">
+                                                                                                <p class="form-control-static nullifempty view"><?php echo $member->getEmail(); ?>
+                                                                                                <?php if($member->isUserActive() && $isme){ ?>
+                                                                                                    <a href="<?php echo $this->baseUrl('profile/changeemail/id/'.encode($member->getID()).'/pgc/true'); ?>" class="addpopup changeemail btn btn-xs btn-default pull-right floatright" title="Change Email" rel="Change Email" id="changeemail" formtitle="indexform" successurl="<?php echo $this->viewurl; ?>" action="<?php echo $this->baseUrl($controller."/processchangeemail"); ?>">Change Email</a>
+                                                                                                <?php } ?>
+                                                                                                </p>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        <div class="form-group">
+                                                                                            <label class="col-md-2 control-label"><?php echo $this->translate('profile_username_label'); ?>:</label>
+                                                                                            <div class="col-md-10">
+                                                                                                <p class="form-control-static nullifempty view"><?php echo $member->getUsername(); ?>
+                                                                                                <?php if($member->isUserActive() && $isme){ ?>
+                                                                                                    <a href="<?php echo $this->baseUrl('profile/changeusername/id/'.encode($member->getID()).'/pgc/true'); ?>" class="addpopup changeusername btn btn-xs btn-default pull-right floatright" title="Change Username" rel="Change Username" id="changeusername" formtitle="indexform" successurl="<?php echo $this->viewurl; ?>" action="<?php echo $this->baseUrl("profile/processchangeusername"); ?>">Change Username</a>
+                                                                                                <?php } ?>    
+                                                                                                </p>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        <div class="form-group">
+                                                                                            <label class="col-md-2 control-label"><?php echo $this->translate('profile_phone_label'); ?>:</label>
+                                                                                            <div class="col-md-10">
+                                                                                                <p class="form-control-static nullifempty view"><?php echo $member->getPhone(); ?></p>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        <div class="form-group">
+                                                                                            <label class="col-md-2 control-label"><?php echo $this->translate('profile_password_label'); ?>:</label>
+                                                                                            <div class="col-md-10">
+                                                                                                <p class="form-control-static nullifempty view">
+                                                                                                    <?php if($member->isUserActive()){ ?>
+                                                                                                        <b style="font-size:16px;">&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;</b> &nbsp;
+                                                                                                        
+                                                                                                        <?php if($isme){ ?>
+                                                                                                            <a class="addpopup btn btn-xs btn-default pull-right floatright" rel="Change Password" href="<?php echo $this->baseUrl('profile/changepassword/pgc/true/id/'.encode($member->getID())); ?>" formtitle="indexform" successurl="<?php echo $this->viewurl; ?>" action="<?php echo $this->baseUrl("profile/processchangepassword"); ?>" submittext="Change Password">Change Password</a>
+                                                                                                        <?php } ?>
+                                                                                                        <?php if($acl->checkPermission('User Account', ACTION_DELETE) && $member->isUserActive() && !$isme){ ?>
+                                                                                                            <a class="btn btn-default btn-xs confirm-dialog pull-right floatright" action="<?php echo $this->baseUrl('profile/resetpassword/id/'.encode($member->getID()).'/successurl/'.encode($this->viewurl)); ?>" message="Are you sure you want to reset <?php echo $member->getName() ?>'s Password?">Reset Password</a>
+                                                                                                        <?php } ?>
+                                                                                                    <?php } ?>        
+                                                                                                </p>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        </fieldset>
+                                                                        <fieldset class="fieldsetcontainer">
+                                                                            <legend>System Settings and Preferences</legend>
+                                                                            <div class="panel-body well-sm">
+                                                                                <div class="row-fluid marginleft5">
+                                                                                    <div class="col-md-12 paddingleft10">
+                                                                                        <div class="form-group">
+                                                                                            <label class="col-md-2 control-label"><?php echo $this->translate('profile_type_label'); ?>:</label>
+                                                                                            <div class="col-md-10">
+                                                                                                <p class="form-control-static nullifempty view">
+                                                                                                <?php if($member->isUserActive()){ ?>
+                                                                                                    <?php echo isEmptyString($member->getType()) ? '--' : getUserType($member->getType()); ?>
+                                                                                                <?php } ?>
+                                                                                                </p>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        </fieldset>
+                                                                    <?php } else { ?>
+                                                                    	<div class="alert alert-danger fade in"><i class="icon-remove close" data-dismiss="alert"></i>No Account available for this Profile</div>
+                                                                    <?php } ?>
+                                                                    <div class="form-group">
+                                                                        <div class="col-md-12">
+                                                                            <div class="divider5"></div>
+                                                                            <?php if($acl->checkPermission($resourcename, ACTION_EDIT) || $isme){ ?>
+                                                                                <a class="btn btn-default btn-xs blockanchor" href="<?php echo $this->baseUrl($controller.'/index/id/'.encode($member->getID()).'/tab/picture'); ?>"><i class="glyphicon glyphicon-upload"></i> Upload Photo</a>
+                                                                            <?php } ?>
+                                                                            <?php if($acl->checkPermission($resourcename, ACTION_DELETE) && $member->isDeactivated() && !$isme){ ?>
+                                                                                <a class="btn btn-success btn-xs confirm-dialog" action="<?php echo $this->baseUrl("profile/updatestatus/id/".encode($member->getID())."/status/1/successmessage/profile_reactivate_success/successurl/".encode($this->viewurl)); ?>" message="<?php echo $this->translate('profile_reactivate_confirmation'); ?>"><i class="glyphicon glyphicon-arrow-up"></i> Re-Activate Account</a>
+                                                                            <?php } ?>
+                                                                            <?php if($acl->checkPermission($resourcename, ACTION_DELETE) && $member->isUserActive() && !$member->isDeactivated() && !$isme){ ?>
+                                                                               <a class="btn btn-warning btn-xs confirm-dialog" action="<?php echo $this->baseUrl("profile/updatestatus/id/".encode($member->getID())."/status/2/successmessage/profile_deactivate_success/successurl/".encode($this->viewurl)); ?>" message="<?php echo $this->translate('profile_deactivate_confirmation'); ?>"><i class="glyphicon glyphicon-arrow-down"></i> De-Activate Account</a>
+                                                                            <?php } ?>
+                                                                            <?php if($acl->checkPermission($resourcename, ACTION_DELETE) && !$member->isUserActive() && !$isme){ ?>
+                                                                                <a class="btn btn-danger btn-xs confirm-dialog" message="<?php echo $this->translate('global_delete_confirm_message'); ?>" action="<?php echo $this->baseUrl($controller.'/delete/id/'.encode($member->getID())."/entityname/Member/successurl/".encode($listurl)); ?>"><i class="glyphicon glyphicon-remove-sign"></i> Delete Account</a>
+                                                                            <?php } ?>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                          	</div>
+                                                        </div>
+                                                   	</fieldset>
+                                              	</div>
+                                        	</div>

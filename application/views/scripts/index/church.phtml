@@ -1,0 +1,136 @@
+<?php
+	require_once APPLICATION_PATH.'/includes/header.php';
+	
+	$id = '';
+	$churchid = $request->id;
+	$church = new Organisation();
+	$church->populate($churchid);
+	$title = $church->getName();
+	$loadgps = loadMaps();
+	
+?>
+<?php require APPLICATION_PATH."/views/scripts/index/publictop.phtml"; ?>
+<div class="row">
+	<div class="row xk2catstyles itemView" id="k2Container">
+		<h3 class="publiclefttitle">Leadership</h3>
+		<div class="large-3 columns xleftside">
+			<?php require APPLICATION_PATH."/views/scripts/index/publicleftcolumn.phtml"; ?>
+		</div>
+		<div class="large-9 columns xmainside" style="margin-top:-55px;">
+			<div class="itemHeader">
+				<h2 class="itemTitle"><?php echo $church->getName(); ?></h2>
+			</div>
+			<div class="itemBody" style="clear:both; display:both;">
+				<div style="float:left; width:95%; margin-top:15px;">
+					<img class="imagecontainer" src="<?php echo $church->getMediumPicturePath();; ?>" style="width:100%; text-align:center; margin:0 auto;" />
+				</div>
+				<div style="display:block;">
+					<div style="float:left; width:20%;">
+						<strong style="margin-top:35px; display:block;">Location </strong>
+						<table class="table locationlist" style="width:110%; border:none; margin-left:-8px; margin-top:10px;">
+							<tr>
+								<td>Region: <span><?php echo isEmptyString($church->getRegionID()) ? '--' : $church->getRegion()->getName(); ?></span></td>
+							</tr>
+							<tr>
+								<td>Province: <span><?php echo isEmptyString($church->getProvinceID()) ? '--' : $church->getProvince()->getName(); ?></span></td>
+							</tr>
+							<tr>
+								<td>District: <span><?php echo isEmptyString($church->getProvinceID()) ? '--' : $church->getDistrict()->getName(); ?></span></td>
+							</tr>
+							<tr>
+								<td>County: <span><?php echo isEmptyString($church->getCountyID()) ? '--' : $church->getCounty()->getName(); ?></span></td>
+							</tr>
+							<tr>
+								<td>Sub-county: <span><?php echo isEmptyString($church->getSubcountyID()) ? '--' : $church->getSubcounty()->getName(); ?></span></td>
+							</tr>	
+							<tr>
+								<td>Parish: <span><?php echo isEmptyString($church->getParishID()) ? '--' : $church->getParish()->getName(); ?></span></td>
+							</tr>
+							<tr>
+								<td>Village: <span><?php echo isEmptyString($church->getVillageID()) ? '--' : $church->getVillage()->getName(); ?></span></td>
+							</tr>
+						</table>
+					</div>
+					<div style="float:right; width:75%;">
+						<strong style="margin-top:35px; display:block;">Mission</strong>
+						<p style="min-height:20px; margin-top:10px; margin-bottom:20px;">
+							<?php echo isEmptyString($church->getMission()) ? '--' : nl2br($church->getMission()); ?>
+						</p>
+						<strong>Vision</strong>
+						<p style="min-height:20px; margin-top:10px; margin-bottom:20px;">
+							<?php echo isEmptyString($church->getVision()) ? '--' : nl2br($church->getVision()); ?>
+						</p>
+						<strong>Biography</strong>
+						<p style="min-height:50px; margin-top:10px; margin-bottom:20px;"><?php echo isEmptyString($church->getBio()) ? '--' : nl2br($church->getBio()); ?></p>
+					</div>
+				</div>
+			</div>
+			<?php if($loadgps && $church->hasGPSCoordinates()){ ?>
+				<script src="<?php echo $this->serverUrl($this->baseUrl('javascript/plugins/geoPosition.js')); ?>"></script>
+				<script src="https://maps.googleapis.com/maps/api/js?v=3.exp&sensor=true&key=AIzaSyAjkTHnLzEkyF1ntVoUkZthaZWV4VN5DJE"></script>
+				 <script>
+					$(document).ready(function() {
+						<?php if($church->hasGPSCoordinates() && isEmptyString($request->detect) && $loadgps){ ?>
+							var gpslat = '<?php echo $church->getGPSlat(); ?>';
+							var gpslng = '<?php echo $church->getGPSlng(); ?>';
+							var title = "<?php echo $church->getName()."'s Location "; ?>";
+						<?php } ?>
+					}); 
+					
+					$(window).load(function() {
+						<?php if($church->hasGPSCoordinates()){ ?>
+							initialiseMap(); 
+							showPosition(); 
+						<?php } ?>
+						
+						// initialise the google map
+						function initialiseMap(){
+							var myOptions = {
+								zoom: 4,
+								mapTypeControlOptions: {style: google.maps.MapTypeControlStyle.DROPDOWN_MENU},
+								navigationControl: true,
+								navigationControlOptions: {style: google.maps.NavigationControlStyle.SMALL},
+					  
+								scrollwheel: false,
+								mapTypeControl: false,
+								scaleControl: true,
+								mapTypeId: google.maps.MapTypeId.ROADMAP, // google map type
+								zoom: 8
+							}        
+							map = new google.maps.Map(document.getElementById("map_canvas"), myOptions);
+						}
+						
+						function showPosition(){
+							var latitude = '<?php echo $church->getGPSLat(); ?>';
+							var longitude = '<?php echo $church->getGPSLng(); ?>';
+							var pos = new google.maps.LatLng(latitude, longitude);
+							map.setCenter(pos);
+							map.setZoom(14);
+					
+							var infowindow = new google.maps.InfoWindow({
+								content: "<b><?php echo $church->getName(); ?>'s Location</b> <br /><br /> Latitude = "+latitude+ " <br />Longitude = "+longitude
+							});
+					
+							var marker = new google.maps.Marker({
+								position: pos,
+								map: map,
+								title:"<?php echo $church->getName(); ?>'s Location"
+							});
+					
+							google.maps.event.addListener(marker, 'click', function() {
+							  infowindow.open(map,marker);
+							});
+						}
+					});	
+				</script>
+				<div class="clearfix makerelative" style="min-height:300px; height:auto; background:none; background-color:#F9f9fa; margin-bottom:10px; padding:5px; display:block; margin-top:10px; clear:both;">
+					<div id="map_canvas" style="width:100%; height:300px;"></div>
+				</div>
+			<?php } ?>
+		</div>
+	</div>
+</div>
+<?php require APPLICATION_PATH."/views/scripts/index/publicbottom.phtml"; ?>
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

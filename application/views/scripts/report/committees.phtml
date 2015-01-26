@@ -1,0 +1,210 @@
+<?php
+	include APPLICATION_PATH.'/includes/header.php';
+	
+	$title = "Leadership and Committee Reports";
+	
+	$datestring = ''; $where_query = '';
+	$status = $request->getParam('status');
+	if(isEmptyString($status)){
+		$status = 1;
+	}
+	if(!isEmptyString($status)){
+		$where_query .= " AND a.status = '".$status."' ";
+	}
+	
+	$subtitle = 'Committee Membership Report';
+	$committeeid = $request->getParam('committeeid');
+	$committees = getCommittees(); 
+	$positions = getPositions(); 
+	$departments = getDepartments();
+	if(!isEmptyString($committeeid)){
+		$subtitle = $committees[$committeeid];
+		$where_query .= " AND a.committeeid = '".$committeeid."' ";
+		
+		$order = trim($request->order);
+		$order_query = " ";
+		if(isEmptyString($order)){
+			$order = 1;
+		}
+		if($order == 1){
+			$order_query = " ORDER BY m.displayname ASC ";
+		}
+		if($order == 2){
+			$order_query = " ORDER BY o.startdate DESC ";
+		}
+		
+		$all_results_query = "SELECT
+		m.id as id,
+		IF(m.displayname <> '', m.displayname, concat(m.firstname, ' ', m.lastname, ' ', m.othername)) as name,
+		a.positionid as positionid,
+		a.departmentid as departmentid,
+		a.locationid as locationid,
+		m.phone as phone,
+		m.email as email, 
+		a.startdate as startdate,
+		a.expectedenddate as enddate
+		from appointment a
+		inner join member m on (a.memberid = m.id) 
+		inner join committee c on (a.committeeid = c.id)
+		".$where_query."
+		".$order_query;
+		
+		// debugMessage($all_results_query); 
+		$conn = Doctrine_Manager::connection(); 
+		$result = $conn->fetchAll($all_results_query); // debugMessage($result); 
+		$has_no_data = (count($result) == 0) ? true : false;
+		// exit();
+	}
+	
+	$this->headTitle($title.$browserappend);
+	$description = '';
+?>
+<script>
+$(document).ready(function() {
+	$('.titlebreadcrumb').html('<?php echo $homedir.'Reports / '.$title; ?>');
+	$('.titlelabel').html('<?php echo $title; ?>');
+	$('.desclabel').html('<?php echo $description; ?>');
+	$('.pageicon').html('<span class="glyphicon glyphicon-signal"></span>');
+	
+	// export list to excel
+	$(".submitexcel").click(function(e){
+		e.preventDefault();
+		var csv_value = $('#datatable').table2CSV({delivery:'value'});
+		var decoded_value = base64_encode(csv_value);
+		$("#csv_text").val(decoded_value);
+		$("#reportform").attr('action', '<?php echo $this->baseUrl('download/excel'); ?>').attr('method', 'post').submit();
+		// on submit reset the form parameters to previous definition
+		$("#reportform").attr('action', '<?php echo $this->baseUrl("report/reportsearch/page/committees"); ?>').attr('method', 'get');
+		$("#csv_text").val('');
+		return true;
+	});
+	
+	$("#filter").click(function(e){
+		$.blockUI({ message: '<?php echo $blockcontent; ?>'}); 
+		return true;
+	});	
+});
+</script>
+<div class="row margin0">
+    <div class="col-md-12 padding0">
+        <form class="form-search makerelative" action="<?php echo $this->baseUrl("report/reportsearch/page/committees"); ?>" method="get" id="reportform">
+        	<?php if ($sessionhaserror) { ?>
+            <div class="alert alert-danger"><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
+			<?php } ?>
+            <?php if (!isEmptyString($session->getVar(SUCCESS_MESSAGE))) { ?>
+                <div class="alert alert-success alert-dismissable"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button> <?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
+            <?php } ?>
+            <div class="row-fluid clearfix whitebg">
+            	<div class="divider10"></div>
+                <div class="col-md-9">
+                    <ul class="listfilter">
+                        <li><a href="<?php echo $this->baseUrl('report/dashboard'); ?>" class="btn btn-default btn-sm"><i class="glyphicon glyphicon-arrow-left"></i> Dashboard</a></li>
+                        <li>
+                            <?php
+                                $dropdown = new Zend_Form_Element_Select('committeeid',
+                                                    array(
+                                                        'multiOptions' => array_merge_maintain_keys(array('' => 'All Committees'), $committees),
+                                                        'view' => new Zend_View(),
+                                                        'decorators' => array('ViewHelper'),
+                                                        'class' => array("xautofilter", "form-control", 'chosen-select'),
+                                                        'style' => 'width:250px;'
+                                                    )
+                                );  
+                                $dropdown->setValue($request->getParam('committeeid')); 
+                                echo $dropdown->render();
+                            ?>                    
+                        </li>
+                        <li>
+                            <?php
+								$values = array('1'=>'Active', '0'=>'Terminated','2'=>'Overdue');
+                                $dropdown = new Zend_Form_Element_Select('status',
+                                                    array(
+                                                        'multiOptions' => array_merge_maintain_keys(array('' => 'All Statuses'), $values),
+                                                        'view' => new Zend_View(),
+                                                        'decorators' => array('ViewHelper'),
+                                                        'class' => array("xautofilter", "form-control", 'width150', 'chosen-select')
+                                                    )
+                                );  
+                                $dropdown->setValue($status); 
+                                echo $dropdown->render();
+                            ?>                    
+                        </li>
+                        <li><button type="submit" class="btn btn-primary btn-sm" title="Generate Report" id="filter"><i class="glyphicon glyphicon-filter"></i> Generate Report</button>
+                        <input type="hidden" name="csv_text" id="csv_text" value="" />
+                        </li>
+                        <li><a href="<?php echo $this->baseUrl('report/committees'); ?>">Reset</a></li>
+                    </ul>
+                </div>
+                <div></div>
+           	</div>
+            <div class="divider10"></div>
+    		<div class="row row-bg" style="margin-bottom:10px;">
+                <div class="col-sm-12 col-md-12">
+                    <div class="widget box makerelative">
+                        <div class="widget-header">
+                            <h4 class="widgettitle blocked maxwidth"><?php echo $subtitle; ?>
+                            <?php if($acl->checkPermission('Leadership and Committee Structures Report', ACTION_EXPORT) && !isEmptyString($committeeid)) { ?>	
+                                <button type="button" class="btn btn-default btn-xs submitexcel pull-right" tableid="regiontable" style="float:right;"><i class='glyphicon glyphicon-download-alt'></i> Export to Excel</button> &nbsp;
+                            <?php } ?>
+                            </h4>
+                        </div>
+                        <div class="widget-content no-padding whitebg minheight400">
+                            <?php if(!isEmptyString($committeeid)){ ?>
+                                <?php if($has_no_data) { ?>
+                                    <div class="divider10"></div>
+                                    <div style="clear:both;" class="alert alert-info margin5">There are no records for this report</div>
+                                <?php } else { ?>
+                                    <div style="width:100%; display:block; height:30px;; position:relative;">
+                                        <div class="paginatecustom padding10"><?php echo "Viewing records for ".count($result).' Members'; ?></div>
+                                    </div>
+                                    <div style="width:100%; height:auto; overflow:auto; margin-bottom:10px; display:block;">
+                                        <table id="datatable" class="table table-bordered datatable" style="margin:10px 0 10px 10px; width:auto;">
+                                            <thead>
+                                                <tr>
+                                                    <td style="width:20px;"><label class="control-label">#</label></td>
+                                                    <td style="width:200px;"><label class="control-label">Name</label></td>
+                                                    <td style="width:200px;"><label class="control-label">Role</label></td>
+                                                    <td style="width:100px;"><label class="control-label">Start</label></td>
+                                                    <td style="width:100px;"><label class="control-label">End</label></td>
+                                                    <td style="width:100px;"><label class="control-label">Phone</label></td>
+                                                    <td style="width:150px;"><label class="control-label">Email</label></td>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <?php
+                                                     $counter = 1;
+                                                     foreach($result as $line){
+                                                ?>
+                                                <tr>
+                                                    <td class="centeralign"><span class="nullifempty"><?php echo $counter; ?></span></td>
+                                                    <td><span class="nullifempty"><?php echo $line['name']; ?></span></td>
+                                                    <td><span class="nullifempty">
+														<b class="maxwidth blocked"><?php echo $positions[$line['positionid']]; ?></b>
+                                                        <?php if(!isEmptyString($line['departmentid'])){ ?>
+                                                        	<?php echo '<small style="font-size:12px;">Department: '.$departments[$line['departmentid']].'</small>'; ?>
+                                                        <?php } ?>
+                                                    	</span>
+                                                    </td>
+                                                    <td><span class="nullifempty"><?php echo date('M Y', strtotime($line['startdate'])); ?></span></td>
+                                                    <td><span class="nullifempty"><?php echo date('M Y', strtotime($line['enddate'])); ?></span></td>
+                                                    <td><span class="nullifempty"><?php echo $line['phone']; ?></span></td>
+                                                    <td><span class="nullifempty"><?php echo $line['email']; ?></span></td>
+                                                </tr>
+                                                <?php $counter++; } ?>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                <?php } ?>
+                            <?php } else { ?>
+                                <label class="labeldescription noresults">Select reporting parameters to Generate</label>
+                            <?php } ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
+		</form>
+	</div>
+</div>
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

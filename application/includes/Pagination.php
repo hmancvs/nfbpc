@@ -181,7 +181,7 @@ class Pagination {
 								'multiOptions' => $values, 
 								'view' => new Zend_View(),
 								'decorators' => array('ViewHelper'),
-							     'class' => array('span1','xform-control','width50')
+							    'class' => array('form-control','width75','inline')
 							)
 						);
 		

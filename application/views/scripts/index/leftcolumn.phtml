@@ -3,6 +3,19 @@
 	
 	$user = new Member();
 	$user->populate($userid);
+	$customurl = '';
+	if($user->isRegionalClerk()){
+		$customurl = '/regionid/'.$user->getRegionID();
+	}
+	if($user->isProvinceClerk()){
+		$customurl = '/provinceid/'.$user->getProvinceID();
+	}
+	if($user->isDistrictClerk()){
+		$customurl = '/districtid/'.$user->getDistrictID();
+	}
+	if($user->isSubCountyClerk()){
+		$customurl = '/subcountyid/'.$user->getSubcountyID();
+	}
 	
 	$toggled = $session->getVar('toggled');
 	$toggledclass = '';
@@ -17,13 +30,33 @@
 		<a style="font-weight:bold;"><span class="hideontoggle"><span class="glyphicon glyphicon-indent-left"></span> Navigation</span></a>
 		<a id="leftnavtoggler" class="gonowhere floatright makeabsolute" title="Toggle navigation"><span class="<?php echo $toggled == 1 ? 'glyphicon glyphicon-forward' : 'glyphicon glyphicon-backward'; ?>"></span> </a>			
     </li>
+    <?php if($acl->checkPermission('Message', ACTION_VIEW)) { ?>
+    	<li class="nav xdropdown <?php echo $controller == 'message' ? 'active' : ''; ?>">
+        	<a class="blockanchor" href="<?php echo $this->baseUrl('notifications/list'); ?>"><span class="glyphicon glyphicon-envelope"></span> <span class="hideontoggle">Messaging</span></a>
+        </li>
+    <?php } ?>
     <?php if($acl->checkPermission('Member', ACTION_LIST)) { ?>	
         <li class="nav dropdown <?php echo $controller == 'member' ? 'active' : ''; ?>">
             <a class="gonowhere"><span class="glyphicon glyphicon-user"></span> <span class="hideontoggle">Member Directory</span></a>
             <ul class="subNav" id="member" <?php echo $controller == 'member' ? 'style="display:block;"' : ''; ?>>
-                <li class="<?php echo $controller == 'member' && ($action == 'list' || !isEmptyString($request->id)) ? 'active' : ''; ?>"><a class="blockanchor" href="<?php echo $this->baseUrl('member/list'); ?>">Manage Members</a></li>
+                <li class="<?php echo $controller == 'member' && ($action == 'list' || !isEmptyString($request->id)) ? 'active' : ''; ?>"><a class="blockanchor" href="<?php echo $this->baseUrl('member/list'.$customurl); ?>">Manage Members</a></li>
                 <?php if ($acl->checkPermission('Member', ACTION_CREATE)) { ?>	
                 	<li class="<?php echo $controller == 'member' && ($action == 'index' && isEmptyString($request->id)) ? 'active' : ''; ?>"><a class="blockanchor" href="<?php echo $this->baseUrl('member'); ?>">New Member</a></li>
+                <?php } ?>
+            </ul>						
+        </li>
+    <?php } ?>
+    <?php if($acl->checkPermission('Organisation', ACTION_LIST)) { ?>	
+        <li class="nav dropdown <?php echo $controller == 'organisation' ? 'active' : ''; ?>">
+            <a class="gonowhere"><span class="glyphicon glyphicon-list"></span> <span class="hideontoggle">Organisation Directory</span></a>
+            <ul class="subNav" id="organisation" <?php echo $controller == 'organisation' ? 'style="display:block;"' : ''; ?>>
+                <li class="<?php echo $controller == 'organisation' && ($action == 'list' || !isEmptyString($request->id)) ? 'active' : ''; ?>"><a class="blockanchor" href="<?php echo $this->baseUrl('organisation/list'); ?>">Churches</a></li>
+                <?php if ($acl->checkPermission('Organisation', ACTION_CREATE)) { ?>	
+                	<li class="<?php echo $controller == 'organisation' && ($action == 'index' && isEmptyString($request->id)) ? 'active' : ''; ?>"><a class="blockanchor" href="<?php echo $this->baseUrl('organisation'); ?>">New Church</a></li>
+                <?php } ?>
+                <li class="<?php echo $controller == 'organisation' && ($action == 'list' || !isEmptyString($request->id)) ? 'active' : ''; ?>"><a class="blockanchor" href="<?php echo $this->baseUrl('organisation/list/type/other'); ?>">Other Organisations</a></li>
+                <?php if ($acl->checkPermission('Organisation', ACTION_CREATE)) { ?>	
+                	<li class="<?php echo $controller == 'organisation' && ($action == 'index' && isEmptyString($request->id)) ? 'active' : ''; ?>"><a class="blockanchor" href="<?php echo $this->baseUrl('organisation/index/type/other'); ?>">New Organisation</a></li>
                 <?php } ?>
             </ul>						
         </li>
@@ -46,7 +79,7 @@
   	<?php if($acl->checkPermission('Location', ACTION_LIST)) { ?>
     	<li class="nav dropdown <?php echo $controller == 'location' ? 'active' : ''; ?>">
         	<a class="gonowhere"><span class="glyphicon glyphicon-map-marker"></span> <span class="hideontoggle">Locations</span></a>
-            <ul class="subNav location" id="location" <?php echo $controller == 'location' ? 'style="display:block;"' : ''; ?>>
+            <ul class="subNav location" id="location" <?php echo $controller == 'location' ? 'style="display:block; margin-bottom:70px;"' : 'style="margin-bottom:70px;"'; ?>>
                 <?php if($acl->checkPermission('NFBPC Region', ACTION_LIST)) { ?>
 	                <li class="<?php echo $controller == 'location' && $request->type == 0 ? 'active' : ''; ?>"><a class="blockanchor" href="<?php echo $this->baseUrl('location/list/type/0'); ?>">Regions</a></li>
                 <?php } ?>
@@ -67,12 +100,23 @@
       	</li>
     <?php } ?>
     <?php if($acl->checkPermission('System Variables', ACTION_LIST)) { ?>
-    	<li class="nav dropdown <?php echo in_array($controller, array('position','department')) ? 'active' : ''; ?>">
+    	<li class="nav dropdown <?php echo in_array($controller, array('position','department','config','role')) ? 'active' : ''; ?>">
         	<a class="gonowhere"><span class="glyphicon glyphicon-cog"></span> <span class="hideontoggle">Administration</span></a>
-            <ul class="subNav" id="admin" <?php echo in_array($controller, array('position','department')) ? 'style="display:block;"' : ''; ?>>
+            <ul class="subNav" id="admin" <?php echo in_array($controller, array('position','department','config','role')) ? 'style="display:block; margin-bottom:70px;"' : 'style="margin-bottom:70px;"'; ?>>
 				<?php if($acl->checkPermission('Position', ACTION_LIST)) { ?>
-	                <li class="<?php echo $controller == 'position' ? 'active' : ''; ?>"><a class="blockanchor" href="<?php echo $this->baseUrl('position/list'); ?>">Manage Leadership Positions</a></li>
-                    <li class="<?php echo $controller == 'department' ? 'active' : ''; ?>"><a class="blockanchor" href="<?php echo $this->baseUrl('department/list'); ?>">Manage Departments</a></li>
+	                <li class="<?php echo $controller == 'position' ? 'active' : ''; ?>"><a class="blockanchor" href="<?php echo $this->baseUrl('position/list'); ?>">Leadership Positions</a></li>
+                <?php } ?>
+                <?php if($acl->checkPermission('Position', ACTION_LIST)) { ?>    
+                    <li class="<?php echo $controller == 'department' ? 'active' : ''; ?>"><a class="blockanchor" href="<?php echo $this->baseUrl('department/list'); ?>">Departments</a></li>
+                <?php } ?>
+                <li class="<?php echo $request->type == 4 ? 'active' : ''; ?>"><a class="blockanchor" href="<?php echo $this->baseUrl('config/variables/type/4'); ?>">Member Professions</a></li>
+                <li class="<?php echo $request->type == 2 ? 'active' : ''; ?>"><a class="blockanchor" href="<?php echo $this->baseUrl('config/variables/type/2'); ?>">Member Titles</a></li>
+                <li class="<?php echo $request->type == 5 ? 'active' : ''; ?>"><a class="blockanchor" href="<?php echo $this->baseUrl('config/variables/type/5'); ?>">Next of Kin Relationships</a></li>
+                <li class="<?php echo $request->type == 3 ? 'active' : ''; ?>"><a class="blockanchor" href="<?php echo $this->baseUrl('config/variables/type/3'); ?>">Marital Statuses</a></li>
+                <li class=""><a class="blockanchor" href="<?php echo $this->baseUrl('config/variables'); ?>">System Variables</a></li>
+                <li class=""><a class="blockanchor" href="<?php echo $this->baseUrl('config/globalconfig'); ?>">System Config</a></li>
+                <?php if ($acl->checkPermission('Role', ACTION_LIST)) { ?>
+                    <li class="<?php echo $controller == 'role' ? 'active' : ''; ?>"><a class="blockanchor" href="<?php echo $this->baseUrl('role/list'); ?>">User Roles</a></li>
                 <?php } ?>
             </ul>
       	</li>

@@ -1,0 +1,289 @@
+<?php
+	require_once APPLICATION_PATH.'/includes/header.php';
+	
+	$id = '';
+	$title = "Find A Church or Member";
+	
+	$paginate = new Pagination();	
+	$paginate->setView($this);
+	$paginate->setItemCountPerPage("ALL");
+	
+	# define the letter to be clicked to ease navigation 
+	$m_where_query = " WHERE m.id <> '' ";
+	$o_where_query = " WHERE o.id <> '' ";
+	$allowclear = false;
+	if(!isEmptyString($request->searchterm)){
+		$allowclear = true;
+	}
+	
+	$nfregionid = $request->nfregionid;
+	if(!isEmptyString($nfregionid)){
+		$m_where_query .= " AND m.regionid = '".$nfregionid."' ";
+		$o_where_query .= " AND o.regionid = '".$nfregionid."' ";
+		$allowclear = true;
+	}
+	$nfprovinceid = $request->nfprovinceid;
+	if(!isEmptyString($nfprovinceid)){
+		$m_where_query .= " AND m.provinceid = '".$nfprovinceid."' ";
+		$o_where_query .= " AND o.provinceid = '".$nfprovinceid."' ";
+		$allowclear = true;
+	}
+	$nfdistrictid = $request->nfdistrictid;
+	if(!isEmptyString($nfdistrictid)){
+		$m_where_query .= " AND m.districtid = '".$nfdistrictid."' ";
+		$o_where_query .= " AND o.districtid = '".$nfdistrictid."' ";
+		$allowclear = true;
+	}
+	
+	$searchtitle= '';
+	$searchterm = $request->searchterm;
+	if(!isEmptyString($searchterm)){
+		$m_where_query .= " AND (m.firstname LIKE '%".$searchterm."%' OR m.lastname LIKE '%".$searchterm."%' OR m.othername LIKE '%".$searchterm."%' OR m.displayname LIKE '%".$searchterm."%') ";
+		$o_where_query .= " AND (o.name LIKE '%".$searchterm."%') ";
+		$searchtitle = ' : '.$searchterm;
+	}
+	
+	$order = trim($request->order);
+	$order_query = " ORDER BY name asc ";
+	
+	$paginate->processPost($request->getParams());
+	$all_results_query = "SELECT 
+		m.id as id, 
+		IF(m.displayname <> '', m.displayname, CONCAT_WS(' ', m.firstname, m.lastname, m.othername)) as `Name`,
+		m.profilephoto, 
+		m.gender as gender,
+		o.name as church, 
+		m.organisationid,
+		m.regionid, 
+		m.provinceid, 
+		m.districtid, 
+		r.name as region, 
+		p.name as province, 
+		d.name as district,
+		1 as type		
+		 FROM member m
+		 left join organisation o on (m.organisationid = o.id)
+		 left join region r on (m.regionid = r.id) 
+		 left join province p on (m.provinceid = p.id) 
+		 left join location d on (m.districtid = d.id and d.locationtype = 2)
+	 ".$m_where_query." 
+	 UNION 
+		SELECT
+		o.id as id, 
+		o.name as `Name`, 
+		o.profilephoto,
+		'' as gender,
+		'' as church, 
+		'' as organisationid,
+		o.regionid, 
+		o.provinceid, 
+		o.districtid, 
+		r.name as region, 
+		p.name as province, 
+		d.name as district,
+		2 as type
+		 FROM organisation o
+		 left join region r on (o.regionid = r.id) 
+		 left join province p on (o.provinceid = p.id) 
+		 left join location d on (o.districtid = d.id and d.locationtype = 2)
+	 ".$o_where_query."
+	 GROUP BY id ".$order_query;
+	// debugMessage($all_results_query); exit;
+	
+	// determine total number of records found
+	$paginate->setItemCountFromSQLQuery($all_results_query);
+	$current_results_query = $all_results_query." ".$paginate->getSQLLimit();
+	$conn = Doctrine_Manager::connection(); 
+	$records = array(); $has_no_data = false;
+	if(!isEmptyString($searchterm)){
+		$records = $conn->fetchAll($current_results_query);
+		$has_no_data = (count($records) == 0) ? true : false; 
+	}
+	if(!isEmptyString($searchterm) && !$has_no_data){
+		$searchtitle = ' : '.$searchterm. '<span style="font-weight:normal;"> ('.count($records).' records)</span>';
+	}
+	
+?>
+<?php require APPLICATION_PATH."/views/scripts/index/publictop.phtml"; ?>
+<style>
+.contentArea {
+	width:auto;
+	margin:0 auto;
+	padding:0;
+	padding-bottom:0;
+	padding-top:1px;
+	z-index:1;
+	margin-left:15px;
+}
+#inputSearch {
+	width:500px;
+	padding:8px;
+	float:none;
+	display:inline;
+}
+.searchsubmit {
+    padding:7px 10px;
+	right:auto;
+	top:auto;
+    position: relative;
+	background-color:#999;
+	display:inline-block;
+}
+.listfilter {
+    display: inline-block;
+    margin-bottom:5px;
+	padding-left:0;
+}
+.listfilter > li {
+	padding-left: 0;
+}
+.listfilter > li:not(.active-result) {
+    /*border-right: 1px solid #DDDDDD;*/
+    display: inline-block;
+    float: left;
+    padding: 0 10px 0 0;
+	margin-bottom:10px;
+}
+.listfilter > li:first-child {
+    padding-left: 0;
+}
+.listfilter > li:last-child {
+    border-right: 0 none;
+}
+
+</style>
+<div class="row">
+	<div class="row xk2catstyles itemView" id="k2Container">
+		<h3 class="publiclefttitle">Leadership</h3>
+		<div class="large-3 columns xleftside">
+			<?php require APPLICATION_PATH."/views/scripts/index/publicleftcolumn.phtml"; ?>
+		</div>
+		<div class="large-9 columns xmainside" style="margin-top:-55px;">
+			<div class="itemHeader">
+				<h2 class="itemTitle"><?php echo $title; ?></h2>
+			</div>
+			<div class="itemBody clearfix" style="">
+				<form class="form margin0 listform makerelative" action="<?php echo $this->baseUrl("index/processsearch"); ?>" method="get" id="listform">
+					<div style="display:block; width:100%; min-height:150px; height:auto;  margin-bottom:20px; margin-top:15px; padding-bottom:15px; border:1px dotted #ccc; padding-top:20px;" class="clearfix">
+						<div class="contentArea searchbar">
+							<div class="input-group">
+								<input type="text" tabindex="1" class="search" id="inputSearch" name="searchterm" placeholder="Search NFBPC for a Church or Member..." value="<?php echo $request->searchterm; ?>" />
+								<button class="searchsubmit" type="submit"><img src="<?php echo $this->baseUrl('images/search.png'); ?>"> Search</button>
+							</div>
+						</div>
+						<strong style="font-size:12px; margin-left:17px; display:block; margin-bottom:10px;">Look in:</strong>
+						<ul class="listfilter blocked">
+							<li>
+								<?php
+									$regions = getNFBPCRegions();
+									$dropdown = new Zend_Form_Element_Select('nfregionid',
+														array(
+															'multiOptions' => array_merge_maintain_keys(array('' => 'All Regions'), $regions),								
+															'view' => new Zend_View(),
+															'decorators' => array('ViewHelper'),
+															'class' => array("form-control", 'chosen-select', 'width170')
+														)
+													);
+									$dropdown->setValue($request->getParam('nfregionid')); 
+									echo $dropdown->render();
+								?> 
+							</li>
+							<li>
+								<?php
+									$provinces = getProvinces($request->getParam('nfregionid'));
+									$dropdown = new Zend_Form_Element_Select('nfprovinceid',
+														array(
+															'multiOptions' => array_merge_maintain_keys(array('' => 'All Provinces'), $provinces),								
+															'view' => new Zend_View(),
+															'decorators' => array('ViewHelper'),
+															'class' => array("form-control", 'chosen-select', 'width150')
+														)
+													);
+									$dropdown->setValue($request->getParam('nfprovinceid')); 
+									echo $dropdown->render();
+								?> 
+							</li>
+							<li>
+								<?php
+									$districts = getDistricts($request->getParam('nfregionid'));
+									$dropdown = new Zend_Form_Element_Select('nfdistrictid',
+														array(
+															'multiOptions' => array_merge_maintain_keys(array('' => 'All Districts'), $districts),								
+															'view' => new Zend_View(),
+															'decorators' => array('ViewHelper'),
+															'class' => array("form-control", 'chosen-select', 'width170'),
+															'style' => 'width:150px;'
+														)
+													);
+									$dropdown->setValue($request->getParam('nfdistrictid')); 
+									echo $dropdown->render();
+								?> 
+							</li>
+						</ul>
+					</div>
+					<strong>Search Results <?php echo $searchtitle; ?></strong>
+					<div style="display:block; width:100%; min-height:400px; height:auto; margin-bottom:20px; margin-top:15px; border:1px dotted #ccc;" class="clearfix">
+						<?php if(!isEmptyString($searchterm)){ ?>
+							<?php if($has_no_data) { ?>
+								<div class="alert alert-warning" style="margin:15px;"><?php echo $this->translate("global_list_noentries"); ?></div>
+							<?php } else { ?>
+								<?php
+									foreach($records as $line){
+										$ismember = true;
+										$ischurch = false;
+										$imagepath = getImagePath($line['id'], $line['profilephoto'], $line['gender']);
+										$pathurl = $this->baseUrl('index/profile/id/'.$line['id']);
+										$churchurl = $this->baseUrl('index/church/id/'.$line['organisationid']);
+										if($line['type'] == '2'){
+											$ismember = false;
+											$ischurch = true;
+											$imagepath = getOrganisationCoverPath($line['id'], $line['profilephoto']);
+											$pathurl = $this->baseUrl('index/church/id/'.$line['id']);
+											$churchurl = "";
+										}
+								?>
+									<div style="display:block; height:auto; padding:5px; margin:10px; border:1px dotted #ccc;" class="clearfix">
+										<div style="float:left; width:25%; margin-bottom:10px;">
+										<?php if($ismember){ ?>
+											<img id="profileimage" class="imagecontainer" src="<?php echo $imagepath; ?>" style="width:150px; height:auto; margin-left:20px;" />
+										<?php } ?>
+										<?php if($ischurch){ ?>
+											<img class="imagecontainer" src="<?php echo $imagepath; ?>" style="width:200px; text-align:center; margin:0 auto;" />		
+										<?php } ?>
+										</div>
+										<div style="float:right; width:68%; display:inline;" class="clearfix">
+											<a href="<?php echo $pathurl; ?>" class="btn btn-primary button" id="login" style="padding:4px 6px; color: #ffffff !important; display:block; margin-top: 15px; text-align:center; margin-left:10px; font-size:12px; float:right;"> View Full Profile</a>
+											<span class="bolded" style="font-size:18px; display:block; width:100%; margin-top:10px; margin-bottom:10px;"><a href="<?php echo $pathurl; ?>"><?php echo $line['Name']; ?></a></span>
+											<?php if($ismember){ ?>
+												<div class="blocked">
+													<span class="bolded" style="font-size:14px;">Church:</span>
+													<p class="lineblocked margin0">&nbsp;<a href="<?php echo $churchurl; ?>"><?php echo $line['church']; ?></a></p>
+												</div>
+											<?php } ?>
+											<div class="blocked">
+												<span class="bolded" style="font-size:14px;">Region:</span>
+												<p class="lineblocked margin0">&nbsp;<?php echo $line['region']; ?></p>
+											</div>
+											<div class="blocked">
+												<span class="bolded" style="font-size:14px;">Province:</span>
+												<p class="lineblocked margin0">&nbsp;<?php echo $line['province']; ?></p>
+											</div>
+											<div class="blocked">
+												<span class="bolded" style="font-size:14px;">District:</span>
+												<p class="lineblocked margin0">&nbsp;<?php echo $line['district']; ?></p>
+											</div>
+										</div>
+									</div>
+								<?php } ?>
+							<?php } ?>
+						<?php } ?>
+					</div>
+				</form>
+			</div>
+		</div>
+	</div>
+</div>
+<?php require APPLICATION_PATH."/views/scripts/index/publicbottom.phtml"; ?>
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

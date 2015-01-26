@@ -1,0 +1,83 @@
+<?php
+	include APPLICATION_PATH.'/includes/header.php';
+	
+	$user = new Member();
+	$user->populate($userid);
+	
+	$message = new MessageRecipient();
+	$message->populate(decode($request->id)); // debugMessage($message->toArray()); exit;	
+	$reply_recepient = $message->getMessage()->getSenderID();
+	
+	# check if message has not been marked as read/seen
+	if(!$message->hasReadMessage() && $userid == $message->getRecipientID()){
+		$message->markAsRead(array($message->getID()), 1);
+	}
+	
+	$listurl = $this->baseUrl('notifications/list'); 
+	$title = $message->getMessage()->getSubject();
+	$description = '';	
+	$icon = 'glyphicon glyphicon-envelope';
+	$this->headTitle($title.$browserappend);
+?>
+<script>
+$(document).ready(function() {
+	$('.titlebreadcrumb').html('<?php echo $homedir.'Messaging / View Message'; ?>');
+	$('.titlelabel').html('<?php echo $title; ?>');
+	$('.desclabel').html('<?php echo $description; ?>');
+	$('.pageicon').html('<span class="<?php echo $icon; ?>"></span>');
+	
+});
+</script>
+<div class="row-fluid margin0 view">
+    <div class="col-md-12 padding0">
+    	<div class="headerbox">
+            <table class="table border0 nohover margin0">                       
+                <tr>		                    
+                    <td class="padding2">
+                        <?php if ($acl->checkPermission('Message', ACTION_LIST)) { ?>
+                            <a class="btn btn-sm btn-info blockanchor" href="<?php echo $listurl; ?>"><i class="glyphicon glyphicon-envelope"></i> Back to Inbox</a>&nbsp;
+                        <?php } ?>
+                        <?php if ($acl->checkPermission('Message', ACTION_DELETE)) { ?>
+                            <a class="btn btn-danger btn-sm deleteline" action="<?php echo $this->baseUrl('index/delete/id/'.encode($message->getID())."/entityname/MessageRecipient/successurl/".encode($listurl)); ?>" message="<?php echo $this->translate('global_delete_confirm_message_nonote'); ?>" title="Delete Entry"><i class="glyphicon glyphicon-trash"></i> Delete</a>&nbsp;
+                        <?php } ?>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    <?php if($sessionhaserror) { ?>
+        <div class="alert alert-danger"><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
+    <?php } ?>
+    <?php if (!isEmptyString($session->getVar(SUCCESS_MESSAGE))) { ?>
+        <div class="alert alert-success alert-dismissable"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button> <?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
+    <?php } ?>
+    <div class="contentcontainer clearfix">
+    	<form id="viewform" class="form-horizontal" role="form" method="get">
+        	<div class="divider10"></div>
+            <div class="row-fluid margin0">
+            	<div class="col-md-12">
+                    <fieldset class="fieldsetcontainer">
+                        <legend><?php echo $message->getMessage()->getSender()->getName(); ?></legend>
+                        <div class="panel-body well-sm">
+                            <div class="row-fluid marginleft5">
+                                <div class="col-md-2">
+                                    <div class="divider10"></div>
+                                    <img class="imagecontainer" src="<?php echo $message->getMessage()->getSender()->getMediumPicturePath(); ?>" />
+                                </div>
+                                <div class="col-md-10" style="padding-right:50px; padding-left:50px;">
+                                	<div class="divider15"></div>
+                                    <div class="col-md-12 padding0"><p style="margin-bottom:10px;"><?php echo nl2br($message->getMessage()->getContents()); ?></p></div>
+                                    <div class="divider10"></div>
+                                    <div class="col-md-12 padding0" style="font-size:10px;">Sent on <?php echo date('m/d/Y - g:i A', strtotime($message->getMessage()->getDateCreated())); ?></div>
+                                </div>
+                            </div>
+                		</div>
+               		</fieldset>
+              	</div>
+        	</div>
+		</form>
+	</div>                   
+</div>    
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

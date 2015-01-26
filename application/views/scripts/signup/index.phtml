@@ -202,20 +202,9 @@ $(document).ready(function() {
 .breadcrumbs li, .pageheader, #headercontainer #headermenu, #headercontainer #headerright {
 	display:none;
 }
-#contentcontainer {
-	margin-left:0;
-}
-.breadcrumbs {
-	padding:30px 0 4px 10px;	
-}
-.headerwrapper {
-	margin:0 auto;
-	margin-left:550px;
-}
 </style>
 <div id="publiccontainer" class="index">
 	<!--<h3 class="centeralign">Account Activation</h3>-->
-    <div class="divider15"></div>
 	<?php if($sessionhaserror) { ?>
     	<div class="alert alert-error clear"><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
     <?php } ?>

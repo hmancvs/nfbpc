@@ -34,8 +34,10 @@ class Position extends BaseEntity {
 	 */
 	function processPost($formvalues){
 		$session = SessionWrapper::getInstance();
-		
-		debugMessage($formvalues); // exit();
+		if(!isArrayKeyAnEmptyString('name', $formvalues)){
+			$formvalues['name'] = ucfirst($formvalues['name']);
+		}
+		// debugMessage($formvalues); exit();
 		parent::processPost($formvalues);
 	}
 }

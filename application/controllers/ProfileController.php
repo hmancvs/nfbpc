@@ -26,7 +26,7 @@ class ProfileController extends SecureController  {
 		}
 		if($action == "changepassword" || $action == "processchangepassword" || $action == "changeusername" || 
 			$action == "processchangeusername" || $action == "changeemail" || $action == "processchangeemail" ||
-			$action == "changephone" || $action == "processchangephone" || $action == "processgps" || $action == "resetpassword"){
+			$action == "changephone" || $action == "processchangephone" || $action == "processgps" || $action == "resetpassword" || $action == "inviteuser"){
 			return ACTION_EDIT; 
 		}
 		if($action == "view" || $action == "picture" || $action == "processpicture" || $action == "uploadpicture" || $action == "croppicture"){
@@ -80,11 +80,13 @@ class ProfileController extends SecureController  {
 	    	$user->populate(decode($this->_getParam('id')));
 	    	// debugMessage($user->toArray());
 	    	# Change password
-	    	$user->changePassword($this->_getParam('oldpassword'), $this->_getParam('password'));
-    		// clear the session
-   			// send a link to enable the user to recover their password 
-   			$session->setVar(SUCCESS_MESSAGE, "Password successfully updated");
-	   		// $this->_redirect($this->view->baseUrl('profile/updatesuccess'));
+	    	try {
+	    		$user->changePassword($this->_getParam('oldpassword'), $this->_getParam('password'));
+	    		$session->setVar(SUCCESS_MESSAGE, "Password successfully updated");
+	    		$this->_redirect($this->view->baseUrl('index/profileupdatesuccess'));
+	    	} catch (Exception $e) {
+	    		$session->setVar(ERROR_MESSAGE, "Error in changing Password. ".$e->getMessage());
+	    	}
 		}
     }
     function changeusernameAction()  {
@@ -109,7 +111,27 @@ class ProfileController extends SecureController  {
 	    	# save new username
 	    	$user->setUsername($formvalues['username']);
 	    	$user->save();
-	   		$this->_redirect($this->view->baseUrl('index/updatesuccess'));
+	    	
+	    	$view = new Zend_View();
+	    	$url = $this->view->serverUrl($this->view->baseUrl('profile/view/id/'.encode($user->getID())));
+	    	$usecase = '1.17';
+	    	$module = '1';
+	    	$type = USER_CHANGE_EMAIL;
+	    	$details = "Username for <a href='".$url."' class='blockanchor'>".$user->getName()."</a> Changed";
+	    		
+	    	$browser = new Browser();
+	    	$audit_values = $session->getVar('browseraudit');
+	    	$audit_values['module'] = $module;
+	    	$audit_values['usecase'] = $usecase;
+	    	$audit_values['transactiontype'] = $type;
+	    	$audit_values['userid'] = $session->getVar('userid');
+	    	$audit_values['url'] = $url;
+	    	$audit_values['transactiondetails'] = $details;
+	    	$audit_values['status'] = "Y";
+	    	// debugMessage($audit_values);
+	    	$this->notify(new sfEvent($this, $type, $audit_values));
+	    	
+	   		$this->_redirect($this->view->baseUrl('index/profileupdatesuccess'));
 		}
     }
     
@@ -135,7 +157,26 @@ class ProfileController extends SecureController  {
 			$user->setEmail($newemail);
 			$user->setEmail2(''); 
 			$user->save();
-
+			
+			$view = new Zend_View();
+			$url = $this->view->serverUrl($this->view->baseUrl('profile/view/id/'.encode($user->getID())));
+			$usecase = '1.12';
+			$module = '1';
+			$type = USER_CHANGE_EMAIL_CONFIRM;
+			$details = "New Email (".$user->getEmail().") activated for <a href='".$url."' class='blockanchor'>".$user->getName()."</a>";
+			 
+			$browser = new Browser();
+			$audit_values = $session->getVar('browseraudit');
+			$audit_values['module'] = $module;
+			$audit_values['usecase'] = $usecase;
+			$audit_values['transactiontype'] = $type;
+			$audit_values['userid'] = $session->getVar('userid');
+			$audit_values['url'] = $url;
+			$audit_values['transactiondetails'] = $details;
+			$audit_values['status'] = "Y";
+			// debugMessage($audit_values);
+			$this->notify(new sfEvent($this, $type, $audit_values));
+			
 			$successmessage = "Successfully updated. Please note that you can no longer login using your previous Email Address";
 	    	$session->setVar(SUCCESS_MESSAGE, $successmessage);
 	   		$this->_helper->redirector->gotoUrl($this->view->baseUrl('profile/view/id/'.encode($user->getID())));
@@ -164,80 +205,28 @@ class ProfileController extends SecureController  {
 	    	
 	    	$user->sendNewEmailNotification($formvalues['email']);
     		$user->sendOldEmailNotification($formvalues['email']);
-	    	$successmessage = "A request to change your login email has been recieved. <br />To complete this process check your Inbox for a confirmation code and enter it below. Alternatively, click the activation link sent in the same email.";
+    		
+    		$view = new Zend_View();
+    		$url = $this->view->serverUrl($this->view->baseUrl('profile/view/id/'.encode($user->getID())));
+    		$usecase = '1.11';
+    		$module = '1';
+    		$type = USER_CHANGE_EMAIL;
+    		$details = "Email change request for <a href='".$url."' class='blockanchor'>".$user->getName()."</a> from ".$user->getEmail()." to ".$user->getEmail2();
+    		 
+    		$browser = new Browser();
+    		$audit_values = $session->getVar('browseraudit');
+    		$audit_values['module'] = $module;
+    		$audit_values['usecase'] = $usecase;
+    		$audit_values['transactiontype'] = $type;
+    		$audit_values['userid'] = $session->getVar('userid');
+    		$audit_values['url'] = $url;
+    		$audit_values['transactiondetails'] = $details;
+    		$audit_values['status'] = "Y";
+    		// debugMessage($audit_values);
+    		$this->notify(new sfEvent($this, $type, $audit_values));
+    		
+	    	$successmessage = "A request to change your login email has been recieved. <br />To complete this process check your new email Inbox and click on the activation link sent. ";
 	   		$this->_redirect($this->view->baseUrl('index/updatesuccess/successmessage/'.encode($successmessage)));
-		}
-    }
-    
-	function changephoneAction()  {
-		$session = SessionWrapper::getInstance(); 
-		
-		$formvalues = $this->_getAllParams();
-		if(!isArrayKeyAnEmptyString('actkey', $formvalues) && !isArrayKeyAnEmptyString('ref', $formvalues)){
-        	$newphone = decode($formvalues['ref']);
-		
-			$user = new Member();
-			$user->populate(decode($formvalues['id']));
-			$oldphone = $user->getPhone();
-			$newprimary = $user->getPhone2();
-			
-			# validate the activation code
-			if($formvalues['actkey'] != $user->getPhone2_ActKey()){
-				$session->setVar(ERROR_MESSAGE, "Invalid code specified for phone activation");
-				$failureurl = $this->view->baseUrl('profile/view/id/'.encode($user->getID()));
-				$this->_helper->redirector->gotoUrl($failureurl);
-			}
-			
-			$user->setPhone($newprimary);
-			$user->setPhone2($oldphone);
-			$user->setPhone2_ActKey('');
-			$user->setPhone2_IsActivated(1);
-			$user->save();
-			
-	    	$successmessage = "Successfully updated. Please note that you can no longer login using your previous primary phone";
-	    	$session->setVar(SUCCESS_MESSAGE, $successmessage);
-	   		$this->_helper->redirector->gotoUrl($this->view->baseUrl('profile/view/id/'.encode($user->getID())));
-        }
-    }
-	function processchangephoneAction()  {
-		$this->_helper->layout->disableLayout();
-		$this->_helper->viewRenderer->setNoRender(TRUE);
-    	$session = SessionWrapper::getInstance(); 
-        $this->_translate = Zend_Registry::get("translate");
-        $formvalues = $this->_getAllParams();
-         
-        if(!isArrayKeyAnEmptyString('phone', $formvalues)){
-	        $user = new Member(); 
-	    	$user->populate(decode($formvalues['id']));
-	    	
-			// debugMessage($formvalues);
-	    	
-	    	if($formvalues['phone'] == getShortPhone($user->getPhone2()) && $user->isValidated(2)){
-		    	try {
-		    		$user->setPhone(getFullPhone($formvalues['phone']));
-		    		$user->setPhone2(getFullPhone($formvalues['oldphone']));
-		    		$user->save();
-		    	} catch (Exception $e) {
-		    		debugMessage($e->getMessage());
-		    	}
-	    		
-				$successmessage = "Successfully updated. Please note that you can no longer login using your previous primary phone";
-		    	$session->setVar(SUCCESS_MESSAGE, $successmessage);
-	    	} else {
-	    		if($user->phoneExists($formvalues['phone'])){
-		    		$session->setVar(ERROR_MESSAGE, sprintf($this->_translate->translate("profile_phone_unique_error"), $formvalues['phone']));
-		    		return false;
-		    	}
-		    	# save new phone
-		    	$user->setPhone2(getFullPhone($formvalues['phone']));
-		    	$user->setPhone2_isActivated(0);
-		    	$user->generatePhoneActivationCode(2);
-		    	// $user->save(); 
-		    	
-		    	$user->sendActivationCodeToMobile($formvalues['phone2']);
-		    	$successmessage = "A request to change your primary phone has been recieved. <br />To complete this process check your phone inbox for a confirmation code and enter it below.";
-		   		$this->_redirect($this->view->baseUrl('index/updatesuccess/successmessage/'.encode($successmessage)));
-	    	}
 		}
     }
     
@@ -263,302 +252,47 @@ class ProfileController extends SecureController  {
 		$this->_helper->viewRenderer->setNoRender(TRUE);
 	   	$session = SessionWrapper::getInstance(); 
        	$this->_translate = Zend_Registry::get("translate"); 
-       		
+       	$id = decode($this->_getParam('id')); // debugMessage($id);
+       	
 		$user = new Member(); 
-		$user->populate(decode($this->_getParam('id')));
+		$user->populate($id); debugMessage($user->toArray());
+		// $formvalues = array('email'=>$user->getEmail());
     	$user->setEmail($user->getEmail());
-    	
+    	// debugMessage('error '.$user->getErrorStackAsString()); exit();
     	if ($user->recoverPassword()) {
        		$session->setVar(SUCCESS_MESSAGE, sprintf($this->_translate->translate('profile_change_password_admin_confirmation'), $user->getName()));
    			// send a link to enable the user to recover their password 
    			// debugMessage('no error found ');
+   			
+       		$view = new Zend_View();
+       		$url = $this->view->serverUrl($this->view->baseUrl('profile/view/id/'.encode($user->getID())));
+       		$usecase = '1.9';
+       		$module = '1';
+       		$type = USER_RESET_PASSWORD;
+       		$details = "Reset password request. Reset link sent to <a href='".$url."' class='blockanchor'>".$user->getName()."</a>";
+       		 
+       		$browser = new Browser();
+       		$audit_values = $session->getVar('browseraudit');
+       		$audit_values['module'] = $module;
+       		$audit_values['usecase'] = $usecase;
+       		$audit_values['transactiontype'] = $type;
+       		$audit_values['userid'] = $session->getVar('userid');
+       		$audit_values['url'] = $url;
+       		$audit_values['transactiondetails'] = $details;
+       		$audit_values['status'] = "Y";
+       		// debugMessage($audit_values);
+       		$this->notify(new sfEvent($this, $type, $audit_values));
+       		
     	} else {
    			$session->setVar(ERROR_MESSAGE, $user->getErrorStackAsString());
    			$session->setVar(FORM_VALUES, $this->_getAllParams()); // debugMessage('no error found ');
     	}
     	// exit();
-    	$this->_helper->redirector->gotoUrl($this->view->baseUrl("profile/view/id/".encode($user->getID())));
-    	
+    	$this->_helper->redirector->gotoUrl(decode($this->_getParam(URL_SUCCESS)));
    	}
    	
-	public function validatephoneAction(){
-    	
-    }
-    public function processvalidatephoneAction(){
-    	$session = SessionWrapper::getInstance(); 
-     	$this->_helper->layout->disableLayout();
-		$this->_helper->viewRenderer->setNoRender(TRUE);
-		$formvalues = $this->_getAllParams();
-		
-		// debugMessage($formvalues);
-		$successurl = decode($formvalues['successurl']);
-		
-		$user = new Member();
-		$user->populate($formvalues['id']);
-		$type = $formvalues['phonetype'];
-		
-		// debugMessage($user->toArray()); 
-		try {
-			$user->generatePhoneActivationCode($type);
-			$user->sendActivationCodeToMobile($type);
-			
-			$session->setVar(SUCCESS_MESSAGE, 'Validation code has been sent to the mobile phone. Please check Inbox and enter the code sent below to confirm.');
-		} catch (Exception $e) {
-			$txt = $e->getMessage();
-			$session->setVar(ERROR_MESSAGE, 'An error occured in requesting activation for your Phone. Please contact support for resolution. '.$txt);
-		}
-		// exit();
-    	$this->_helper->redirector->gotoUrl($successurl);
-    }
-	public function validatephonesuccessAction(){
-		$session = SessionWrapper::getInstance(); 
-     	$this->_helper->layout->disableLayout();
-		$this->_helper->viewRenderer->setNoRender(TRUE);
-
-		$session->setVar(SUCCESS_MESSAGE, 'Validation code has been sent to the mobile phone. Please check Inbox and enter the code sent below to confirm.');
-    }
-	public function verifyphoneAction(){
-		$session = SessionWrapper::getInstance(); 
-     	$this->_helper->layout->disableLayout();
-		$this->_helper->viewRenderer->setNoRender(TRUE);
-		
-		$formvalues = $this->_getAllParams();
-		$successurl = decode($formvalues['successurl']);
-		$type = $formvalues['type'];
-		// debugMessage($formvalues);
-		// debugMessage($successurl);
-		
-		$user = new Member();
-		$user->populate($formvalues['id']);
-		// debugMessage($user->toArray());
-		if($user->verifyPhone($formvalues['code'], $type)){
-			$user->activatePhone($type);
-			$user->sendActivationConfirmationToMobile($type);
-			
-			$session->setVar(SUCCESS_MESSAGE, 'Phone Number Successfully Verified and Confirmed');
-			$session->setVar(ERROR_MESSAGE, '');
-		} else {
-			$session->setVar(SUCCESS_MESSAGE, '');
-			$session->setVar(ERROR_MESSAGE, 'Invalid activation code specified. Please try again.');
-		}
-		
-		// exit();
-		// return to successpage
-		$this->_helper->redirector->gotoUrl($successurl);
-    }
-    
 	public function pictureAction() {}
 	
-	public function processpictureAction() {
-		// disable rendering of the view and layout so that we can just echo the AJAX output 
-	    $this->_helper->layout->disableLayout();
-		$this->_helper->viewRenderer->setNoRender(TRUE);
-		
-	    $session = SessionWrapper::getInstance(); 	
-	    $config = Zend_Registry::get("config");
-	    $this->_translate = Zend_Registry::get("translate"); 
-		
-	    $formvalues = $this->_getAllParams();
-	    
-		debugMessage($this->_getAllParams());
-		$user = new Member();
-		$user->populate(decode($this->_getParam('id')));
-		
-		// only upload a file if the attachment field is specified		
-		$upload = new Zend_File_Transfer(); 
-		// set the file size in bytes
-		$upload->setOptions(array('useByteString' => false));
-		
-		// Limit the extensions to the specified file extensions
-		$upload->addValidator('Extension', false, $config->uploads->photoallowedformats);
-	 	$upload->addValidator('Size', false, $config->uploads->photomaximumfilesize);
-		
-		// base path for profile pictures
- 		$destination_path = APPLICATION_PATH.DIRECTORY_SEPARATOR."..".DIRECTORY_SEPARATOR."public".DIRECTORY_SEPARATOR."uploads".DIRECTORY_SEPARATOR."users".DIRECTORY_SEPARATOR."user_";
-	
-		// determine if user has destination avatar folder. Else user is editing there picture
-		if(!is_dir($destination_path.$user->getID())){
-			// no folder exits. Create the folder
-			mkdir($destination_path.$user->getID(), 0777);
-		} 
-		
-		// set the destination path for the image
-		$profilefolder = $user->getID();
-		$destination_path = $destination_path.$profilefolder.DIRECTORY_SEPARATOR."avatar";
-		
-		if(!is_dir($destination_path)){
-			mkdir($destination_path, 0777);
-		}
-		// create archive folder for each user
-		$archivefolder = $destination_path.DIRECTORY_SEPARATOR."archive";
-		if(!is_dir($archivefolder)){
-			mkdir($archivefolder, 0777);
-		}
-		
-		$oldfilename = $user->getProfilePhoto();
-		
-		//debugMessage($destination_path); 
-		$upload->setDestination($destination_path);
-		
-		// the profile image info before upload
-		$file = $upload->getFileInfo('profileimage');
-		$uploadedext = findExtension($file['profileimage']['name']);
-		$currenttime = mktime();
-		$currenttime_file = $currenttime.'.'.$uploadedext;
-		// debugMessage($file);
-		
-		$thefilename = $destination_path.DIRECTORY_SEPARATOR.'base_'.$currenttime_file;
-		$thelargefilename = $destination_path.DIRECTORY_SEPARATOR.'large_'.$currenttime_file;
-		$updateablefile = $destination_path.DIRECTORY_SEPARATOR.'base_'.$currenttime;
-		$updateablelarge = $destination_path.DIRECTORY_SEPARATOR.'large_'.$currenttime;
-		// exit(); 
-		// rename the base image file 
-		$upload->addFilter('Rename',  array('target' => $thefilename, 'overwrite' => true));		
-		// exit();
-		// process the file upload
-		if($upload->receive()){
-			// debugMessage('Completed');
-			$file = $upload->getFileInfo('profileimage');
-			// debugMessage($file);
-			
-			$basefile = $thefilename;
-			// convert png to jpg
-			if(in_array(strtolower($uploadedext), array('png','PNG','gif','GIF'))){
-				ak_img_convert_to_jpg($thefilename, $updateablefile.'.jpg', $uploadedext);
-				unlink($thefilename);
-			}
-			$basefile = $updateablefile.'.jpg';
-			
-			// new profilenames
-			$newlargefilename = "large_".$currenttime_file;
-			// generate and save thumbnails for sizes 250, 125 and 50 pixels
-			resizeImage($basefile, $destination_path.DIRECTORY_SEPARATOR.'large_'.$currenttime.'.jpg', 400);
-			resizeImage($basefile, $destination_path.DIRECTORY_SEPARATOR.'medium_'.$currenttime.'.jpg', 165);
-			
-			// unlink($thefilename);
-			unlink($destination_path.DIRECTORY_SEPARATOR.'base_'.$currenttime.'.jpg');
-			
-			// exit();
-			// update the useraccount with the new profile images
-			try {
-				$user->setProfilePhoto($currenttime.'.jpg');
-				$user->save();
-				
-				// check if user already has profile picture and archive it
-				$ftimestamp = current(explode('.', $user->getProfilePhoto()));
-				
-				$allfiles = glob($destination_path.DIRECTORY_SEPARATOR.'*.*');
-				$currentfiles = glob($destination_path.DIRECTORY_SEPARATOR.'*'.$ftimestamp.'*.*');
-				// debugMessage($currentfiles);
-				$deletearray = array();
-				foreach ($allfiles as $value) {
-					if(!in_array($value, $currentfiles)){
-						$deletearray[] = $value;
-					}
-				}
-				// debugMessage($deletearray);
-				if(count($deletearray) > 0){
-					foreach ($deletearray as $afile){
-						$afile_filename = basename($afile);
-						rename($afile, $archivefolder.DIRECTORY_SEPARATOR.$afile_filename);
-					}
-				}
-				
-				$session->setVar(SUCCESS_MESSAGE, $this->_translate->translate("global_update_success"));
-				$this->_helper->redirector->gotoUrl($this->view->baseUrl("profile/picture/id/".encode($user->getID()).'/crop/1'));
-			} catch (Exception $e) {
-				$session->setVar(ERROR_MESSAGE, $e->getMessage());
-				$session->setVar(FORM_VALUES, $this->_getAllParams());
-				$this->_helper->redirector->gotoUrl($this->view->baseUrl('profile/picture/id/'.encode($user->getID())));
-			}
-		} else {
-			// debugMessage($upload->getMessages());
-			$uploaderrors = $upload->getMessages();
-			$customerrors = array();
-			if(!isArrayKeyAnEmptyString('fileUploadErrorNoFile', $uploaderrors)){
-				$customerrors['fileUploadErrorNoFile'] = "Please browse for image on computer";
-			}
-			if(!isArrayKeyAnEmptyString('fileExtensionFalse', $uploaderrors)){
-				$custom_exterr = sprintf($this->_translate->translate('global_invalid_ext_error'), $config->uploads->photoallowedformats);
-				$customerrors['fileExtensionFalse'] = $custom_exterr;
-			}
-			if(!isArrayKeyAnEmptyString('fileUploadErrorIniSize', $uploaderrors)){
-				$custom_exterr = sprintf($this->_translate->translate('global_invalid_size_error'), formatBytes($config->uploads->photomaximumfilesize,0));
-				$customerrors['fileUploadErrorIniSize'] = $custom_exterr;
-			}
-			if(!isArrayKeyAnEmptyString('fileSizeTooBig', $uploaderrors)){
-				$custom_exterr = sprintf($this->_translate->translate('global_invalid_size_error'), formatBytes($config->uploads->photomaximumfilesize,0));
-				$customerrors['fileSizeTooBig'] = $custom_exterr;
-			}
-			$session->setVar(ERROR_MESSAGE, 'The following errors occured <ul><li>'.implode('</li><li>', $customerrors).'</li></ul>');
-			$session->setVar(FORM_VALUES, $this->_getAllParams());
-			
-			$this->_helper->redirector->gotoUrl($this->view->baseUrl('profile/picture/id/'.encode($user->getID())));
-		}
-		// exit();
-	}
-	
-	function croppictureAction(){
-    	$this->_helper->layout->disableLayout();
-		$this->_helper->viewRenderer->setNoRender(TRUE);
-		$session = SessionWrapper::getInstance(); 	
-		$formvalues = $this->_getAllParams();
-		
-		$user = new Member();
-		$user->populate(decode($formvalues['id']));
-		$userfolder = $user->getID();
-		// debugMessage($formvalues);
-		//debugMessage($user->toArray());
-		
-		$oldfile = "large_".$user->getProfilePhoto();
-		$base = BASE_PATH.DIRECTORY_SEPARATOR.'uploads'.DIRECTORY_SEPARATOR."users".DIRECTORY_SEPARATOR.'user_'.$userfolder.''.DIRECTORY_SEPARATOR.'avatar'.DIRECTORY_SEPARATOR;
-		
-		// debugMessage($user->toArray()); 
-		$src = $base.$oldfile;
-		
-		$currenttime = mktime();
-		$currenttime_file = $currenttime.'.jpg';
-		$newlargefilename = $base."large_".$currenttime_file;
-		$newmediumfilename = $base."medium_".$currenttime_file;
-		
-		// exit();
-		$image = WideImage::load($src);
-		$cropped1 = $image->crop($formvalues['x1'], $formvalues['y1'], $formvalues['w'], $formvalues['h']);
-		$resized_1 = $cropped1->resize(300, 300, 'fill');
-		$resized_1->saveToFile($newlargefilename);
-			
-		//$image2 = WideImage::load($src);
-		$cropped2 = $image->crop($formvalues['x1'], $formvalues['y1'], $formvalues['w'], $formvalues['h']);
-		$resized_2 = $cropped2->resize(165, 165, 'fill');
-		$resized_2->saveToFile($newmediumfilename);
-		
-		$user->setProfilePhoto($currenttime_file);
-		$user->save();
-			
-		// check if user already has profile picture and archive it
-		$ftimestamp = current(explode('.', $user->getProfilePhoto()));
-		
-		$allfiles = glob($base.DIRECTORY_SEPARATOR.'*.*');
-		$currentfiles = glob($base.DIRECTORY_SEPARATOR.'*'.$ftimestamp.'*.*');
-		// debugMessage($currentfiles);
-		$deletearray = array();
-		foreach ($allfiles as $value) {
-			if(!in_array($value, $currentfiles)){
-				$deletearray[] = $value;
-			}
-		}
-		// debugMessage($deletearray);
-		if(count($deletearray) > 0){
-			foreach ($deletearray as $afile){
-				$afile_filename = basename($afile);
-				rename($afile, $base.DIRECTORY_SEPARATOR.'archive'.DIRECTORY_SEPARATOR.$afile_filename);
-			}
-		}
-		$session->setVar(SUCCESS_MESSAGE, "Successfully updated profile picture");
-		$this->_helper->redirector->gotoUrl($this->view->baseUrl('profile/view/id/'.encode($user->getID())));
-		// exit();
-    }
-    
 	public function updatestatusAction() {
 		$this->_setParam("action", ACTION_DELETE); 
 		
@@ -583,6 +317,34 @@ class ProfileController extends SecureController  {
     		if(!isEmptyString($successmessage)){
     			$session->setVar(SUCCESS_MESSAGE, $successmessage);
     		}
+    		$view = new Zend_View();
+    		$url = $this->view->serverUrl($this->view->baseUrl('profile/view/id/'.encode($user->getID())));
+    		
+    		if($formvalues['status'] == 2){
+    			# add log to audit trail
+    			$usecase = '1.6';
+    			$module = '1';
+    			$type = USER_DEACTIVATE;
+    			$details = "User Profile <a href='".$url."' class='blockanchor'>".$user->getName()."</a> Deactivated";
+    		} else {
+    			$usecase = '1.7';
+    			$module = '1';
+    			$type = USER_REACTIVATE;
+    			$details = "User Profile <a href='".$url."' class='blockanchor'>".$user->getName()."</a> Re-activated";
+    		}
+    		
+    		$browser = new Browser();
+    		$audit_values = $session->getVar('browseraudit');
+    		$audit_values['module'] = $module;
+    		$audit_values['usecase'] = $usecase;
+    		$audit_values['transactiontype'] = $type;
+    		$audit_values['status'] = "Y";
+    		$audit_values['userid'] = $session->getVar('userid');
+    		$audit_values['transactiondetails'] = $details;
+    		
+    		// debugMessage($audit_values);
+    		$this->notify(new sfEvent($this, $type, $audit_values));
+    		
     		$this->_helper->redirector->gotoUrl($successurl);
     	}
     	
@@ -620,101 +382,52 @@ class ProfileController extends SecureController  {
 	    	$this->_helper->redirector->gotoUrl(decode($this->_getParam(URL_FAILURE)));
 	    }
 	}
-	
-	function uploadpictureAction(){
+    
+    function inviteuserAction(){
     	$this->_helper->layout->disableLayout();
-		$this->_helper->viewRenderer->setNoRender(TRUE);
+    	$this->_helper->viewRenderer->setNoRender(TRUE);
+    	$session = SessionWrapper::getInstance();
+    	$formvalues = $this->_getAllParams(); debugMessage($this->_getAllParams());
     	
-		$session = SessionWrapper::getInstance(); 	
-	    $config = Zend_Registry::get("config");
-		
-	    $formvalues = $this->_getAllParams();
-	    
-		if(isset($_FILES["FileInput"]) && $_FILES["FileInput"]["error"] == UPLOAD_ERR_OK) {
-			if(!isset($_FILES['FileInput']['name'])){
-		    	die("<span class='alert alert-danger'>Error: Please select an Image to Upload.</span>");
-		    }
-	 		
-			$real_path = APPLICATION_PATH.DIRECTORY_SEPARATOR."..".DIRECTORY_SEPARATOR."public".DIRECTORY_SEPARATOR."uploads".DIRECTORY_SEPARATOR."users".DIRECTORY_SEPARATOR."user_";
-			// determine if destination folder exists and create it if not
-			if(!is_dir($real_path.$formvalues['userid'])){
-				// no folder exits. Create the folder
-				mkdir($real_path.$formvalues['userid'], 0777);
-			} 
-			$real_path = $real_path.$formvalues['userid'].DIRECTORY_SEPARATOR."avatar";
-			if(!is_dir($real_path)){
-				mkdir($real_path, 0777);
-			}
-			$archivefolder = $real_path.DIRECTORY_SEPARATOR."archive";
-			if(!is_dir($archivefolder)){
-				mkdir($archivefolder, 0777);
-			}
-			
-			$UploadDirectory = $real_path.DIRECTORY_SEPARATOR;
-			$File_Name = strtolower($_FILES['FileInput']['name']);
-			$File_Ext = findExtension($File_Name); //get file extention
-			$ext = strtolower($_FILES['FileInput']['type']);
-			$allowedformatsarray = explode(',', $config->uploads->photoallowedformats);
-			$Random_Number = mktime(); //Random number to be added to name.
-			$NewFileName = "base_".$Random_Number.'.'.$File_Ext; //new file name
-			
-			// check if this is an ajax request
-			if (!isset($_SERVER['HTTP_X_REQUESTED_WITH'])){
-				die("<span class='alert alert-danger'>Error: No Request received.</span>");
-			}
-			// validate maximum allowed size
-			if ($_FILES["FileInput"]["size"] > $config->uploads->photomaximumfilesize) {
-				die("<span class='alert alert-danger'>Error: Maximum allowed size exceeded.</span>");
-			}
-			// validate allowed formats
-			if(!in_array($File_Ext, $allowedformatsarray)){
-				die("<span class='alert alert-danger'>Error: Format '".$File_Ext."' not supported. Only formats '".$config->uploads->photoallowedformats."' allowed</span>");
-			}
-			
-			# move the file
-			try {
-				move_uploaded_file($_FILES['FileInput']['tmp_name'], $UploadDirectory.$NewFileName);
-				resizeImage($UploadDirectory.$NewFileName, $UploadDirectory.'large_'.$Random_Number.'.jpg', 400);
-				resizeImage($UploadDirectory.$NewFileName, $UploadDirectory.'medium_'.$Random_Number.'.jpg', 165);
-				// unlink($thefilename);
-				unlink($UploadDirectory.'base_'.$Random_Number.'.jpg');
-				$session->setVar(SUCCESS_MESSAGE, "Successfully uploaded! Please resize/crop image to complete.");
-				
-				$user = new Member();
-				$user->populate($formvalues['userid']);
-				$user->setProfilePhoto($Random_Number.'.jpg');
-				$user->save();
-				
-				// check if user already has profile picture and archive it
-				$ftimestamp = current(explode('.', $user->getProfilePhoto()));
-				
-				$allfiles = glob($UploadDirectory.'*.*');
-				$currentfiles = glob($UploadDirectory.'*'.$ftimestamp.'*.*');
-				// debugMessage($currentfiles);
-				$deletearray = array();
-				foreach ($allfiles as $value) {
-					if(!in_array($value, $currentfiles)){
-						$deletearray[] = $value;
-					}
-				}
-				// debugMessage($deletearray);
-				if(count($deletearray) > 0){
-					foreach ($deletearray as $afile){
-						$afile_filename = basename($afile);
-						rename($afile, $archivefolder.DIRECTORY_SEPARATOR.$afile_filename);
-					}
-				}
-				
-				// die('File '.$NewFileName.' Uploaded.');
-				$result = array('oldfilename' => $File_Name, 'newfilename'=>$NewFileName, 'msg'=>'File '.$File_Name.' successfully uploaded', 'result'=>1);
-				// json_decode($result);
-				die(json_encode($result));
-			} catch (Exception $e) {
-				die('Error in uploading File '.$File_Name.'. '.$e->getMessage());
-			}
-		} else {
-			// debugMessage($formvalues);
-			$this->_helper->redirector->gotoUrl($this->view->baseUrl('profile/picture/id/'.encode($formvalues['userid']).'/crop/1'));
-		}
+    	$member = new Member();
+    	$member->populate($formvalues['memberid']);
+    	$member->processPost($formvalues);
+    	
+    	/* debugMessage($member->toArray());
+    	debugMessage('errors are '.$member->getErrorStackAsString()); exit; */
+    	if($member->hasError()){
+    		$session->setVar(ERROR_MESSAGE, $member->getErrorStackAsString());
+    		$session->setVar(FORM_VALUES, $formvalues);
+    		$this->_helper->redirector->gotoUrl(decode($this->_getParam('failureurl')));
+    	} 
+    	try {
+    		$member->save();
+    		
+    		# add log to audit trail
+    		$url = $this->view->serverUrl($this->view->baseUrl('profile/view/id/'.encode($member->getID())));
+    			
+    		$browser = new Browser();
+    		$audit_values = $session->getVar('browseraudit');
+    		$audit_values['module'] = '1';
+    		$audit_values['usecase'] = '1.3';
+    		$audit_values['transactiontype'] = USER_CREATE;
+    		$audit_values['status'] = "Y";
+    		$audit_values['userid'] = $session->getVar('userid');
+    		$audit_values['transactiondetails'] = "User Profile <a href='".$url."' class='blockanchor'>".$member->getName()."</a> created from Member";
+    		$audit_values['url'] = $url;
+    		// debugMessage($audit_values);
+    		$this->notify(new sfEvent($this, USER_CREATE, $audit_values));
+    		
+    		$member->afterUpdate(false);
+    		$session->setVar(SUCCESS_MESSAGE, $this->_translate->translate("global_profile_update_success"));
+    		$this->_helper->redirector->gotoUrl($this->view->baseUrl('profile/view/id/'.encode($member->getID())));
+    			
+   		} catch (Exception $e) {
+   			$session->setVar(ERROR_MESSAGE, $e->getMessage()."<br />".$lookupvalue->getErrorStackAsString());
+   			$session->setVar(FORM_VALUES, $formvalues);
+   			$this->_helper->redirector->gotoUrl(decode($this->_getParam('failureurl')));
+   		}
+    	
+    	// exit();
     }
 }

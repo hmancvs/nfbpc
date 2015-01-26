@@ -1,0 +1,426 @@
+<?php
+	include APPLICATION_PATH.'/includes/header.php';
+	// require_once BASE_PATH.'/mpdf/mpdf.php';
+	
+	// $user->populate($userid);
+	$title = "Member Statistics Report";
+	
+	$startdate = $request->getParam('startdate');
+	if(!isEmptyString($startdate)){
+		$startdate = changeDateFromPageToMySQLFormat($startdate);
+	}
+	$enddate = $request->getParam('enddate');
+	if(!isEmptyString($enddate)){
+		$enddate = changeDateFromPageToMySQLFormat($enddate);
+	}
+	
+	$professionlist = getProfessions();
+	$salutationlist = getSalutations();
+	$datestring = ''; $custom_query = '';
+	if(!isEmptyString($startdate) && !isEmptyString($enddate)){
+		$datestring = '['.changeMySQLDateToPageFormat($startdate).' - '.changeMySQLDateToPageFormat($enddate).']'; 
+		$count_pie_sql = "SELECT 
+		COUNT(DISTINCT(m.id)) as 'Total Members', 
+		SUM(if(m.gender = '1', 1, 0)) as 'Male', 
+		SUM(if(m.gender = '2', 1, 0)) as 'Female', 
+		SUM(if(m.gender = '' OR m.gender IS NULL, 1, 0)) as 'Unknown', 
+		SUM(if(m.email <> '', 1, 0)) as 'With Email', 
+		SUM(if(m.email = '' OR m.email IS NULL , 1, 0)) as 'No Email', 
+		SUM(if(m.phone <> '', 1, 0)) as 'With Phone', 
+		SUM(if(m.phone = '' OR m.phone IS NULL , 1, 0)) as 'No Phone'
+		FROM member AS m WHERE (TO_DAYS(m.datecreated) BETWEEN TO_DAYS('".$startdate."') AND TO_DAYS('".$enddate."')) "; // debugMessage($count_pie_sql);
+		$conn = Doctrine_Manager::connection(); 
+		$count_pie_result = $conn->fetchRow($count_pie_sql);  // debugMessage($count_pie_result);
+		$count_pie_no_data = (count($count_pie_result) == 0) ? true : false; 
+		// exit;
+		
+		# query members by profession
+		$count_profession_sql = "SELECT 
+		COUNT(DISTINCT(m.id)) as 'Total Members' ,
+		l.lookupvaluedescription as 'Profession',
+		m.profession as 'professionid'
+		FROM member AS m 
+		left join lookuptypevalue l on (m.profession = l.lookuptypevalue AND l.lookuptypeid = '4') 
+		WHERE (m.profession <> '' OR m.profession is not null) AND ".$custom_query." (TO_DAYS(m.datecreated) BETWEEN TO_DAYS('".$startdate."') AND TO_DAYS('".$enddate."')) GROUP BY m.profession "; // debugMessage($count_profession_sql);
+		
+		$conn = Doctrine_Manager::connection(); 
+		$count_profession_result = $conn->fetchAll($count_profession_sql);  // debugMessage($count_profession_result);
+		$count_profession_no_data = (count($count_profession_result) == 0) ? true : false; 
+		
+		if(!$count_profession_no_data){
+			$processeddata = array();
+			foreach($count_profession_result as $key => $line){			
+				$processeddata['professionids'][] = $line['professionid'];
+				$processeddata['Professions'][] = $professionlist[$line['professionid']];
+				$processeddata['Total Members'][] = $line['Total Members'];
+			}
+			// debugMessage($processeddata);
+			$data_arrray = '';
+			$profession_list = '';
+			foreach($processeddata['Professions'] as $key => $professionname){
+				$data_arrray[] = "['".$professionname."', ".$processeddata['Total Members'][$key]."]";
+			}
+			$datalist_profession = implode(", ",$data_arrray); // debugMessage($datalist);
+			$profession_list = implode("', '",$processeddata['Professions']);
+			$profession_list = "'".$profession_list."'"; // debugMessage($profession_list);
+			$total_list = implode(", ",$processeddata['Total Members']); // debugMessage($total_list);
+		}
+		
+		# query members by salution
+		$count_salutation_sql = "SELECT 
+		COUNT(DISTINCT(m.id)) as 'Total Members' ,
+		l.lookupvaluedescription as 'Salutation',
+		m.salutation as 'salutationid'
+		FROM member AS m 
+		left join lookuptypevalue l on (m.salutation = l.lookuptypevalue AND l.lookuptypeid = '2') 
+		WHERE (m.salutation <> '' OR m.salutation is not null) AND ".$custom_query." (TO_DAYS(m.datecreated) BETWEEN TO_DAYS('".$startdate."') AND TO_DAYS('".$enddate."')) GROUP BY m.salutation "; // debugMessage($count_profession_sql);
+		
+		$conn = Doctrine_Manager::connection(); 
+		$count_salutation_result = $conn->fetchAll($count_salutation_sql);  // debugMessage($count_profession_result);
+		$count_salutation_no_data = (count($count_salutation_result) == 0) ? true : false; 
+		
+		if(!$count_salutation_no_data){
+			$processeddata = array();
+			foreach($count_salutation_result as $key => $line){			
+				$processeddata['salutationids'][] = $line['salutationid'];
+				$processeddata['Salutations'][] = $salutationlist[$line['salutationid']];
+				$processeddata['Total Members'][] = $line['Total Members'];
+			}
+			// debugMessage($processeddata);
+			$data_arrray = '';
+			$salutation_list = '';
+			foreach($processeddata['Salutations'] as $key => $salutationname){
+				$data_arrray[] = "['".$salutationname."', ".$processeddata['Total Members'][$key]."]";
+			}
+			$datalist_salutation = implode(", ",$data_arrray); // debugMessage($datalist);
+			$salutation_list = implode("', '",$processeddata['Salutations']);
+			$salutation_list = "'".$salutation_list."'"; // debugMessage($profession_list);
+			$total_list = implode(", ",$processeddata['Total Members']); // debugMessage($total_list);
+		}
+	}
+	
+	$this->headTitle($title.$browserappend);
+	$description = '';
+	$icon = $this->baseUrl('images/icon_report.png');
+?>
+<script type="text/javascript" src="<?php echo $this->baseUrl('javascript/plugins/highcharts.js'); ?>"></script>
+<script type="text/javascript" src="<?php echo $this->baseUrl('javascript/plugins/exporting.js'); ?>"></script>
+<script>
+$(document).ready(function() {
+	$('.titlebreadcrumb').html('<?php echo $homedir.'Reports / '.$title; ?>');
+	$('.titlelabel').html('<?php echo $title; ?>');
+	$('.desclabel').html('<?php echo $description; ?>');
+	$('.pageicon').html('<span class="glyphicon glyphicon-signal"></span>');
+	
+	$("#reportform").validate({		
+		// define the validation rules one field at a time
+		rules: {
+			startdate: "required",
+			enddate: {
+				required: true,
+				enddateafterstartdate:true
+			}
+		}, 
+		// the messages for each of the fields being validated
+		messages: {		
+			startdate: "Select Report Start Date",
+			enddate: {
+				required: "Select Report End Date"
+			}
+		},
+		// custom error positions
+		errorPlacement: function(error, element) {
+			error.appendTo("#list_error")		
+		}
+	});
+	
+	$("#reportform").submit(function(){
+		if ($(this).valid()) {
+			$.blockUI({ message: uiblockcontent}); 
+		}
+	});
+	
+	var dateoptions = datepickerOpts;
+	var startfrom = '<?php echo date('Y'); ?>';
+	dateoptions.yearRange = "-<?php echo date('Y')-2010; ?>:-0"; 
+	dateoptions.minDate = "-<?php echo date('Y'); ?>Y";
+	dateoptions.maxDate = new Date("Dec 31, "+startfrom);	
+	$("#startdate, #enddate").datepicker(dateoptions);
+	
+	// function to validate the enddate being greater than the start date
+	$.validator.addMethod("enddateafterstartdate", function(value, element) {            
+		var startDate = $("#startdate").val();  
+		if($.trim(value) == ""){
+			return true;
+		}
+		if($.trim(startDate) == ""){
+			return false;
+		}
+		return Date.parse(startDate) <= Date.parse(value);        
+	}, "End Date should be after Start Date");
+	
+	<?php if(!isEmptyString($startdate) && !isEmptyString($enddate)){ ?>
+		// Radialize the colors
+		Highcharts.getOptions().colors = Highcharts.map(Highcharts.getOptions().colors, function(color) {
+			return {
+				radialGradient: { cx: 0.5, cy: 0.3, r: 0.7 },
+				stops: [
+					[0, color],
+					[1, Highcharts.Color(color).brighten(-0.3).get('rgb')] // darken
+				]
+			};
+		});
+		
+		$(function () {
+			$('#container_pie_gender').highcharts({
+				chart: {
+					height:400,
+					margin: [40, 0, 20, 0]
+				},
+				title: {
+					text: 'Members by Gender <?php echo $datestring; ?>'
+				},
+				tooltip: {
+					formatter: function() {
+						return '<b>'+ this.point.name +'</b>: '+ Math.round(this.percentage) +' % ['+this.point.y+' Members]';
+					 }
+				},
+				exporting: {
+					enabled: true
+				},
+				credits: {
+					enabled: false
+				},
+				plotOptions: {
+					pie: {
+						allowPointSelect: true,
+						cursor: 'pointer',
+						dataLabels: {
+							enabled: true,
+							color: '#000000',
+							connectorColor: '#000000',
+							format: "<b>{point.name}</b>: {point.percentage:.0f} %"
+						}
+					}
+				},
+				series: [{
+					type: 'pie',
+					name: 'Gender',
+					data: [
+						{
+							name: 'Male',
+							y: <?php echo $count_pie_result['Male']; ?>,
+							sliced: true,
+							selected: true
+						},
+						['Female', <?php echo $count_pie_result['Female']; ?>],
+						['Unknown', <?php echo $count_pie_result['Unknown']; ?>]
+					]
+				}]
+			});
+			
+			$('#container_pie_email').highcharts({
+				chart: {
+					height:400,
+					margin: [40, 0, 20, 0]
+				},
+				title: {
+					text: 'Members by Email Access <?php echo $datestring; ?>'
+				},
+				tooltip: {
+					formatter: function() {
+						return '<b>'+ this.point.name +'</b>: '+ Math.round(this.percentage) +' % ['+this.point.y+' Members]';
+					 }
+				},
+				exporting: {
+					enabled: true
+				},
+				credits: {
+					enabled: false
+				},
+				plotOptions: {
+					pie: {
+						allowPointSelect: true,
+						cursor: 'pointer',
+						dataLabels: {
+							enabled: true,
+							color: '#000000',
+							connectorColor: '#000000',
+							format: "<b>{point.name}</b>: {point.percentage:.0f} %"
+						}
+					}
+				},
+				series: [{
+					type: 'pie',
+					name: 'Email Access',
+					data: [
+						{
+							name: 'With Email',
+							y: <?php echo $count_pie_result['With Email']; ?>,
+							sliced: true,
+							selected: true
+						},
+						['No Email', <?php echo $count_pie_result['No Email']; ?>]
+					]
+				}]
+			});
+			
+			$('#container_pie_profession').highcharts({
+				chart: {
+					height:400,
+					margin: [40, 0, 20, 0]
+				},
+				title: {
+					text: 'Members by Profession <?php echo $datestring; ?>'
+				},
+				tooltip: {
+					formatter: function() {
+						return '<b>'+ this.point.name +'</b>: '+ Math.round(this.percentage) +' % ['+this.point.y+' Members]';
+					 }
+				},
+				exporting: {
+					enabled: true
+				},
+				credits: {
+					enabled: false
+				},
+				plotOptions: {
+					pie: {
+						allowPointSelect: true,
+						cursor: 'pointer',
+						dataLabels: {
+							enabled: true,
+							color: '#000000',
+							connectorColor: '#000000',
+							format: "<b>{point.name}</b>: {point.percentage:.0f} %"
+						}
+					}
+				},
+				series: [{
+					type: 'pie',
+					name: 'Professions',
+					data: [<?php echo $datalist_profession; ?>]
+				}]
+			});
+			
+			$('#container_pie_salutation').highcharts({
+				chart: {
+					height:400,
+					margin: [40, 0, 20, 0]
+				},
+				title: {
+					text: 'Members by Salutation <?php echo $datestring; ?>'
+				},
+				tooltip: {
+					formatter: function() {
+						return '<b>'+ this.point.name +'</b>: '+ Math.round(this.percentage) +' % ['+this.point.y+' Members]';
+					 }
+				},
+				exporting: {
+					enabled: true
+				},
+				credits: {
+					enabled: false
+				},
+				plotOptions: {
+					pie: {
+						allowPointSelect: true,
+						cursor: 'pointer',
+						dataLabels: {
+							enabled: true,
+							color: '#000000',
+							connectorColor: '#000000',
+							format: "<b>{point.name}</b>: {point.percentage:.0f} %"
+						}
+					}
+				},
+				series: [{
+					type: 'pie',
+					name: 'Salutation',
+					data: [<?php echo $datalist_salutation; ?>]
+				}]
+			});
+		});	
+	<?php } ?>
+});
+</script>
+<div class="row margin0">
+    <div class="col-md-12 padding0">
+        <form class="form-search makerelative" action="<?php echo $this->baseUrl("report/reportsearch/page/memberstats"); ?>" method="get" id="reportform">
+        	<?php if ($sessionhaserror) { ?>
+            <div class="alert alert-danger"><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
+			<?php } ?>
+            <?php if (!isEmptyString($session->getVar(SUCCESS_MESSAGE))) { ?>
+                <div class="alert alert-success alert-dismissable"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button> <?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
+            <?php } ?>
+            <div class="row-fluid clearfix whitebg">
+            	<div class="divider10"></div>
+                <div class="col-md-9">
+                    <ul class="listfilter">
+                        <li><a href="<?php echo $this->baseUrl('report/dashboard'); ?>" class="btn btn-default btn-sm"><i class="glyphicon glyphicon-arrow-left"></i> Dashboard</a></li>
+                        <li><input type="text" name="startdate" id="startdate" class="form-control input-sm datefield readonly width100" value="<?php echo $request->startdate; ?>" placeholder="From:" /></li>
+                    	<li><input name="enddate" id="enddate" type="text" class="form-control input-sm datefield readonly width100" placeholder="To:" value="<?php echo $request->enddate; ?>" /></li>
+                        <li><button type="submit" class="btn btn-primary btn-sm" title="Generate Report" style=""><i class="glyphicon glyphicon-filter"></i> Generate Report</button></li>
+                        <li><a href="<?php echo $this->baseUrl('report/memberstats'); ?>">Reset</a></li>
+                    </ul>
+                </div>
+                <div></div>
+           	</div>
+            <div class="divider10"></div>
+            <div id="list_error" class="maxwidth"></div>
+    		<div class="row row-bg" style="margin-bottom:10px;">
+                <div class="col-sm-12 col-md-12">
+                    <div class="widget box makerelative">
+                        <div class="widget-header">
+                            <h4 class="widgettitle">Members By Profession and Saluation <?php //echo $datestring; ?></h4>
+                        </div>
+                        <div class="widget-content no-padding whitebg minheight400">
+                            <?php if(!isEmptyString($startdate) && !isEmptyString($enddate)){ ?>
+                                <div id="container_pie_profession"></div>
+                                <div class="divider20"></div>
+                                <div id="container_pie_salutation"></div>
+                            <?php } else { ?>
+                                <label class="labeldescription noresults">Select reporting period to Generate</label>
+                            <?php } ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row row-bg" style="margin-bottom:10px;">
+                <div class="col-sm-12 col-md-12">
+                    <div class="widget box makerelative">
+                        <div class="widget-header">
+                            <h4 class="widgettitle">Members By Gender <?php //echo $datestring; ?></h4>
+                        </div>
+                        <div class="widget-content no-padding whitebg minheight400">
+                            <?php if(!isEmptyString($startdate) && !isEmptyString($enddate)){ ?>
+                                <div id="container_pie_gender"></div>
+                            <?php } else { ?>
+                                <label class="labeldescription noresults">Select reporting period to Generate</label>
+                            <?php } ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row row-bg" style="margin-bottom:10px;">
+                <div class="col-sm-12 col-md-12">
+                    <div class="widget box makerelative">
+                        <div class="widget-header">
+                            <h4 class="widgettitle">Members By Email <?php //echo $datestring; ?></h4>
+                        </div>
+                        <div class="widget-content no-padding whitebg minheight400">
+                            <?php if(!isEmptyString($startdate) && !isEmptyString($enddate)){ ?>
+                                <div id="container_pie_email"></div>
+                            <?php } else { ?>
+                                <label class="labeldescription noresults">Select reporting period to Generate</label>
+                            <?php } ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
+		</form>
+	</div>
+</div>
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

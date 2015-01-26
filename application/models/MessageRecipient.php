@@ -17,7 +17,7 @@ class MessageRecipient extends BaseRecord  {
 									'foreign' => 'id'
 							)
 						);	
-		$this->hasOne('UserAccount as recipient',
+		$this->hasOne('Member as recipient',
 							array('local' => 'recipientid',
 									'foreign' => 'id'
 							)
@@ -96,5 +96,97 @@ class MessageRecipient extends BaseRecord  {
 		$result = $q->fetchOne();
 		
 		return isEmptyString($result['total']) ? '0' : $result['total'];
+	}
+	/**
+	 * Delete multiple message
+	 * @return Bool whether message is deleted false otherwise
+	 */
+	function deleteMultiple($idsarray) {
+		// doctrine query to select all messages to be deleted
+		$q = Doctrine_Query::create()->from('MessageRecipient m')->whereIn('m.id', $idsarray);
+		// execute query
+		$result = $q->execute();
+	
+		//debugMessage($result->toArray());
+		return $result->delete();
+	}
+	/**
+	 * Send a notification to a user that a private message has been sent to them
+	 *
+	 * @return Bool whether the email notification has been sent
+	 *
+	 */
+	function sendInboxEmailNotification($fromemail ='', $fromname ='', $subject = '', $toemail = '', $toname = '', $content = '') {
+		$template = new EmailTemplate();
+		# create mail object
+		$mail = getMailInstance();
+		
+		# sender name
+		$sendername = getAppName();
+		$sendername = $this->getMessage()->getSender()->getName();
+		if(!isEmptyString($fromname)){
+			$sendername = $fromname;
+		}
+		# sender email
+		$senderemail = getEmailMessageSender();
+		if(!isEmptyString($fromemail)){
+			$senderemail = $fromemail;
+		}
+		
+		# receipient name
+		$receivername = $this->getMessage()->getSender()->getFirstName();
+		if(!isEmptyString($toname)){
+			$receivername = $toname;
+		}
+		# receipient email
+		$receiveremail = $this->getMessage()->getSender()->getEmail();
+		if(!isEmptyString($toemail)){
+			$receiveremail = $toemail;
+		}
+		# email subject
+		$msgsubject = sprintf($this->translate->_('message_private_email_subject'), $subject);
+		
+		# email content
+		$msgcontent = $this->getMessage()->getContents();
+		if(!isEmptyString($content)){
+			$msgcontent = $content;
+		}
+		
+		$viewurl = $template->serverUrl($template->baseUrl('message/view/id/'.encode($this->getID())));
+		if(isEmptyString($this->getID())){
+			$viewurl = '';
+		}
+		// debugMessage($this->getRecipients()->toArray());
+		// the message reciever's first name
+		$template->assign('firstname', isEmptyString($toname) ? 'Member' : $toname);
+		// the message sender's name
+		$template->assign('emailsender', $sendername);
+		// message subject
+		$template->assign('subject', $msgsubject);
+		$mail->setSubject($msgsubject);
+		// message introduction
+		$template->assign('emailintro', sprintf($this->translate->_('message_private_email_subject'), $sendername));
+		// message contents
+		$template->assign('emailcontent', nl2br($msgcontent));
+		// the actual url will be built in the view
+		$template->assign('emaillink', $viewurl);
+		// message html file
+		$mail->setBodyHtml($template->render('messagenotification.phtml'));
+		// debugMessage($template->render('messagenotification.phtml'));
+
+		// add the recipient emails TODO if sent to many users, add all their emails
+		$mail->addTo($toemail);
+		// $mail->addCc('hman@devmail.infomacorp.com');
+		// set the send of the email address
+		$mail->setFrom($senderemail, $sendername);
+		// send the message
+
+		$mail->send();
+		$mail->clearRecipients();
+		$mail->clearSubject();
+		$mail->setBodyHtml('');
+		$mail->clearFrom();
+
+		return true;
 	}
 }

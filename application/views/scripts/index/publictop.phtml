@@ -1,0 +1,107 @@
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head>
+	<meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+	<meta content="utf-8" http-equiv="encoding">		
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="/favicon.ico" rel="shortcut icon" type="image/x-icon" />
+    <title><?php echo $title.$browserappend; ?></title>	
+	<link rel="stylesheet" href="<?php echo $this->baseUrl('stylesheets/menu.min.css'); ?>" type="text/css" />
+	<link rel="stylesheet" type="text/css" href="<?php echo $this->baseUrl('stylesheets/app.css'); ?>" />
+	<link rel="stylesheet" type="text/css" href="<?php echo $this->baseUrl('stylesheets/custom.css'); ?>" />
+	<link rel="stylesheet" type="text/css" href="<?php echo $this->baseUrl('stylesheets/joomlasite.css'); ?>" />
+	<link rel="stylesheet" type="text/css" href="<?php echo $this->baseUrl('stylesheets/portalpublic.css'); ?>" />
+	
+	<script type="text/javascript" src="<?php echo $this->baseUrl('javascript/jquery-1.11.1.min.js'); ?>"></script>
+	<script type="text/javascript" src="<?php echo $this->baseUrl('javascript/app.js'); ?>"></script>
+	<script type="text/javascript" src="<?php echo $this->baseUrl('javascript/plugins/jquery.validate-1.11.1.min.js'); ?>"></script>
+</head>
+<body>
+	<header>
+	   <div class="row">
+		  <div class="large-2 columns" style="height:1px;"></div>
+		  <div class="large-7 columns xlogo"></div>
+		  <div class="large-3 columns">
+		  <?php if(isEmptyString($session->getVar('userid'))){ ?>
+			<a href="http://portal.nfbpc.org" class="btn btn-primary button" id="login" style="padding:8px 10px; color: #ffffff !important; float: right; margin-right: 55px; margin-top: 25px;"> Portal Login</a>
+		  <?php } else { ?>
+			<a href="<?php echo $this->baseUrl('dashboard'); ?>" class="btn btn-primary button" id="login" style="padding:8px 10px; color: #ffffff !important; float: right; margin-right: 55px; margin-top: 25px;"> Portal Dashboard</a>
+		  <?php } ?>
+		  </div>
+	   </div>
+	</header>
+	<nav>
+	   <div class="row">
+		  <div class="large-12 columns lete-menu">
+			 <div class="moduletable">
+				<div id="ariext97_container" class="ux-menu-container ux-menu-clearfix">
+				   <ul id="ariext97" class="ux-menu ux-menu-horizontal">
+					  <?php
+							$dbhandle = mysqli_connect("localhost",WEBSITE_USER,WEBSITE_PASS,WEBSITE_DB);
+							$query = "SELECT * from nfb_menu where menutype = 'mainmenu' AND level = 1 AND published = 1 "; // debugMessage($query);
+							$data = $dbhandle->query($query);
+							$menus = array();
+							while($row = $data->fetch_array()){
+								$menus[] = $row;
+							}
+							$data->close();
+							$dbhandle->close();
+							
+							$i = 0;
+							$dbhandle = mysqli_connect("localhost",WEBSITE_USER,WEBSITE_PASS,WEBSITE_DB);
+							foreach($menus as $key => $item){ 
+								$query = "SELECT * from nfb_menu where menutype = 'mainmenu' AND level = 2 AND published = 1 AND parent_id = '".$item['id']."' ORDER BY lft ASC "; // debugMessage($query);
+								$data = $dbhandle->query($query);
+								$result = array();
+								while($row = $data->fetch_array()){
+									$result[] = $row;
+								}
+								$data->close();
+								// $dbhandle->close();
+								$submenus = $result;
+								$hassubmenu = count($submenus) == 0 ? false : true;
+								$mainurl = PORTAL_URL.'/index.php/'.$item['alias'];
+								if($item['type'] == 'url'){
+									$mainurl = $item['link'];
+								}
+								
+						?>
+						<li class="ux-menu-item-main ux-menu-item-level-0 ux-menu-item<?php echo $item['id']; ?> ux-menu-item-parent-pos<?php echo $i; ?>">
+							<a href="<?php echo $mainurl; ?>" class=" ux-menu-link-level-0"><?php echo $item['title']; ?></a>
+							<?php if($hassubmenu){ ?>
+								<ul class="ux-menu-sub ux-menu-init-hidden">
+								<?php 
+									foreach($submenus as $skey => $sitem){
+										$innerurl = PORTAL_URL.'/index.php/'.$item['alias'].'/'.$sitem['alias'];
+										if($sitem['type'] == 'url'){
+											$innerurl = $sitem['link'];
+										}
+								?>
+									<li class=" ux-menu-item-level-1 ux-menu-item<?php echo $sitem['id']; ?> current">
+									   <a href="<?php echo $innerurl; ?>" class=" ux-menu-link-level-1" title=""><?php echo $sitem['title']; ?></a>
+									</li>
+								<?php } ?>
+								</ul>
+							<?php } ?>
+						</li>
+					  <?php $i++; } ?>
+				   </ul>
+				</div>
+			 </div>
+		  </div>
+	   </div>
+	</nav>
+	<script>
+		$(document).ready(function(){
+			// alert('testing');
+			$("ul.ux-menu li.ux-menu-item-main").hover(display,hide);
+			$("ul.ux-menu li.ux-menu-item-main a, ul.ux-menu li.ux-menu-item-main ul").focus(display);
+			$("ul.ux-menu li.ux-menu-item-main a").blur(hide);
+
+			function display() {
+			   $(this).children("ul").show().removeClass('ux-menu-init-hidden');
+			}
+			function hide() {
+			   $(this).children("ul").hide().addClass('ux-menu-init-hidden');   
+			}
+		});
+	</script>

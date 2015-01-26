@@ -6,14 +6,19 @@ class Message extends BaseRecord  {
 		$this->setTableName('message');
 		$this->hasColumn('id', 'integer', null, array('primary' => true, 'autoincrement' => true));
 		$this->hasColumn('parentid', 'integer', null);
-		$this->hasColumn('senderid', 'integer', null, array("notblank" => true, "notnull" => true));
+		$this->hasColumn('senderid', 'integer', null);
 		$this->hasColumn('sendername', 'string', 255);
 		$this->hasColumn('senderemail', 'string', 255);
 		$this->hasColumn('contents', 'string', 65535, array("notblank" => true, "notnull" => true));
 		$this->hasColumn('subject', 'string', 255);
 		$this->hasColumn('html', 'string', 1000);
 		$this->hasColumn('datecreated', 'timestamp');
-		$this->hasColumn('isoutbox', 'integer', null, array('default'=> '0'));
+		$this->hasColumn('type', 'integer', null, array('default'=> '1'));
+		$this->hasColumn('membertotal', 'string', 50);
+		$this->hasColumn('usertotal', 'string', 50);
+		$this->hasColumn('smsid', 'string', 50);
+		$this->hasColumn('resultcode', 'string', 50);
+		$this->hasColumn('status', 'string', 50);
 	}
 	
 	public function setUp() {
@@ -36,7 +41,7 @@ class Message extends BaseRecord  {
 									'foreign' => 'id'
 							)
 						);	
-		$this->hasOne('UserAccount as member',
+		$this->hasOne('Member as sender',
 							array('local' => 'senderid',
 									'foreign' => 'id'
 							)
@@ -55,7 +60,7 @@ class Message extends BaseRecord  {
 		parent::construct();
 		// set the custom error messages
        	$this->addCustomErrorMessages(array(
-       									"senderid.notblank" => $this->translate->_("message_sender_error"),
+       									// "senderid.notblank" => $this->translate->_("message_sender_error"),
        									"contents.notblank" => $this->translate->_("message_contents_error")       									
        	       						));
 	}
@@ -67,8 +72,8 @@ class Message extends BaseRecord  {
 		if(isArrayKeyAnEmptyString('parentid', $formvalues)){
 			unset($formvalues['parentid']); 
 		}
-		if(isArrayKeyAnEmptyString('isoutbox', $formvalues)){
-			unset($formvalues['isoutbox']); 
+		if(isArrayKeyAnEmptyString('type', $formvalues)){
+			unset($formvalues['type']); 
 		}
 		parent::processPost($formvalues);
 	}
@@ -129,11 +134,47 @@ class Message extends BaseRecord  {
 	 * 
 	 * Return a single object for the messagerecipient details 
 	 */
-	function getMessageDetails() {
+	function getMessageDetails($userid = '') {
 		# query active user details using email
-		$q = Doctrine_Query::create()->from('MessageRecipient r')->where('r.messageid = ?', $this->getID());
+		$user_query = " ";
+		if(!isEmptyString($userid)){
+			$user_query = " AND r.recipientid = '".$userid."' ";
+		}
+		$q = Doctrine_Query::create()->from('MessageRecipient r')->where("r.messageid = '".$this->getID()."' ".$user_query." ");
 		// debugMessage($q->fetchOne()->toArray());
+		// debugMessage($q->getSqlQuery());
 		return $q->fetchOne();
+	}
+	function hasReadMessage($recipientid){
+		$conn = Doctrine_Manager::connection();
+		$query = "SELECT * from messagerecipient as mr where (mr.id = '".$this->getID()."' && mr.recipientid = '".$recipientid."') ";
+		// debugMessage($query);
+		$result = $conn->fetchRow($query); // debugMessage($result);
+		if($result['isread'] == 0){
+			return false;
+		}
+		return true;
+	}
+	/**
+	 * Mark selected messages has read
+	 * @param $msgdetailids an array of message recipient ids to be marked as read 
+	 * @return Boolean True if successfull, false otherwise
+	 */
+	function markAsRead($userid, $flag) {
+		$q = Doctrine_Query::create()->update('MessageRecipient')->set('isread', $flag)->where("messageid = '".$this->getID()."' AND recipientid = '".$userid."' ");
+			
+		// $result = $q->execute(); 
+		return $q->execute();
+	}
+	/**
+	 * 
+	 * Return a single object for the messagerecipient details 
+	 */
+	function getMessageReplies() {
+		# query active user details using email
+		$q = Doctrine_Query::create()->from('Message m')->where('m.parentid = ?', $this->getID())->orderby("m.datecreated asc");
+		// debugMessage($q->fetchOne()->toArray());
+		return $q->execute();;
 	}
 	/**
 	 * 
@@ -169,7 +210,7 @@ class Message extends BaseRecord  {
 		if(!isEmptyString($fromname)){
 			$sendername = $fromname;
 		}
-		$senderemail = $this->config->notification->emailmessagesender;
+		$senderemail = getEmailMessageSender();
 		if(!isEmptyString($fromemail)){
 			$senderemail = $fromemail;
 		}
@@ -200,7 +241,7 @@ class Message extends BaseRecord  {
 		$mail->addTo($this->getRecipient()->getEmail());
 		// $mail->addCc('hman@devmail.infomacorp.com');
 		// set the send of the email address
-		$mail->setFrom($senderemail, $this->translate->_('appname'));
+		$mail->setFrom($senderemail, getAppName());
 		// send the message
 		
 		$mail->send();

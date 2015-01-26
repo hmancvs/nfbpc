@@ -154,6 +154,22 @@
 		//return the years in descending order from the last year to the first and add true to maintain the array keys
 		return array_reverse($years, true);
 	}
+	function getYearsInRage($start, $ahead) {
+		$aconfig = Zend_Registry::get("config");
+		$years = array();
+		$start_year = date("Y") - $aconfig->dateandtime->mindate;
+		if(!isEmptyString($start)){
+			$start_year = $start;
+		}
+		$end_year = date("Y") + $aconfig->dateandtime->maxdate;
+		if(!isEmptyString($ahead)){
+			$end_year = $ahead;
+		}
+		for($i = $start_year; $i <= $end_year; $i++) {
+			$years[$i] = $i;
+		}
+		return array_reverse($years, true);
+	}
 	
 	# function to generate future years
 	function getFutureYears() {				
@@ -239,7 +255,50 @@
 	function getLastDayOfCurrentMonth() {
 		return date("Y-m-d", mktime(0,0,0, date("n")+1,0, date("Y")));
 	}
+	# return array of months between two dates
+	function get_months($date1, $date2) {
+		$time1  = strtotime($date1);
+		$time2  = strtotime($date2);
+		$my     = date('mY', $time2);
+		$shortmonths = getShortMonthsAsNumbers();
+		
+		$months[date('Y',$time1).date('m',$time1)] = array('yearmonth'=>date('Y',$time1).date('m',$time1), 'year'=>date('Y', $time1), 'monthnumber'=>date('m', $time1), 'monthfull'=>date('F', $time1), 'monthshort'=>$shortmonths[date('m', $time1)], 'monthdisplay'=>$shortmonths[date('m', $time1)].' '.date('Y', $time1));
 	
+		while($time1 < $time2) {
+			$time1 = strtotime(date('Y-m-d', $time1).' +1 month');
+			if(date('mY', $time1) != $my && ($time1 < $time2)){
+				$months[date('Y',$time1).date('m',$time1)] = array('yearmonth'=>date('Y',$time1).date('m',$time1), 'year'=>date('Y', $time1), 'monthnumber'=>date('m', $time1), 'monthfull'=>date('F', $time1), 'monthshort'=>$shortmonths[date('m', $time1)], 'monthdisplay'=>$shortmonths[date('m', $time1)].' '.date('Y', $time1));
+			}
+		}
+	
+		$months[date('Y',$time2).date('m',$time2)] = array('yearmonth'=>date('Y',$time2).date('m',$time2), 'year'=>date('Y', $time2), 'monthnumber'=>date('m', $time2), 'monthfull'=>date('F', $time2), 'monthshort'=>$shortmonths[date('m', $time2)], 'monthdisplay'=>$shortmonths[date('m', $time2)].' '.date('Y', $time2));
+		return $months;
+	}
+	# determine the weeks between a period
+	function get_weeks($date1, $date2) {
+		$time1  = strtotime($date1);
+		$time2  = strtotime($date2);
+		$my     = date('Y', $time2).(date('W', $time2)-1);
+		$shortmonths = getShortMonthsAsNumbers();
+		
+		$weeks[date('Y', $time1).(date('W', $time1)-1)] = array('yearmonth'=>date('Y',$time1).date('m',$time1), 'year'=>date('Y', $time1), 'monthnumber'=>date('m', $time1), 'monthfull'=>date('F', $time1), 'monthshort'=>$shortmonths[date('m', $time1)], 'monthdisplay'=>$shortmonths[date('m', $time1)].' '.date('Y', $time1), 'yearweek'=> date('Y', $time1).(date('W', $time1)-1), 'week'=>(date('W', $time1)-1));
+		
+		while($time1 < $time2) {
+			$time1 = strtotime(date('Y-m-d', $time1).' +7 day');
+			if(date('Y', $time1).(date('W', $time1)-1) != $my && ($time1 < $time2)){
+				$weeks[date('Y',$time1).(date('W', $time1)-1)] = array('yearmonth'=>date('Y',$time1).date('m',$time1), 'year'=>date('Y', $time1), 'monthnumber'=>date('m', $time1), 'monthfull'=>date('F', $time1), 'monthshort'=>$shortmonths[date('m', $time1)], 'monthdisplay'=>$shortmonths[date('m', $time1)].' '.date('Y', $time1), 'yearweek'=> date('Y', $time1).(date('W', $time1)-1), 'week'=>(date('W', $time1)-1));
+			}
+		}
+		$weeks[date('Y', $time2).(date('W', $time2)-1)] = array('yearmonth'=>date('Y',$time2).date('m',$time2), 'year'=>date('Y', $time2), 'monthnumber'=>date('m', $time2), 'monthfull'=>date('F', $time2), 'monthshort'=>$shortmonths[date('m', $time2)], 'monthdisplay'=>$shortmonths[date('m', $time2)].' '.date('Y', $time2), 'yearweek'=> date('Y', $time2).(date('W', $time2)-1), 'week'=>(date('W', $time2)-1));
+		
+		return $weeks;
+	}
+	# determine no of days between two dates
+	function getDaysBetweenDates($date1, $date2) {
+		$time1  = strtotime($date1);
+		$time2  = strtotime($date2);
+		return ($time2-$time1)/(24*60*60);
+	}
     /**
 	 * Return an array containing the countries in the world
 	 *
@@ -604,7 +663,7 @@
 		return $array;
 	}
 	function getSystemUsers($value = ''){
-		$query = "SELECT u.id as optionvalue, concat(u.firstname,' ',u.lastname) as optiontext FROM useraccount as u Left Join aclusergroup AS g ON u.id = g.userid WHERE g.groupid != '8' AND u.isactive = 1 ORDER BY optiontext ";
+		$query = "SELECT u.id as optionvalue, concat(u.firstname,' ',u.lastname) as optiontext FROM member as u Left Join aclusergroup AS g ON u.id = g.userid WHERE g.groupid != '8' AND u.isactive = 1 ORDER BY optiontext ";
 		$array = getOptionValuesFromDatabaseQuery($query);
 		if(!isEmptyString($value)){
 			if(!isArrayKeyAnEmptyString($value, $array)){
@@ -669,74 +728,124 @@
 		return getOptionValuesFromDatabaseQuery($query);
 	}
 	
-	# determine the latest listings
-	function getLatestListings() {
+	# determine the latest organisations
+	function getLatestOrganisations($limit) {
 		$conn = Doctrine_Manager::connection();
-		$query = "SELECT c.* FROM contact AS c WHERE c.status = 1 order by c.id DESC limit 5 ";
-		$all_lists = $conn->fetchAll($query);
-		// debugMessage($query);
-		return $all_lists;
+		$all_orgs = $conn->fetchAll("SELECT c.* FROM organisation AS c WHERE c.id <> '' order by c.datecreated DESC, c.id DESC limit ".$limit);
+		return $all_orgs;
 	}
 	# latest system user farmers
-	function getLatestUsers($limit){
+	function getLatestMembers($limit){
 		$conn = Doctrine_Manager::connection();
-		$all_users = $conn->fetchAll("SELECT u.id as id, concat(u.firstname, ' ', u.lastname, ' ', u.othername) as name FROM useraccount AS u WHERE u.type = 8 order by u.datecreated DESC limit ".$limit);
-		return $all_users;
+		$all_members = $conn->fetchAll("SELECT m.*, IF(m.displayname <> '', m.displayname, concat(m.firstname, ' ', m.lastname, ' ', m.othername)) as name FROM member AS m WHERE m.id <> '' order by m.datecreated DESC, m.id DESC limit ".$limit);
+		return $all_members;
 	}
-	function getUsers($type = '', $limit = '', $ignoretype = '', $ignorelist = ''){
+	function getUsers($type = '', $limit = '', $ignoretype = '', $ignorelist = '', $wherequery = '', $hasemail = false, $hasphone = false){
 		$custom_query = '';
 		if(!isEmptyString($type)){
-			$custom_query .= " AND u.type = '".$type."' ";
+			$custom_query .= " AND m.type = '".$type."' ";
 		}
 		if(!isEmptyString($ignoretype)){
-			$custom_query .= " AND u.type != '".$ignoretype."' ";
+			$custom_query .= " AND m.type != '".$ignoretype."' ";
 		}
 		if(!isEmptyString($ignorelist)){
-			$custom_query .= " AND u.id NOT IN(".$ignorelist.") ";
+			$custom_query .= " AND m.id NOT IN(".$ignorelist.") ";
+		}
+		if(!isEmptyString($wherequery)){
+			$custom_query .= $wherequery;
+		}
+		if($hasemail){
+			$custom_query .= " AND m.email <> '' ";
+		}
+		if($hasphone){
+			$custom_query .= " AND m.phone <> '' ";
 		}
 		$limit_query = '';
 		if(!isEmptyString($limit)){
 			$limit_query= ' LIMIT '.$limit;
 		}
-		$valuesquery = "SELECT u.id AS optionvalue, concat(u.firstname, ' ', u.lastname) as optiontext FROM useraccount as u WHERE u.id <> '' ".$custom_query." GROUP BY u.id ORDER BY optiontext ASC ".$limit_query;
+		$valuesquery = "SELECT m.id AS optionvalue, IF(m.displayname <> '', m.displayname, concat(m.firstname, ' ', m.lastname, ' ', m.othername)) as optiontext FROM member m left join appointment a on (a.memberid = m.id AND a.status = 1) WHERE m.id <> '' ".$custom_query." GROUP BY m.id ORDER BY optiontext ASC ".$limit_query;
+		// debugMessage($valuesquery);
+		return getOptionValuesFromDatabaseQuery($valuesquery);
+	}
+	# fetch all members with an email
+	function getMembersWithEmail($isuser = false){
+		$custom_query = "";
+		if($isuser){
+			$custom_query = " AND (m.type <> '' OR m.type IS NOT NULL) ";
+		}
+		$valuesquery = "SELECT m.id AS optionvalue, IF(m.displayname <> '', concat(m.displayname,' [',m.email,']'), concat(m.firstname, ' ', m.lastname, ' ', m.othername,' [',m.email,']')) as optiontext FROM member as m WHERE m.email <> '' ".$custom_query." ORDER BY optiontext ASC ";
+		return getOptionValuesFromDatabaseQuery($valuesquery);
+	}
+	# fetch all members with a phone
+	function getMembersWithPhone($isuser = false){
+		$custom_query = "";
+		if($isuser){
+			$custom_query = " AND (m.type <> '' OR m.type IS NOT NULL) ";
+		}
+		$valuesquery = "SELECT m.id AS optionvalue, IF(m.displayname <> '', concat(m.displayname,' [',m.phone,']'), concat(m.firstname, ' ', m.lastname, ' ', m.othername,' [',m.phone,']')) as optiontext FROM member as m WHERE m.phone <> '' ".$custom_query." ORDER BY optiontext ASC ";
+		return getOptionValuesFromDatabaseQuery($valuesquery);
+	}
+	# users who have profiled members
+	function getMemberProfilingUsers(){
+		$custom_query = '';
+		$valuesquery = "SELECT c.id AS optionvalue, IF(c.displayname <> '', c.displayname, concat(c.firstname, ' ', c.lastname, ' ', c.othername)) as optiontext FROM member as m inner join member c on (m.createdby = c.id) WHERE m.createdby <> '' ".$custom_query." GROUP BY m.createdby ORDER BY optiontext ASC ";
+		// debugMessage($valuesquery);
+		return getOptionValuesFromDatabaseQuery($valuesquery);
+	}
+	function getChurchProfilingUsers(){
+		$custom_query = '';
+		$valuesquery = "SELECT m.id AS optionvalue, IF(m.displayname <> '', m.displayname, concat(m.firstname, ' ', m.lastname, ' ', m.othername)) as optiontext FROM organisation as o inner join member m on (o.createdby = m.id) WHERE o.id <> '' ".$custom_query." GROUP BY o.createdby ORDER BY optiontext ASC ";
+		// debugMessage($valuesquery);
+		return getOptionValuesFromDatabaseQuery($valuesquery);
+	}
+	function getMembersNotUsers(){
+		$custom_query = '';
+		$valuesquery = "SELECT m.id AS optionvalue, IF(m.displayname <> '', m.displayname, concat(m.firstname, ' ', m.lastname, ' ', m.othername)) as optiontext FROM member as m WHERE m.id <> '' AND m.status <> 1 ".$custom_query." GROUP BY m.id ORDER BY optiontext ASC ";
+		// debugMessage($valuesquery);
+		return getOptionValuesFromDatabaseQuery($valuesquery);
+	}
+	function getMembersForOrganisation($id){
+		$custom_query = '';
+		$valuesquery = "SELECT m.id AS optionvalue, IF(m.displayname <> '', m.displayname, concat(m.firstname, ' ', m.lastname, ' ', m.othername)) as optiontext FROM member as m WHERE m.id <> '' AND m.organisationid = '".$id."' ".$custom_query." GROUP BY m.id ORDER BY optiontext ASC ";
 		// debugMessage($valuesquery);
 		return getOptionValuesFromDatabaseQuery($valuesquery);
 	}
 	function getUserDetails($type = '', $limit = '', $status = 1, $user ='', $start = '', $end ='', $emails=''){
 		$custom_query = '';
 		if(!isEmptyString($type)){
-			$custom_query .= " AND u.type = '".$type."' ";
+			$custom_query .= " AND m.type = '".$type."' ";
 		}
 		if(!isEmptyString($emails)){
-			$custom_query .= " AND u.email in(".$emails.")";
+			$custom_query .= " AND m.email in(".$emails.")";
 		}
 		$limit_query = '';
 		if(!isEmptyString($limit)){
 			$limit_query= ' LIMIT '.$limit;
 		}
-		$status_query = ' u.isactive = 1 ';
+		$status_query = ' m.status = 1 ';
 		if(!isEmptyString($status) && $status == 0){
-			$status_query = ' u.isactive = 0 ';
+			$status_query = ' m.status = 0 ';
 		}
 		if(!isEmptyString($status) && $status == 2){
-			$status_query = ' (u.isactive = 1 || u.isactive = 0) ';
+			$status_query = ' (m.status = 1 || m.status = 0) ';
 		}
 		if(!isEmptyString($user)){
-			$custom_query = " AND u.id = '".$user."' ";
+			$custom_query = " AND m.id = '".$user."' ";
 		}
 		if(!isEmptyString($start) && !isEmptyString($end)){
 			$limit_query = ' LIMIT '.$start.','.$end;
 		}
 		
 		$conn = Doctrine_Manager::connection();
-		$query = "SELECT u.id AS id, u.firstname as firstname, concat(u.firstname, ' ', u.lastname) as name, u.email as email FROM useraccount as u WHERE u.id <> '' AND (".$status_query.") ".$custom_query." GROUP BY u.id ORDER BY id ASC ".$limit_query;
+		$query = "SELECT m.id AS id, m.firstname as firstname, IF(m.displayname <> '', m.displayname, concat(m.firstname, ' ', m.lastname, ' ', m.othername)) as name, m.email as email FROM member as m WHERE m.id <> '' AND (".$status_query.") ".$custom_query." GROUP BY m.id ORDER BY m.id ASC ".$limit_query;
 		// debugMessage($query);
 		$all_lists = $conn->fetchAll($query);
 		return $all_lists;
 	}
 	
 	function getUserIDFromUsername($username){
-		$valuesquery = "SELECT u.id FROM useraccount as u WHERE u.id <> '' AND u.username = '".$username."' ";
+		$valuesquery = "SELECT u.id FROM member as u WHERE u.id <> '' AND u.username = '".$username."' ";
 		// debugMessage($valuesquery);
 		$conn = Doctrine_Manager::connection();
 		$result = $conn->fetchOne($valuesquery);
@@ -772,12 +881,19 @@
 		$query = "SELECT id as optionvalue, name as optiontext FROM location WHERE regionid = '".$regionid."' AND locationtype = 2 ORDER BY optiontext";
 		return getOptionValuesFromDatabaseQuery($query);
 	}
-	function getDistricts($regionid = '') {
+	function getDistricts($regionid = '', $real = true) {
 		$where_query = " WHERE locationtype = 2 ";
 		if (!isEmptyString($regionid)) {
 			$where_query .= " AND nfbpcregionid = '".$regionid."' ";
 		}
 		$query = "SELECT id as optionvalue, name as optiontext FROM location ".$where_query." ORDER BY optiontext";
+		return getOptionValuesFromDatabaseQuery($query);
+	}
+	function getDistrictsInProvince($provinceid) {
+		if (isEmptyString($provinceid)) {
+			return array();
+		}
+		$query = "SELECT id as optionvalue, name as optiontext FROM location WHERE provinceid = '".$provinceid."' AND locationtype = 2 ORDER BY optiontext";
 		return getOptionValuesFromDatabaseQuery($query);
 	}
 	/**
@@ -811,6 +927,14 @@
 		$query = "SELECT id as optionvalue, name as optiontext FROM location ".$where_query." ORDER BY optiontext";
 		return getOptionValuesFromDatabaseQuery($query);
 	}
+	/*function getSubCountiesInDistrict($districtid = '') {
+		$where_query = " WHERE locationtype = 4 ";
+		if (!isEmptyString($districtid)) {
+			$where_query .= " AND districtid = '".$districtid."' ";
+		}
+		$query = "SELECT id as optionvalue, name as optiontext FROM location ".$where_query." ORDER BY optiontext";
+		return getOptionValuesFromDatabaseQuery($query);
+	}*/
 	function getParishes($subcountyid = '') {
 		$where_query = " WHERE locationtype = 5 ";
 		if (!isEmptyString($subcountyid)) {
@@ -818,6 +942,13 @@
 		}
 		$query = "SELECT id as optionvalue, name as optiontext FROM location ".$where_query." ORDER BY optiontext";
 		return getOptionValuesFromDatabaseQuery($query);
+	}
+	function getLocationName($id, $type){
+		$where_query = " WHERE id = '".$id."' AND locationtype = '".$type."' ";
+		$query = "SELECT name FROM location ".$where_query." "; // debugMessage($query);
+		$conn = Doctrine_Manager::connection();
+		$result = $conn->fetchOne($query);
+		return $result;
 	}
 	/**
 	 * Get the Sub-Counties in the specified County
@@ -873,6 +1004,7 @@
 			return array();
 		}
 		$query = "SELECT id as optionvalue, name as optiontext FROM location WHERE districtid = '".$districtid."' AND locationtype = 4 ORDER BY optiontext";
+		debugMessage($query );
 		return getOptionValuesFromDatabaseQuery($query);
 	}
 	/**
@@ -891,13 +1023,19 @@
 	}
 	# fetch featured committees 
 	function getFeaturedCommittees(){
-		$query = "SELECT id as optionvalue, name as optiontext FROM committee WHERE id <> '' AND isfeatured = 1 ORDER BY optiontext ";
+		$query = "SELECT id as optionvalue, name as optiontext FROM committee WHERE id <> '' AND isfeatured = '1' ORDER BY `sortorder` ASC ";
+		// debugMessage($query);
+		return getOptionValuesFromDatabaseQuery($query);
+	}
+	function getAllCommitteesPrioritised(){
+		$query = "SELECT id as optionvalue, name as optiontext FROM committee WHERE id <> '' ORDER BY `sortorder` ASC ";
+		// debugMessage($query);
 		return getOptionValuesFromDatabaseQuery($query);
 	}
 	
 	# determine the marital statuses
 	function getAllMaritalStatuses($value = '', $checkempty = false){
-		$query = "SELECT l.lookuptypevalue as optionvalue, l.lookupvaluedescription as optiontext FROM lookuptypevalue AS l INNER JOIN lookuptype AS v ON l.lookuptypeid = v.id WHERE v.name = 'MARITAL_STATUS_VALUES'";
+		$query = "SELECT l.lookuptypevalue as optionvalue, l.lookupvaluedescription as optiontext FROM lookuptypevalue AS l INNER JOIN lookuptype AS v ON l.lookuptypeid = v.id WHERE v.name = 'MARITAL_STATUS_VALUES' order by optiontext ";
 		// debugMessage($query); exit();
 		$array = getOptionValuesFromDatabaseQuery($query);
 		if(!isEmptyString($value)){
@@ -914,7 +1052,7 @@
 	}
 	# determine the salutation values
 	function getSalutations($value = '', $checkempty = false){
-		$query = "SELECT l.lookuptypevalue as optionvalue, l.lookupvaluedescription as optiontext FROM lookuptypevalue AS l INNER JOIN lookuptype AS v ON l.lookuptypeid = v.id WHERE v.name = 'SALUTATION'";
+		$query = "SELECT l.lookuptypevalue as optionvalue, l.lookupvaluedescription as optiontext FROM lookuptypevalue AS l INNER JOIN lookuptype AS v ON l.lookuptypeid = v.id WHERE v.name = 'SALUTATION' order by optiontext ";
 		// debugMessage($query); exit();
 		$array = getOptionValuesFromDatabaseQuery($query);
 		if(!isEmptyString($value)){
@@ -931,7 +1069,7 @@
 	}
 	# determine the salutation values
 	function getProfessions($value = '', $checkempty = false){
-		$query = "SELECT l.lookuptypevalue as optionvalue, l.lookupvaluedescription as optiontext FROM lookuptypevalue AS l INNER JOIN lookuptype AS v ON l.lookuptypeid = v.id WHERE v.name = 'PROFESSIONS'";
+		$query = "SELECT l.lookuptypevalue as optionvalue, l.lookupvaluedescription as optiontext FROM lookuptypevalue AS l INNER JOIN lookuptype AS v ON l.lookuptypeid = v.id WHERE v.name = 'PROFESSIONS' order by optiontext ";
 		// debugMessage($query); exit();
 		$array = getOptionValuesFromDatabaseQuery($query);
 		if(!isEmptyString($value)){
@@ -948,7 +1086,7 @@
 	}
 	# determine the next of keen relationship options
 	function getRelationshipTypes($value = '', $checkempty = false){
-		$query = "SELECT l.lookuptypevalue as optionvalue, l.lookupvaluedescription as optiontext FROM lookuptypevalue AS l INNER JOIN lookuptype AS v ON l.lookuptypeid = v.id WHERE v.name = 'CONTACT_RELATIONSHIPS'";
+		$query = "SELECT l.lookuptypevalue as optionvalue, l.lookupvaluedescription as optiontext FROM lookuptypevalue AS l INNER JOIN lookuptype AS v ON l.lookuptypeid = v.id WHERE v.name = 'CONTACT_RELATIONSHIPS' order by optiontext ";
 		// debugMessage($query); exit();
 		$array = getOptionValuesFromDatabaseQuery($query);
 		if(!isEmptyString($value)){
@@ -965,7 +1103,7 @@
 	}
 	# determine the churches
 	function getChurches($value = ''){
-		$query = "SELECT o.id as optionvalue, o.name as optiontext FROM organisation AS o WHERE o.id <> '' ";
+		$query = "SELECT o.id as optionvalue, o.name as optiontext FROM organisation AS o WHERE o.id <> '' order by optiontext ";
 		// debugMessage($query); exit();
 		$array = getOptionValuesFromDatabaseQuery($query);
 		if(!isEmptyString($value)){
@@ -977,5 +1115,60 @@
 		}
 		return $array;
 	}
-	
+	# determine the resources
+	function getResources(){
+		$query = "SELECT r.name AS optiontext, r.id AS optionvalue FROM aclresource AS r ORDER BY optiontext";
+		return getOptionValuesFromDatabaseQuery($query);
+	} 
+	# determine the leadership positions
+	function getPositions($value = '', $checkempty = false){
+		$query = "SELECT l.id as optionvalue, l.name as optiontext FROM position AS l order by optiontext ";
+		// debugMessage($query); exit();
+		$array = getOptionValuesFromDatabaseQuery($query);
+		if(!isEmptyString($value)){
+			if(!isArrayKeyAnEmptyString($value, $array)){
+				return $array[$value];
+			} else {
+				return '';
+			}
+		}
+		if($checkempty && isEmptyString($value)){
+			return '';
+		}
+		return $array;
+	}
+	# determine the committees
+	function getCommittees($value = '', $checkempty = false){
+		$query = "SELECT l.id as optionvalue, l.name as optiontext FROM committee AS l order by sortorder ";
+		// debugMessage($query); exit();
+		$array = getOptionValuesFromDatabaseQuery($query);
+		if(!isEmptyString($value)){
+			if(!isArrayKeyAnEmptyString($value, $array)){
+				return $array[$value];
+			} else {
+				return '';
+			}
+		}
+		if($checkempty && isEmptyString($value)){
+			return '';
+		}
+		return $array;
+	}
+	# determine the departments
+	function getDepartments($value = '', $checkempty = false){
+		$query = "SELECT l.id as optionvalue, l.name as optiontext FROM department AS l order by optiontext ";
+		// debugMessage($query); exit();
+		$array = getOptionValuesFromDatabaseQuery($query);
+		if(!isEmptyString($value)){
+			if(!isArrayKeyAnEmptyString($value, $array)){
+				return $array[$value];
+			} else {
+				return '';
+			}
+		}
+		if($checkempty && isEmptyString($value)){
+			return '';
+		}
+		return $array;
+	}
 ?>

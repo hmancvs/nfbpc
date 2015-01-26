@@ -1,0 +1,444 @@
+<?php
+	require_once APPLICATION_PATH.'/includes/header.php';
+	
+	$organisation = new Organisation();
+    $organisation->populate(decode($request->id));
+	$id = $organisation->getID();
+	
+	$tab = $request->tab;
+	if(isEmptyString($tab)){
+		$tab = 'profile';
+	}
+	$posturl = '';
+	$formid = 'viewform';
+	$formmethod = 'get';
+	$uploadtitle = "Upload Profile Image";
+	if(!isEmptyString($request->crop)){
+		$uploadtitle = "Resize Profile Image"; 
+	}
+	if($tab == 'picture'){
+		$formid = 'indexform';
+		$formmethod = 'post';
+		$posturl = $this->baseUrl("organisation/processpicture");
+		$button_title = "Upload Picture";
+		$successurl = encode($this->baseUrl('organisation/view/id/'.encode($organisation->getID()).'/tab/picture/crop/1'));
+		$failureurl =  encode($this->viewurl);
+		
+		if($request->crop == 1){
+			$posturl = $this->baseUrl("organisation/croppicture");
+			$button_title = "Crop Image";
+			$successurl = encode($this->baseUrl('organisation/view/id/'.encode($organisation->getID())));
+			$failureurl =  encode($this->viewurl);
+		}
+	}
+	
+	if($tab == 'leadership'){
+		$formid = 'indexform';
+		$formmethod = 'post';
+		$posturl = $this->baseUrl("appointment/create");
+		$successurl = encode($this->baseUrl('organisation/view/id/'.encode($organisation->getID()).'/tab/leadership'));
+		$failureurl =  encode($this->viewurl);
+		$successmessage = $this->translate('global_save_success');
+		$button_title = "Save";
+		if(!isEmptyString($request->rid)){
+			$button_title = "Save Changes";
+			$successmessage = $this->translate('global_update_success');
+			$posturl = $this->baseUrl("appointment/edit");
+		}
+		if(!isEmptyString($request->rid) && !isEmptyString($request->terminate)){
+			$button_title = "Terminate Role";
+		}
+		$step = $request->step;
+		if(isEmptyString($step)){
+			$step = 'list';
+		}
+		
+		$role = new Appointment();
+		$subtitle = 'New Role';
+		if(!isEmptyString($request->rid)){
+			$subtitle = 'Update Role';
+			$role->populate(decode($request->rid));
+			if(!isEmptyString($request->terminate)){
+				$role->setStatus('0');
+			}
+		} else {
+			$role->setOrganisationID($organisation->getID());
+		}
+	}
+	
+	$title = $organisation->getName();
+	$coverpath = $organisation->getMediumPicturePath();
+	$description = '';	
+	$viewurl = $this->baseUrl('organisation/view/id/'.encode($organisation->getID()));
+	$indexurl = $this->baseUrl('organisation/index/id/'.encode($organisation->getID()));
+	$listurl = $this->baseUrl('organisation/list');
+	$memberlisturl = $viewurl.'/tab/membership';
+	$listitems = 'List Churches';
+	if(!$organisation->isChurch()){
+		$listitems = "List Organisations";
+		$listurl = $this->baseUrl('organisation/list/type/other');
+	}
+	
+	
+	$loadgps = loadMaps();
+	$this->headTitle($title.$browserappend);
+?>
+<?php if($tab == 'picture'){ ?>
+	<script type="text/javascript" src="<?php echo $this->serverUrl($this->baseUrl('javascript/plugins/jquery.imgareaselect.min.js')); ?>"></script>
+    <script type="text/javascript" src="<?php echo $this->serverUrl($this->baseUrl('javascript/plugins/jquery.form.min.js')); ?>"></script>
+<?php } ?>
+<script>
+$(document).ready(function() {
+	$('.titlebreadcrumb').html('<?php echo $homedir.'Churches / '.$organisation->getName(); ?>');
+	$('.titlelabel').html('<?php echo $title; ?>');
+	$('.desclabel').html('<?php echo $description; ?>');
+	$('.pageicon').html('<span class="icon-large icon-temple-christianity-church spaceleft"></span>');
+	
+	// export list to excel
+	$(".submitexcel").click(function(e){
+		e.preventDefault();
+		var csv_value = $('#datatable').table2CSV({delivery:'value'});
+		var decoded_value = base64_encode(csv_value);
+		$("#csv_text").val(decoded_value);
+		$("#viewform").attr('action', '<?php echo $this->baseUrl('download/excel'); ?>').attr('method', 'post').submit();
+		// on submit reset the form parameters to previous definition
+		$("#viewform").attr('action', '<?php echo $posturl; ?>').attr('method', 'get');
+		$("#csv_text").val('');
+		return true;
+	});
+});
+</script>
+<style>
+.peoplelist .peoplewrapper {
+	height:160px;
+}
+</style>
+<div class="row-fluid margin0 view">
+    <div class="col-md-12 padding0">
+    	<div class="headerbox">
+            <table class="table border0 nohover margin0">                       
+                <tr>		                    
+                    <td class="padding2">
+                    	
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    <?php if($sessionhaserror) { ?>
+        <div class="alert alert-danger"><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
+    <?php } ?>
+    <?php if (!isEmptyString($session->getVar(SUCCESS_MESSAGE))) { ?>
+        <div class="alert alert-success alert-dismissable"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button> <?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
+    <?php } ?>
+    <div class="contentcontainer clearfix">
+    	<form id="<?php echo $formid; ?>" class="form-horizontal" role="form" method="<?php echo $formmethod; ?>" action="<?php echo $posturl; ?>" enctype="multipart/form-data">
+        	<div class="row-fluid margin0">
+            	<div class="col-md-12">
+                	<div class="divider5"></div>
+                	<div class="tabbable tabbable-custom tabbable-full-width">
+                        <ul class="nav nav-tabs">
+                            <?php if ($acl->checkPermission('Organisation', ACTION_VIEW)) { ?>
+                                <li class="<?php echo $tab == 'profile' ? 'active' : ''; ?>"><a href="#profile" class="<?php echo $tab == 'profile' ? 'gonowhere' : 'blockanchor'; ?>" goto="<?php echo $tab == 'profile' ? '' : $this->baseUrl('organisation/view/id/'.encode($organisation->getID())); ?>" theid="profile" data-toggle="tab">Profile</a></li>
+                            <?php } ?>
+                            <li class="<?php echo $tab == 'leadership' ? 'active' : ''; ?>"><a href="#leadership" class="<?php echo $tab == 'leadership' ? 'gonowhere' : 'blockanchor'; ?>" goto="<?php echo $tab == 'leadership' ? '' : $this->baseUrl('organisation/view/id/'.encode($organisation->getID()).'/tab/leadership'); ?>" theid="leadership" data-toggle="tab">Leadership</a></li>
+                            <li class="<?php echo $tab == 'membership' ? 'active' : ''; ?>"><a href="#membership" class="<?php echo $tab == 'membership' ? 'gonowhere' : 'blockanchor'; ?>" goto="<?php echo $tab == 'membership' ? '' : $this->baseUrl('organisation/view/id/'.encode($organisation->getID()).'/tab/membership'); ?>" theid="membership" data-toggle="tab">Membership</a></li>
+                            <?php if($tab == 'picture') { ?>
+                                <li class="<?php echo $tab == 'picture' ? 'active' : ''; ?>"><a href="#picture" class="<?php echo $tab == 'picture' ? 'gonowhere' : 'blockanchor'; ?>" goto="<?php echo $tab == 'picture' ? '' : $this->baseUrl('organisation/view/id/'.encode($organisation->getID()).'/tab/picture'); ?>" theid="picture" data-toggle="tab"><?php echo $uploadtitle; ?></a></li>
+                            <?php } ?>
+                        </ul>
+                        <?php if($tab == 'profile'){ ?>
+                            <div class="btn-group gridactions pull-right" style="right:15px; top:5px;">
+                                <button type="button" class="btn btn-default btn-sm dropdown-toggle noround" data-toggle="dropdown" style="width:120px; text-align:right;">Quick Actions &nbsp; <span class="caret"></span></button>
+                                <ul class="dropdown-menu" role="menu" style="left:-86px;">
+                                    <?php if ($acl->checkPermission('Organisation', ACTION_EDIT)) { ?>
+                                        <li><a class="blockanchor" href="<?php echo $indexurl; ?>"><i class="glyphicon glyphicon-pencil"></i>&nbsp; Update Profile</a></li>
+                                    <?php } ?>
+                                    <?php if ($acl->checkPermission('Member', ACTION_CREATE) && $organisation->isChurch()) { ?>
+                                        <li><a class="blockanchor" href="<?php echo $this->baseUrl('member/index/churchid/'.$organisation->getID()); ?>"><i class="glyphicon glyphicon-plus"></i>&nbsp; Add Member to Church</a></li>
+                                    <?php } ?>
+                                    <?php if ($acl->checkPermission('Organisation', ACTION_EDIT)) { ?>
+                                        <li><a class="blockanchor" href="<?php echo $this->baseUrl('organisation/view/id/'.encode($organisation->getID()).'/tab/picture'); ?>"><i class="glyphicon glyphicon-arrow-up"></i>&nbsp; Upload Profile Image</a></li>
+                                    <?php } ?>
+                                    <?php if ($acl->checkPermission('Organisation', ACTION_DELETE)) { ?>
+                                        <li><a class="deleteline gonowhere" action="<?php echo $this->baseUrl('organisation/delete/id/'.encode($organisation->getID())."/entityname/Organisation/successurl/".encode($listurl)); ?>" message="<?php echo $this->translate('global_delete_confirm_message'); ?>" title="Delete Entry"><i class="glyphicon  glyphicon-trash"></i>&nbsp; Delete Entry</a></li>
+                                    <?php } ?>
+                                    <?php if ($acl->checkPermission('Organisation', ACTION_LIST)) { ?>
+                                        <li><a class="blockanchor" href="<?php echo $listurl; ?>"><i class="glyphicon glyphicon-list"></i>&nbsp; <?php echo $listitems; ?></a></li>
+                                    <?php } ?>
+                                </ul>
+                            </div>
+                        <?php } ?>
+                    </div>
+                    <div class="tab-content row margin0">
+                		<div class="tab-pane <?php echo $tab == 'profile' ? 'active' : ''; ?>" id="profile">
+                        	<?php if($tab == 'profile'){ ?>
+                                <fieldset class="fieldsetcontainer">
+                                    <legend></legend>
+                                    <div class="panel-body well-sm">
+                                        <div class="row-fluid marginleft5">
+                                            <div class="col-md-6 paddingleft10 makerelative">
+                                               <img class="imagecontainer" src="<?php echo $coverpath; ?>" style="width:100%; text-align:center; margin:0 auto;" />
+                                               <a href="<?php echo $this->viewurl.'/tab/picture'; ?>" class="blockanchor makeabsolute" title="Upload New Image" style="right:25px; top:-6px;"><pre id="uploadlink" class="inline"><i class="icon-pencil"></i> Upload Image</pre></a>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="form-group">
+                                                    <label class="col-md-12 control-label" style="padding-top:0;">Biography:</label>
+                                                    <div class="col-md-12">
+                                                        <p class="form-control-static nullifempty view"><?php echo $organisation->getBio(); ?></p>
+                                                    </div>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label class="col-md-12 control-label">Vision:</label>
+                                                    <div class="col-md-12">
+                                                        <p class="form-control-static nullifempty view"><?php echo $organisation->getVision(); ?></p>
+                                                    </div>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label class="col-md-12 control-label">Mission:</label>
+                                                    <div class="col-md-12">
+                                                        <p class="form-control-static nullifempty view"><?php echo $organisation->getMission(); ?></p>
+                                                    </div>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label class="col-md-4 control-label">Number of Members:</label>
+                                                    <div class="col-md-8">
+                                                        <p class="form-control-static nullifempty view"><?php echo $organisation->countRegistered(); ?></p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </fieldset>
+                           		<fieldset class="fieldsetcontainer">
+                                <legend>Contacts</legend>
+                                <div class="panel-body well-sm">
+                                    <div class="row-fluid marginleft5">
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label class="col-md-12 control-label">Name of Contact Person:</label>
+                                                <div class="col-md-8">
+                                                    <p class="form-control-static nullifempty view"><?php echo isEmptyString($organisation->getLeadID()) ? $organisation->getLeadName() : '<a href="'.$this->baseUrl('member/view/id/'.encode($organisation->getLeadID())).'" class="blockanchor">'.$organisation->getLead()->getName().'</a>'; ?></p>
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label class="col-md-12 control-label">Role:</label>
+                                                <div class="col-md-8">
+                                                    <p class="form-control-static nullifempty view"><?php echo $organisation->getLeadRole(); ?></p>
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label class="col-md-12 control-label">Date Registered:</label>
+                                                <div class="col-md-8">
+                                                    <p class="form-control-static nullifempty view"><?php echo changeMySQLDateToPageFormat($organisation->getRegDate()); ?></p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6 paddingleft10">
+                                            <div class="form-group">
+                                                <label class="col-md-12 control-label">Contact Phone:</label>
+                                                <div class="col-md-8">
+                                                    <p class="form-control-static nullifempty view"><?php echo $organisation->getPhone(); ?></p>
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label class="col-md-12 control-label">Contact Email:</label>
+                                                <div class="col-md-8">
+                                                    <p class="form-control-static nullifempty view"><?php echo $organisation->getEmail(); ?></p>
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label class="col-md-12 control-label">Website/Facebook Page:</label>
+                                                <div class="col-md-8">
+                                                    <p class="form-control-static nullifempty view"><?php echo $organisation->getWebsite(); ?></p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </fieldset>
+                            	<div class="row-fluid margin0">
+                                <div class="col-md-12 padding0">
+                                    <fieldset class="fieldsetcontainer" style="margin-top:0;">
+                                        <legend>Location</legend>
+                                        <?php if(!$organisation->hasGPSCoordinates()){ ?>
+                                            <div class="panel-body well-sm">
+                                                <div class="row-fluid marginleft5">
+                                                    <div class="col-md-6">
+                                                        <div class="form-group clearfix">
+                                                            <label class="col-md-3 control-label"><?php echo $this->translate("global_region_label"); ?>:</label>
+                                                            <div class="col-md-9 nullifempty"><?php echo $organisation->getRegion()->getName(); ?></div>
+                                                        </div>
+                                                        <div class="form-group clearfix">
+                                                            <label class="col-md-3 control-label"><?php echo $this->translate("global_province_label"); ?>:</label>
+                                                            <div class="col-md-9 nullifempty"><?php echo $organisation->getProvince()->getName(); ?></div>
+                                                        </div>                               
+                                                        <div class="form-group clearfix">
+                                                            <label class="col-md-3 control-label"><?php echo $this->translate("global_district_label"); ?>:</label>
+                                                            <div class="col-md-9 nullifempty"><?php echo $organisation->getDistrict()->getName(); ?></div>
+                                                        </div>
+                                                        <div class="form-group clearfix">
+                                                            <label class="col-md-3 control-label"><?php echo $this->translate("global_county_label"); ?>:</label>
+                                                            <div class="col-md-9 nullifempty"><?php echo $organisation->getCounty()->getName(); ?></div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                    	<div class="form-group clearfix">
+                                                            <label class="col-md-3 control-label"><?php echo $this->translate("global_subcounty_label"); ?>:</label>
+                                                            <div class="col-md-9 nullifempty"><?php echo $organisation->getSubcounty()->getName(); ?></div>
+                                                        </div>
+                                                        <div class="form-group clearfix">
+                                                            <label class="col-md-3 control-label"><?php echo $this->translate("global_parish_label"); ?>:</label>
+                                                            <div class="col-md-9 nullifempty"><?php echo $organisation->getParish()->getName(); ?></div>
+                                                        </div>
+                                                        <div class="form-group clearfix">
+                                                            <label class="col-md-3 control-label"><?php echo $this->translate("global_village_label"); ?>:</label>
+                                                            <div class="col-md-9 nullifempty"><?php echo $organisation->getVillage()->getName(); ?></div>
+                                                        </div>
+                                                        <div class="form-group clearfix">
+                                                            <label class="col-md-3 control-label"><?php echo $this->translate("global_address_label"); ?>:</label>
+                                                            <div class="col-md-9 nullifempty"><?php echo nl2br($organisation->getAddress1()).''.nl2br($organisation->getAddress2()); ?></div>
+                                                        </div>
+                                                        <div class="form-group clearfix">
+                                                            <label class="col-md-3 control-label">GPS:</label>
+                                                            <div class="col-md-9 nullifempty"><?php echo $organisation->getGPSCordinates(); ?></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="divider2"></div>
+                                        <?php } else { ?>
+                                        	<?php if($loadgps && $organisation->hasGPSCoordinates()){ ?>
+												<script src="<?php echo $this->serverUrl($this->baseUrl('javascript/plugins/geoPosition.js')); ?>"></script>
+                                                <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&sensor=true&key=AIzaSyAjkTHnLzEkyF1ntVoUkZthaZWV4VN5DJE"></script>
+                                            <?php } ?>
+                                            <script>
+                                                $(document).ready(function() {
+                                                    <?php if($organisation->hasGPSCoordinates() && isEmptyString($request->detect) && $loadgps){ ?>
+                                                        var gpslat = '<?php echo $organisation->getGPSlat(); ?>';
+                                                        var gpslng = '<?php echo $organisation->getGPSlng(); ?>';
+                                                        var title = "<?php echo $organisation->getName()."'s Location "; ?>";
+                                                    <?php } ?>
+                                                }); 
+                                                
+                                                $(window).load(function() {
+                                                    <?php if($organisation->hasGPSCoordinates()){ ?>
+                                                        initialiseMap(); 
+                                                        showPosition(); 
+                                                    <?php } ?>
+                                                    
+                                                    // initialise the google map
+                                                    function initialiseMap(){
+                                                        var myOptions = {
+                                                            zoom: 4,
+                                                            mapTypeControlOptions: {style: google.maps.MapTypeControlStyle.DROPDOWN_MENU},
+                                                            navigationControl: true,
+                                                            navigationControlOptions: {style: google.maps.NavigationControlStyle.SMALL},
+                                                  
+                                                            scrollwheel: false,
+                                                            mapTypeControl: false,
+                                                            scaleControl: true,
+                                                            mapTypeId: google.maps.MapTypeId.ROADMAP, // google map type
+                                                            zoom: 8
+                                                        }        
+                                                        map = new google.maps.Map(document.getElementById("map_canvas"), myOptions);
+                                                    }
+                                                    
+                                                    function showPosition(){
+                                                        var latitude = '<?php echo $organisation->getGPSLat(); ?>';
+                                                        var longitude = '<?php echo $organisation->getGPSLng(); ?>';
+                                                        var pos = new google.maps.LatLng(latitude, longitude);
+                                                        map.setCenter(pos);
+                                                        map.setZoom(14);
+                                                
+                                                        var infowindow = new google.maps.InfoWindow({
+                                                            content: "<b><?php echo $organisation->getName(); ?>'s Location</b> <br /><br /> Latitude = "+latitude+ " <br />Longitude = "+longitude
+                                                        });
+                                                
+                                                        var marker = new google.maps.Marker({
+                                                            position: pos,
+                                                            map: map,
+                                                            title:"<?php echo $organisation->getName(); ?>'s Location"
+                                                        });
+                                                
+                                                        google.maps.event.addListener(marker, 'click', function() {
+                                                          infowindow.open(map,marker);
+                                                        });
+                                                    }
+                                                });	
+                                            </script>
+                                            <div class="divider10"></div>
+                                            <div class="col-md-8">
+                                                <div class="divider5"></div>
+                                                <div class="well clearfix makerelative" style="min-height:300px; height:auto; background:none; background-color:#F9f9fa; margin-bottom:10px; padding:5px;">
+                                                    <div id="map_canvas" style="width:100%; height:300px;"></div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4 locations">
+                                                <div class="form-group clearfix">
+                                                    <label class="col-md-3 control-label"><?php echo $this->translate("global_region_label"); ?>:</label>
+                                                    <div class="col-md-9 nullifempty"><?php echo $organisation->getRegion()->getName(); ?></div>
+                                                </div>
+                                                <div class="form-group clearfix">
+                                                    <label class="col-md-3 control-label"><?php echo $this->translate("global_province_label"); ?>:</label>
+                                                    <div class="col-md-9 nullifempty"><?php echo $organisation->getProvince()->getName(); ?></div>
+                                                </div>                                        
+                                                <div class="form-group clearfix">
+                                                    <label class="col-md-3 control-label"><?php echo $this->translate("global_district_label"); ?>:</label>
+                                                    <div class="col-md-9 nullifempty"><?php echo $organisation->getDistrict()->getName(); ?></div>
+                                                </div>
+                                                <div class="form-group clearfix">
+                                                    <label class="col-md-3 control-label"><?php echo $this->translate("global_county_label"); ?>:</label>
+                                                    <div class="col-md-9 nullifempty"><?php echo $organisation->getCounty()->getName(); ?></div>
+                                                </div>
+                                                <div class="form-group clearfix">
+                                                    <label class="col-md-3 control-label"><?php echo $this->translate("global_subcounty_label"); ?>:</label>
+                                                    <div class="col-md-9 nullifempty"><?php echo $organisation->getSubcounty()->getName(); ?></div>
+                                                </div>
+                                                <div class="form-group clearfix">
+                                                    <label class="col-md-3 control-label"><?php echo $this->translate("global_parish_label"); ?>:</label>
+                                                    <div class="col-md-9 nullifempty"><?php echo $organisation->getParish()->getName(); ?></div>
+                                                </div>
+                                                <div class="form-group clearfix">
+                                                    <label class="col-md-3 control-label"><?php echo $this->translate("global_village_label"); ?>:</label>
+                                                    <div class="col-md-9 nullifempty"><?php echo $organisation->getVillage()->getName(); ?></div>
+                                                </div>
+                                                <div class="form-group clearfix">
+                                                    <label class="col-md-3 control-label"><?php echo $this->translate("global_address_label"); ?>:</label>
+                                                    <div class="col-md-9 nullifempty"><?php echo nl2br($organisation->getAddress1()).''.nl2br($organisation->getAddress2()); ?></div>
+                                                </div>
+                                                <div class="form-group clearfix">
+                                                    <label class="col-md-3 control-label">GPS:</label>
+                                                    <div class="col-md-9 nullifempty"><?php echo $organisation->getGPSCordinates(); ?></div>
+                                                </div>
+                                            </div>
+                                       	<?php } ?>
+                                    </fieldset>                                                                        
+                                </div>
+                            </div>
+                            <?php } ?>
+                    	</div>
+                        <div class="tab-pane <?php echo $tab == 'leadership' ? 'active' : ''; ?>" id="leadership">
+                        	<?php if($tab == 'leadership'){ ?>
+                            	<?php require APPLICATION_PATH."/views/scripts/organisation/leadership.phtml"; ?>       
+                            <?php } ?>
+                        </div>
+                        <div class="tab-pane <?php echo $tab == 'membership' ? 'active' : ''; ?>" id="membership">
+                        	<?php if($tab == 'membership'){ ?>
+                            	<?php require APPLICATION_PATH."/views/scripts/organisation/membership.phtml"; ?>
+                            <?php } ?>
+                        </div>
+                        <?php if($tab == 'picture'){ ?>
+                            <div class="tab-pane <?php echo $tab == 'picture' ? 'active' : ''; ?>" id="picture">
+                                <?php require APPLICATION_PATH."/views/scripts/organisation/picture.phtml"; ?>
+                            </div>
+                        <?php } ?>
+                   	</div>
+              	</div>
+        	</div>
+		</form>
+	</div>                   
+</div>    
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

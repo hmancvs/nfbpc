@@ -110,6 +110,34 @@ function getNotificationSenderName(){
 	$config = Zend_Registry::get("config"); 
 	return $config->notification->notificationsendername;
 }
+function getSmsServer(){
+	$config = Zend_Registry::get("config");
+	return $config->sms->serverurl;
+}
+function getSmsUsername(){
+	$config = Zend_Registry::get("config");
+	return $config->sms->serverusername;
+}
+function getSmsPassword(){
+	$config = Zend_Registry::get("config");
+	return $config->sms->serverpassword;
+}
+function getSmsPort(){
+	$config = Zend_Registry::get("config");
+	return $config->sms->serverport;
+}
+function getSmsSenderName(){
+	$config = Zend_Registry::get("config");
+	return $config->sms->sendername;
+}
+function getSmsTestNumber(){
+	$config = Zend_Registry::get("config");
+	return $config->sms->testnumber;
+}
+function getWebsiteConnection(){
+	$manager = Doctrine_Manager::getInstance();
+	return $manager->connection(WEBSITE_CONNECT_STRING);
+}
 /**
  * Change a date from MySQL database Format (yyyy-mm-dd) to the format displayed on pages(mm/dd/yyyy)
  * 
@@ -169,7 +197,7 @@ function formatTime($timestring){
 	return $stime;
 }
 function getCurrentMysqlTimestamp(){
-	return date('Y-m-d H:i:s');
+	return date('Y-m-d H:i:s', strtotime('NOW'));
 }
 function decimalToTime($decimal){
 	return gmdate('H:i', floor($decimal * 3600));
@@ -322,7 +350,71 @@ function sendTestMessage($subject = "", $message = "") {
 		debugMessage("Error sending email ".$e);
 	}
 }
+# send sms message to phone number
+function sendSMSMessage($to, $txt, $source = '', $msgid = '') {
+	$session = SessionWrapper::getInstance();
+	$phone = $to;
+	$message = $txt;
+	$sendsms = true;
+	if(isEmptyString($source)){
+		$source = getSmsSenderName();
+	}
+	$server = getSmsServer();
+	$username = getSmsUsername();
+	$password = getSmsPassword();
+	$parameters = array(
+		'username'  => $username,
+		'password'  => $password,
+		'type'	=>	'TEXT',
+		'sender'=>	$source,
+		'mobile'=> $phone,
+		'message' => $message
+	); // debugMessage($parameters);
 
+	$client = new Zend_Http_Client($server, array('adapter' => 'Zend_Http_Client_Adapter_Curl', 'timeout' => 30));
+	$client->setParameterGet($parameters);
+
+	// debugMessage($client);
+	// debugMessage(getClientUrl($client)); exit;
+	$smsresult = array(1=>'',2=>'');
+	if($sendsms){
+		try {
+			//$response = $client->request();
+			//$body = $response->getBody();
+			// debugMessage($body);
+			$body = 'SUBMIT_SUCCESS | 53d5cc68-6522-4562-1db4-bee4ae855484';
+			
+			$msgarray = explode('|',trim($body));
+			if(!isArrayKeyAnEmptyString('0', $msgarray)){
+				$smsresult[1] = trim($msgarray[0]);
+			} else {
+				$smsresult[1] = '';
+			}
+			if(!isArrayKeyAnEmptyString('1', $msgarray)){
+				$smsresult[2] = trim($msgarray[1]);
+			} else {
+				$smsresult[2] = '';
+			}
+			
+			// check no of receipients
+			$countphones = count(explode(',',trim($phone)));
+			
+			// save to outbox too
+			$query = "INSERT INTO outbox (phone, msg, source, resultcode, smsid, datecreated, createdby, messageid, msgcount) values ('".$phone."', '".$message."', '".$parameters['sender']."', '".$smsresult[1]."', '".$smsresult[2]."', '".getCurrentMysqlTimestamp()."', '".$session->getVar('userid')."', '".$msgid."', '".$countphones."') "; // debugMessage($query);
+			
+			$conn = Doctrine_Manager::connection();
+			$conn->execute($query);
+			return $smsresult;
+			
+		} catch (Zend_Http_Client_Adapter_Exception $e) {
+			# error handling
+			$message = "Error in sending Message: ".$e->getMessage(); debugMessage($message);
+			return array(1=>'',2=>'');
+		}
+	}
+	// debugMessage($smsresult); exit;
+	return array(1=>'',2=>'');
+}
 /**
  * Wrapper function for the encoding of the urls using base64_encode 
  *
@@ -741,6 +833,20 @@ function getImagePath($id, $filename, $gender){
 	
 	return $photo_path;
 }
+function getOrganisationCoverPath($id='', $filename=''){
+	$hasprofileimage = false;
+	$real_path = BASE_PATH.DIRECTORY_SEPARATOR."uploads".DIRECTORY_SEPARATOR."organisations".DIRECTORY_SEPARATOR."org_".$id.DIRECTORY_SEPARATOR."cover".DIRECTORY_SEPARATOR."medium_".$filename;
+	$baseUrl = Zend_Controller_Front::getInstance()->getBaseUrl();
+	$photo_path = $baseUrl.'/uploads/default/default_cover.png';
+	if(file_exists($real_path) && !isEmptyString($filename)){
+		$hasprofileimage = true;
+	}
+	
+	if($hasprofileimage){
+		$photo_path = $baseUrl.'/uploads/organisations/org_'.$id.'/cover/medium_'.$filename;
+	}
+	return $photo_path;
+}
 # determine if loggedin user is admin
 function isAdmin() {
 	$session = SessionWrapper::getInstance(); 
@@ -749,11 +855,6 @@ function isAdmin() {
 		$return = true;
 	}
 	return $return;
-}
-# determine if loggedin user is subscriber
-function isEmployee() {
-	$session = SessionWrapper::getInstance(); 
-	return $session->getVar('type') == '2' ? true : false;
 }
 # determine if loggedin user is data clerk
 function isDataClerk() {
@@ -768,6 +869,10 @@ function isManager() {
 function isLoggedIn(){
 	$session = SessionWrapper::getInstance();
 	return isEmptyString($session->getVar('userid')) ? false : true;
+}
+function isPublicUser(){
+	$session = SessionWrapper::getInstance();
+	return isEmptyString($session->getVar('userid')) ? true : false;
 }
 # determine current status label
 function getStatusText($status) {
@@ -972,7 +1077,7 @@ function getJsIncludes(){
 		
 		# include here all plugins and extensions
 		'javascript/plugins/jquery.validate-1.11.1.min.js',
-		'javascript/plugins/jquery.validate.min.js',
+		// 'javascript/plugins/jquery.validate.min.js',
 		'javascript/plugins/select-chain.js',
 		'javascript/plugins/chosen.jquery-1.0.0.min.js',
 		'javascript/plugins/jquery.elastic.source.1.6.11.js',		
@@ -981,20 +1086,9 @@ function getJsIncludes(){
 		'javascript/plugins/jquery.blockUI.js',
 		
 		'javascript/plugins/table2CSV.js',
-		'javascript/plugins/jquery.mCustomScrollbar.concat.min.js',
-		// 'javascript/plugins/jquery.doubleScroll.js',
-		//'javascript/jquery.form.min.js',
-		//'javascript/pdfobject.js',
-		//'javascript/jquery.qtip.min.js',
-		//'javascript/jquery.tipsy.js',
-		//'javascript/jquery.imgareaselect.min.js',
-		//'javascript/jquery.slimscroll.min.js',
-		//'javascript/jquery.slimscroll.horizontal.min.js',
-		//'javascript/jquery.doubleScroll.js',
-		
-		//'javascript/tagmanager.js',
-		//'javascript/highcharts.js',
-		//'javascript/exporting.js',
+		// 'javascript/plugins/pdfobject.js',
+		//'javascript/plugins/highcharts.js',
+		//'javascript/plugins/exporting.js',
 		
 		# application specific js
 		'javascript/app.js'
@@ -1182,10 +1276,9 @@ function curlContents($url, $method = 'GET', $data = false, $headers = false, $r
         return $contents;
     }
 }
-function getClientUrl (Zend_Http_Client $client)
-{
-    try
-    {
+function getClientUrl (Zend_Http_Client $client){ 
+	$string = '';
+    try {
         $c = clone $client;
         /*
          * Assume there is nothing on 80 port.
@@ -1198,9 +1291,7 @@ function getClientUrl (Zend_Http_Client $client)
         ));
 
         $c->request ();
-    }
-    catch (Exception $e)
-    {
+    } catch (Exception $e){
         $string = $c->getLastRequest ();
         $string = substr ($string, 4, strpos ($string, "HTTP/1.1\r\n") - 5);
     }
@@ -1226,5 +1317,157 @@ function loadMaps(){
 	$config = Zend_Registry::get("config"); 
 	$value = $config->api->google_disablemaps; 
 	return $value == 1 || $value == 'on' || $value == 'yes' || $value == 'true' ? true : false;
+}
+# format url to strip leading forward slash
+function stripURL($url){
+	return rtrim($url,"/");
+}
+function objectToArray($d) {
+	if (is_object($d)) {
+		// Gets the properties of the given object
+		// with get_object_vars function
+		$d = get_object_vars($d);
+	}
+
+	if (is_array($d)) {
+		/*
+			* Return array converted to object
+		* Using __FUNCTION__ (Magic constant)
+		* for recursive call
+		*/
+		return array_map(__FUNCTION__, $d);
+	}
+	else {
+		// Return array
+		return $d;
+	}
+}
+function array_deep_diff($d1, $d2) {
+	if (is_array($d1) && is_array($d2))  {
+		$diff = array();
+		foreach (array_unique(array_merge(array_keys($d1), array_keys($d2))) as $key) {
+			if (!array_key_exists($key, $d1)) {
+				$diff['added'][$key] = $d2[$key];
+			} else if (!array_key_exists($key, $d2)) {
+				$diff['removed'][$key] = $d1[$key];
+			} else {
+				$tmp = array_deep_diff($d1[$key], $d2[$key]);
+				if (!empty($tmp)) $diff[$key] = $tmp;
+			}
+		}
+		return $diff;
+
+	} else if (!is_array($d1) && !is_array($d2))  {
+		if ($d1 == $d2) return array();
+		$ret = $d1.'->'.$d2;
+		// just a little touch for numerics, might not be needed
+		/* if (is_numeric($d1) && is_numeric($d2)) {
+			if ($d1 > $d2) $ret .= ' [- ' . ($d1 - $d2) . ']';
+			if ($d1 < $d2) $ret .= ' [+ ' . ($d2 - $d1) . ']';
+		} */
+		return $ret;
+	} else {
+		return array('Array compared with NonArray');
+	}
+}
+function getTranslations(){
+	$translate = Zend_Registry::get("translate");
+	
+	$labels = array(
+		// globals
+		'name' => $translate->translate('global_name_label'), 
+		// system labels
+		'lookupvaluedescription' => 'Value', 
+		// member labels
+		'type' => $translate->translate('profile_type_label'),
+		'firstname' => $translate->translate('profile_firstname_label'),
+		'lastname' => $translate->translate('profile_lastname_label'),
+		'othername' => $translate->translate('profile_othernames_label'),
+		'displayname' => $translate->translate('profile_displayname_label'),
+		'salutation' => $translate->translate('profile_suffix_label'),
+		'country' => $translate->translate('global_country_label'),
+		'nationality' => $translate->translate('profile_nationality_label'),
+		'regionid' => $translate->translate('global_region_label'),
+		'provinceid' => $translate->translate('global_province_label'),
+		'memberdistrictid' => $translate->translate('global_district_label').' (NFBPC)',
+		'districtid' => $translate->translate('global_district_label').' (Political)',
+		'countyid' => $translate->translate('global_county_label'),
+		'subcountyid' => $translate->translate('global_subcounty_label'),
+		'parishid' => $translate->translate('global_parish_label'),
+		'villageid' => $translate->translate('global_village_label'),
+		'address1' => $translate->translate('global_address_label'),
+		'address2' => '',
+		'postalcode' => '',
+		'gpslat' => $translate->translate('global_gpslat_label'),
+		'gpslng' => $translate->translate('global_gpslng_label'),
+		'email' => $translate->translate('profile_emailonly_label'),
+		'email2' => $translate->translate('profile_altemail_label'),
+		'phone' => $translate->translate('profile_phone_label'),
+		'phone2' => $translate->translate('profile_altphone_label'),
+		'phone_isactivated' => '',
+		'phone_actkey' => '',
+		'username' => $translate->translate('profile_username_label'),
+		'password' => $translate->translate('profile_password_label'),
+		'trx' => '',
+		'status' => $translate->translate('profile_status_label'),
+		'activationkey' => $translate->translate('profile_actkey_label'),
+		'activationdate' => $translate->translate('profile_dateactivated_label'),
+		'agreedtoterms' => '',
+		'securityquestion' => '',
+		'securityanswer' => '',
+		'isinvited' => '',
+		'invitedbyid' => $translate->translate('Invited By'),
+		'hasacceptedinvite' => '',
+		'dateinvited' => $translate->translate('Date Invited'),
+		'organisationid' => $translate->translate('profile_organisationid_label'),
+		'bio' => $translate->translate('profile_bio_label'),
+		'gender' => $translate->translate('profile_gender_label'),
+		'dateofbirth' => $translate->translate('profile_dateofbirth_label'),
+		'profilephoto' => $translate->translate('Profile Photo'),
+		'maritalstatus' => $translate->translate('profile_maritalstatus_label'),
+		'website' => $translate->translate('profile_website_label'),
+		'contactid' => $translate->translate('profile_nextkin_name_label'),
+		'contactname' => $translate->translate('profile_nextkin_name_label'),
+		'contactphone' => $translate->translate('profile_nextkin_phone_label'),
+		'contactrshp' => $translate->translate('profile_nextkin_rship_label'),
+		'profession' => $translate->translate('profile_profession_label'),
+		'createdby' => $translate->translate('global_addedby_label'),
+		'datecreated' => $translate->translate('global_dateadded_label'),
+		'lastupdatedby' => $translate->translate('global_updatedby_label'),
+		'lastupdatedate' => $translate->translate('global_updatedate_label'),
+		// organisation	labels
+		'refno' => '',
+		'type' => 'Type',
+		'fraternity' => '',
+		'name' => 'Name',
+		'phone' => 'Contact Phone',
+		'phone2' => 'Alt Contact Phone',
+		'email' => 'Contact Email',
+		'website' => 'Website/Facebook Page',
+		'address1' => $translate->translate("global_address_label"),
+		'address2' => '',
+		'regionid' => $translate->translate("global_region_label"),
+		'provinceid' => $translate->translate("global_province_label"),
+		'orgdistrictid' => $translate->translate("global_district_label").' (NFBPC)',
+		'districtid' => $translate->translate("global_district_label").' (Political)',
+		'countyid' => $translate->translate("global_county_label"),
+		'subcountyid' => $translate->translate("global_subcounty_label"),
+		'parishid' => $translate->translate("global_parish_label"),
+		'villageid' => $translate->translate("global_village_label"),
+		'gpslat' => 'GPS Lat',
+		'gpslng' => 'GPS Lng',
+		'vision' => 'Vision',
+		'mission' => 'Mission',
+		'bio' => 'Biography',
+		'profilephoto' => '',
+		'leadid' => 'Name of Contact Person',
+		'leadname' => 'Name of Contact Person',
+		'leadrole' => 'Role',
+		'regdate' => 'Date Registered'
+			
+			
+	);
+	
+	return $labels;
 }
 ?>

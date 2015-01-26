@@ -4,14 +4,11 @@ class SearchController extends IndexController  {
 	
 	function indexAction() {
     	$session = SessionWrapper::getInstance(); 
-    	// $this->_helper->layout->disableLayout();
+    	$this->_helper->layout->disableLayout();
 		$this->_helper->viewRenderer->setNoRender(TRUE);
 		$conn = Doctrine_Manager::connection();
 		$formvalues = $this->_getAllParams();
-		$userid = $session->getVar('userid');
-		
-		/*$user = new Member();
-		$user->populate($userid);*/
+		$memberid = $session->getVar('userid');
 		
 		$q = $formvalues['searchword'];
 		$html = '';
@@ -19,86 +16,90 @@ class SearchController extends IndexController  {
 		
 		// ) 
 		# search users
-		$query = "SELECT u.id FROM useraccount as u 
+		$query = "SELECT m.id FROM member as m 
 			WHERE
-		   (u.firstname like '%".$q."%' or 
-			u.lastname like '%".$q."%' or 
-			u.othernames like '%".$q."%' or 
-			u.email like '%".$q."%' or 
-			u.username like '%".$q."%') AND u.isactive <> 2
-			GROUP BY u.id
-			order by u.firstname asc, u.lastname asc LIMIT 3 ";
+		   (m.firstname like '%".$q."%' or 
+			m.lastname like '%".$q."%' or 
+			m.othername like '%".$q."%' or 
+			m.displayname like '%".$q."%' or 
+			m.email like '%".$q."%' or 
+			m.phone like '%".$q."%' or 
+			m.username like '%".$q."%') 
+			GROUP BY m.id
+			order by m.displayname asc LIMIT 5 ";
 		// debugMessage($query);
 		$result = $conn->fetchAll($query);
 		$count_results = count($result);
 		// debugMessage($result);
 		if($count_results > 0){
 			$hasdata = true;
-			$html .= '<div class="separator"><span>Users</span>
-				<div class="allresults"><a href="'.$this->view->baseUrl('profile/list/searchterm/'.$q).'">...see more results</a></div>
+			$html .= '<div class="separator"><span>Members</span>
+				<div class="allresults"><a href="'.$this->view->baseUrl('member/list/searchterm/'.$q).'" class="blockanchor">...see more results</a></div>
 			</div><ul>';
 			foreach ($result as $row){
-				$user = new Member();
-				$user->populate($row['id']);
+				$member = new Member();
+				$member->populate($row['id']);
 				
 				$b_q='<b>'.$q.'</b>';
-				$name= $user->getName(); $name = str_ireplace($q, $b_q, $name);
-				$type = getUserType($user->getType()); $type = str_ireplace($q, $b_q, $type);
-				$media = $user->getMediumPicturePath();
-				$viewurl = $this->view->baseUrl('profile/view/id/'.encode($row['id']));
+				$name= $member->getDisplayName(); $name = str_ireplace($q, $b_q, $name);
+				$phone = $member->getPhone(); $phone = str_ireplace($q, $b_q, $phone);
+				$email = $member->getEmail(); $email = str_ireplace($q, $b_q, $email);
+				$church = $member->getOrganisation()->getName();
+				$media = $member->getMediumPicturePath();
+				$viewurl = $this->view->baseUrl('member/view/id/'.encode($row['id']));
 				$html .= '
-				<li class="display_box clearfix" url="'.$viewurl.'" theid="'.$row['id'].'">
-					<a href="'.$viewurl.'">
-						<div class="col-md-3 padding0 centeralign clearfix" style="padding-top:8px;">
-							<img src="'.$media.'" style="width:50px;" />
-						</div>
-						<div style="col-md-9 padding0 clearfix">
-							<div class="name col-md-12 padding0">'.$name.'</div>
-							<div class=" col-md-12 padding0" style="font-size:10px; margin-top:-5px;">'.$type.'</div>
-						</div>
-					</a>
+				<li style="height:auto; min-height:90px;" class="display_box" align="left" url="'.$viewurl.'" theid="'.$row['id'].'">
+					<img class="imagecontainer" src="'.$media.'" style="width:70px; height:auto; float:left; margin-right:6px;" />
+					<div style="margin-left: 70px;">
+						<span class="name blocked">'.$name.'</span>
+						<span class="name blocked">'.$church.'</span>
+						<span class="blocked" style="margin-top:5px;">Phone: '.$phone.'</span>
+						<span class="blocked">Email: '.$email.'</span>
+					</div>
 				</li>';
+				
 			}
 		}
 		
-		# Clients
-		/* $query = "SELECT c.id FROM contact as c 
-			WHERE (c.orgname like '%".$q."%' OR
-				c.firstname like '%".$q."%' OR
-				c.lastname like '%".$q."%' OR
-				c.contactperson like '%".$q."%'
-			) GROUP BY c.id
-			order by IF(c.contacttype = 1, c.orgname, concat(c.firstname, ' ', c.lastname)) asc LIMIT 3 ";
-		// ('.$count_results.' entries)
+		# Churches
+		$query = "SELECT o.id FROM organisation as o 
+			WHERE
+		   (o.name like '%".$q."%' or 
+			o.phone like '%".$q."%' or 
+			o.email like '%".$q."%') 
+			GROUP BY o.id
+			order by o.name asc LIMIT 5 ";
+		// debugMessage($query);
 		$result = $conn->fetchAll($query);
 		$count_results = count($result);
 		// debugMessage($result);
 		if($count_results > 0){
 			$hasdata = true;
-			$html .= '<div class="separator"><span>Business Directory</span>
-				<div class="allresults"><a href="'.$this->view->baseUrl('directory/index/tab/category/id/search/searchterm/'.$q).'">...see more results</a></div>
-			</div>';
+			$html .= '<div class="separator"><span>Churches</span>
+				<div class="allresults"><a href="'.$this->view->baseUrl('organisation/list/searchterm/'.$q).'" class="blockanchor">...see more results</a></div>
+			</div><ul>';
 			foreach ($result as $row){
-				$contact = new Contact();
-				$contact->populate($row['id']);
+				$org = new Organisation();
+				$org->populate($row['id']);
 				
 				$b_q='<b>'.$q.'</b>';
-				$name= $contact->getName(); $name = str_ireplace($q, $b_q, $name);
-				$viewurl = $this->view->baseUrl('directory/index/tab/view/id/'.encode($row['id']));
-				$media = $contact->getPicturePath();
+				$name= $org->getName(); $name = str_ireplace($q, $b_q, $name);
+				$phone = $org->getPhone(); $phone = str_ireplace($q, $b_q, $phone);
+				$email = $org->getEmail(); $email = str_ireplace($q, $b_q, $email);
+				$media = $org->getMediumPicturePath();
+				$viewurl = $this->view->baseUrl('organisation/view/id/'.encode($row['id']));
 				$html .= '
-				<li class="display_box clearfix" url="'.$viewurl.'" theid="'.$row['id'].'">
-					<a href="'.$viewurl.'">
-						<div class="col-md-3 padding0 centeralign clearfix">
-							<img class="imagecontainer" src="'.$media.'" style="width:60px;" />
-						</div>
-						<div style="col-md-9 padding0 clearfix">
-							<div class="name col-md-12 padding0">'.$name.'</div>
-						</div>
-					</a>
+				<li style="height:auto; min-height:90px;" class="display_box" align="left" url="'.$viewurl.'" theid="'.$row['id'].'">
+					<img class="imagecontainer" src="'.$media.'" style="width:85px; height:auto; float:left; margin-right:6px; display:inline-block;" />
+					<div style="margin-left: 95px;">
+						<span class="name blocked">'.$name.'</span>
+						<span class="blocked" style="margin-top:5px;">Phone: '.$phone.'</span>
+						<span class="blocked">Email: '.$email.'</span>
+					</div>
 				</li>';
+				
 			}
-		} */
+		}
 		
 		# add navigation to searchable parameters
 		$result = array(

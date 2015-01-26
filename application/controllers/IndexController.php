@@ -66,8 +66,7 @@ class IndexController extends Zend_Controller_Action  {
     }
     
    public function createAction() {
-    	// debugMessage($this->_getAllParams()); // exit();
-    	$this->_setParam('entityname', 'Member');
+    	// debugMessage($this->_getAllParams()); exit();
    		// $this->_setParam('id', NULL); // exit();
    		$session = SessionWrapper::getInstance(); 
     	// the name of the class to be instantiated
@@ -126,13 +125,13 @@ class IndexController extends Zend_Controller_Action  {
     		switch ($this->_getParam('action')) {
 				case "" :
 				case ACTION_CREATE :
-					if(in_array($new_object->getTableName(), array('useraccount'))){
+					if(in_array($new_object->getTableName(), array('member'))){
 						$new_object->transactionSave();
 					} else {
 						$new_object->beforeSave(); 
-					$new_object->save(); 
-					// there are no errors so call the afterSave() hook
-					$new_object->afterSave();
+						$new_object->save(); 
+						// there are no errors so call the afterSave() hook
+						$new_object->afterSave();
 					}
 					/*debugMessage($new_object->toArray());
 					debugMessage('errors are '.$new_object->getErrorStackAsString()); exit();*/
@@ -225,7 +224,7 @@ class IndexController extends Zend_Controller_Action  {
     	$this->_helper->layout->disableLayout();
     	$this->_helper->viewRenderer->setNoRender(TRUE);
     
-    	$formvalues = $this->_getAllParams();
+    	$formvalues = $this->_getAllParams(); // debugMessage($formvalues); // exit;
     	$successurl = decode($formvalues[URL_SUCCESS]);
     	if(!isArrayKeyAnEmptyString(SUCCESS_MESSAGE, $formvalues)){
     		$successmessage = decode($formvalues[SUCCESS_MESSAGE]);
@@ -238,10 +237,109 @@ class IndexController extends Zend_Controller_Action  {
     	// debugMessage($successurl);
     
     	$obj = new $classname;
-    	$id = is_numeric($formvalues['id']) ? $formvalues['id'] : decode($formvalues['id']);
-    	$obj->populate($id);
+    	$id = is_numeric($formvalues['id']) ? $formvalues['id'] : decode($formvalues['id']); // debugMessage($id);
+    	$obj->populate($id); // debugMessage($obj->toArray());
+    	$beforedelete = $obj->toArray(true); // debugMessage($beforedelete);
+    	$prejson = json_encode($beforedelete); // debugMessage($postjson);
     	/* debugMessage($obj->toArray());
     	 exit(); */
+    	
+    	# prepare to notify depending on the action
+    	switch ($classname) {
+    		case 'Member':
+    			if($formvalues['controller'] == 'profile'){
+    				$module = '1';
+    				$usecase = '1.5';
+    				$type = USER_DELETE;
+    				$deletedetails = 'User Profile <b>'.$obj->getName().'</b> successfully deleted';
+    			}
+    			if($formvalues['controller'] == 'member'){
+    				$module = '2';
+    				$usecase = '2.3';
+    				$type = MEMBER_DELETE;
+    				$deletedetails = 'Member Profile <b>'.$obj->getName().'</b> successfully deleted';
+    			}
+    	
+    			break;
+    		case 'Organisation':
+    			$module = '3';
+    			$usecase = '3.3';
+    			$type = ORG_DELETE;
+    			$deletedetails = ' Organisation <b>'.$obj->getName().'</b> successfully deleted';
+    			if($obj->getType() == '1'){
+    				$deletedetails = ' Church <b>'.$obj->getName().'</b> successfully deleted';
+    			}
+    			if($obj->getType() == '2'){
+    				$deletedetails = ' Ministry <b>'.$obj->getName().'</b> successfully deleted';
+    			}
+    			break;
+    		case 'Location':
+    			$module = '4';
+    			$usecase = '4.3';
+    			$type = LOCATION_DELETE;
+    			$location_type = $obj->getLocationTypeName();
+    			$deletedetails = $location_type.' <b>'.$obj->getName().'</b> successfully deleted';
+    			break;
+    		case 'Region':
+    			$module = '4';
+    			$usecase = '4.3';
+    			$type = LOCATION_DELETE;
+    			$deletedetails = 'Region <b>'.$obj->getName().'</b> successfully deleted';
+    			break;
+    		case 'Province':
+    			$module = '4';
+    			$usecase = '4.3';
+    			$type = LOCATION_DELETE;
+    			$deletedetails = 'Province <b>'.$obj->getName().'</b> successfully deleted';
+    			break;
+			case 'Committee':
+    			$module = '5';
+    			$usecase = '5.3';
+    			$type = COMMITTEE_DELETE;
+    			$deletedetails = 'Committee <b>'.$obj->getName().'</b> successfully deleted';
+    			break;
+    		case 'Department':
+    		case 'Position':
+    		case 'LookupTypeValue':
+    			$module = '0';
+    			$usecase = '0.3';
+    			$type = SYSTEM_DELETEVARIABLE;
+    			$var_type = 'Variable';
+    			if($classname == 'Department'){
+    				$var_type = 'Department';
+    				$deletedetails = $var_type.' <b>'.$obj->getName().'</b> successfully deleted';
+    			}
+    			if($classname == 'Position'){
+    				$var_type = 'Position';
+    				$deletedetails = $var_type.' <b>'.$obj->getName().'</b> successfully deleted';
+    			}
+    			if($classname == 'LookupTypeValue'){
+    				$var_type = 'Variable ';
+    				$deletedetails = 'Variable - <b>'.$obj->getlookupvaluedescription().' </b>('.$obj->getLookupType()->getdisplayname().') successfully deleted';
+    			}
+    			break;
+    		case 'AclGroup':
+    			$module = '0';
+    			$usecase = '0.6';
+    			$type = SYSTEM_DELETEROLE;
+    			$deletedetails = 'Role <b>'.$obj->getName().'</b> successfully deleted';
+    			break;
+    		default:
+    			break;
+    	}
+    	
+    	$browser = new Browser();
+    	$audit_values = $session->getVar('browseraudit');
+    	$audit_values['module'] = $module;
+    	$audit_values['usecase'] = $usecase;
+    	$audit_values['transactiontype'] = $type;
+    	$audit_values['status'] = "Y";
+    	$audit_values['userid'] = $session->getVar('userid');
+    	$audit_values['transactiondetails'] = $deletedetails;
+    	$audit_values['prejson'] = $prejson;
+    	// debugMessage($audit_values); 
+    	// exit(); 
+    	
     	if($obj->delete()) {
     		if(!isArrayKeyAnEmptyString('altdeleteid', $formvalues)){
     			$altobj = new $altclassname;
@@ -251,16 +349,13 @@ class IndexController extends Zend_Controller_Action  {
     			}
     		}
     		$session->setVar(SUCCESS_MESSAGE, $this->_translate->translate("global_delete_success"));
+    		$successmessage = $this->_getParam(SUCCESS_MESSAGE);
     		if(!isEmptyString($successmessage)){
     			$session->setVar(SUCCESS_MESSAGE, $successmessage);
     		}
-    		if($formvalues['entityname'] == 'Podcast'){
-    			// erase any physical files on the file system
-    			 
-    		}
+    		$this->notify(new sfEvent($this, $type, $audit_values));
     	}
     	$this->_helper->redirector->gotoUrl($successurl);
-    	// exit();
     }
     
 	public function approveAction() {
@@ -285,23 +380,32 @@ class IndexController extends Zend_Controller_Action  {
 								'multiOptions' => $values, 
 								'view' => new Zend_View(),
 								'decorators' => array('ViewHelper'),
-							     'class' => array('span1','xform-control','width50')
+							    'class' => array('form-control','width75','inline','perpageswitcher')
 							)
 						);
 		if (isEmptyString($this->_getParam('itemcountperpage'))) {
-			$dropdown->setValue($session->getVar('itemcountperpage'));
+			if(!isEmptyString($session->getVar('itemcountperpage'))){			
+				$dropdown->setValue($session->getVar('itemcountperpage'));
+				if($session->getVar('itemcountperpage') == 'ALL'){
+					$session->setVar('itemcountperpage', '');
+					$dropdown->setValue('50');
+				}
+			} else {
+				$dropdown->setValue('50');
+			}
 		} else {
-			$session->setVar('itemcountperpage', '');
-			$dropdown->setValue($this->_getParam('itemcountperpage'));
-		}  
-	    $this->view->listcountdropdown = '<span class="pull-right">'.$this->_translate->translate("global_list_itemcount_dropdown").$dropdown->render().'</span>';	
+			$session->setVar('itemcountperpage', $this->_getParam('itemcountperpage'));
+			$dropdown->setValue($session->getVar('itemcountperpage'));
+		}
+		
+	    $this->view->listcountdropdown = '<span>Per page: '.$dropdown->render().'</span>'; 
     }
     /**
      * Redirect list searches to maintain the urls as per zend format 
      */
     public function listsearchAction() {
     	//debugMessage($this->getRequest()->getQuery());
-    	//debugMessage($this->_getAllParams()); exit();
+    	// debugMessage($this->_getAllParams()); exit();
     	$this->_helper->redirector->gotoSimple(ACTION_LIST, $this->getRequest()->getControllerName(), 
     											$this->getRequest()->getModuleName(),
     											array_remove_empty(array_merge_maintain_keys($this->_getAllParams(), $this->getRequest()->getQuery())));
@@ -350,8 +454,8 @@ class IndexController extends Zend_Controller_Action  {
 				echo generateJSONStringForSelectChain(getProvinces($this->_getParam('regionid')), $this->_getParam('currentvalue'));
 				break;
 			case 'district_counties': 
-				# get all the counties in a district			
-				echo generateJSONStringForSelectChain(getCountiesInDistrict($this->_getParam('districtid')), $this->_getParam('currentvalue'));			
+				# get all the counties in a district				
+				echo generateJSONStringForSelectChain(getCountiesInDistrict($districtid), $this->_getParam('currentvalue'));			
 				break;
 			case 'location_counties': 
 				# get all the counties in a district			
@@ -394,12 +498,34 @@ class IndexController extends Zend_Controller_Action  {
 				echo ($result);
 				break;
 			case 'region_districts':
-				$result = getDistricts($this->_getParam('regionid'));
+				$result = getDistricts($this->_getParam('regionid'), false);
+				$result = json_encode($result);
+				echo ($result);
+				break;
+			case 'region_districts_nfbpc':
+				$result = getDistricts($this->_getParam('regionid'), false);
+				$result = json_encode($result);
+				echo ($result);
+				break;
+			case 'province_districts':
+				$result = getDistrictsInProvince($this->_getParam('provinceid'), false);
 				$result = json_encode($result);
 				echo ($result);
 				break;
 			case 'district_counties':
-				$result = getCountiesInDistrict($this->_getParam('districtid'));
+				$locationid = $districtid = $this->_getParam('districtid');
+				$location = new Location();
+				$location->populate($districtid);
+				if(!isEmptyString($location->getDistrictID())){
+					$districtid = $location->getDistrictID();
+				}
+				
+				$result = getCountiesInDistrict($districtid);
+				$result = json_encode($result);
+				echo ($result);
+				break;
+			case 'district_subcounties':
+				$result = getSubcountiesInDistrict($this->_getParam('districtid'));
 				$result = json_encode($result);
 				echo ($result);
 				break;
@@ -565,5 +691,147 @@ class IndexController extends Zend_Controller_Action  {
 		} else {
 			 $session->setVar('toggled', "");
 		}
+	}
+	
+	public function committeeAction(){
+		$session = SessionWrapper::getInstance(); 
+     	$this->_helper->layout->disableLayout();
+	}
+	
+	public function profileAction(){
+		$session = SessionWrapper::getInstance(); 
+     	$this->_helper->layout->disableLayout();
+	}
+
+	public function churchAction(){
+		$session = SessionWrapper::getInstance(); 
+     	$this->_helper->layout->disableLayout();
+	}
+	
+	public function ministriesAction(){
+		$session = SessionWrapper::getInstance(); 
+     	$this->_helper->layout->disableLayout();
+	}
+	
+	public function searchAction(){
+		$session = SessionWrapper::getInstance(); 
+     	$this->_helper->layout->disableLayout();
+	}
+	
+	public function processsearchAction(){
+		$session = SessionWrapper::getInstance(); 
+     	$this->_helper->layout->disableLayout();
+		//$this->_helper->viewRenderer->setNoRender(TRUE);
+		$formvalues = $this->_getAllParams();
+		
+		//debugMessage($this->getRequest()->getQuery());
+    	// debugMessage($this->_getAllParams()); exit();
+    	$this->_helper->redirector->gotoSimple('search', $this->getRequest()->getControllerName(), 
+    											$this->getRequest()->getModuleName(),
+    											array_remove_empty(array_merge_maintain_keys($this->_getAllParams(), $this->getRequest()->getQuery())));
+    }
+	
+	function processcontactAction(){
+		$session = SessionWrapper::getInstance(); 
+     	$this->_helper->layout->disableLayout();
+		$this->_helper->viewRenderer->setNoRender(TRUE);
+		$formvalues = $this->_getAllParams();
+		// debugMessage($formvalues);
+		
+		$recipients_array = array(); 
+	    $messagedata = array(); 
+		$users = array($formvalues['id']);
+	    $execresult = array('result'=>'', 'msg'=>'');
+		
+		if(count($users) == 0){
+	    	$session->setVar(ERROR_MESSAGE, "Error: No Member specified!");
+	    	$this->_helper->redirector->gotoUrl(decode($formvalues[URL_SUCCESS]));
+	    	$execresult = array('result'=>'fail', 'msg'=>"Error: No Receipients specified!");
+	    }
+		
+		$messages = array(); $sent = array(); $phones = array();
+	    $messages['contents'] = $formvalues['contents'];
+	    $messages['type'] = 1;
+		$messages['subject'] = '';
+	    if(!isArrayKeyAnEmptyString('subject', $formvalues)){
+	    	$messages['subject'] = $formvalues['subject'];
+	    }
+		$messages['senderid'] = NULL;
+		if(!isArrayKeyAnEmptyString('senderid', $formvalues)){
+			$messages['senderid'] = $formvalues['senderid'];
+		}
+		if(!isArrayKeyAnEmptyString('senderemail', $formvalues)){
+			$messages['senderemail'] = $formvalues['senderemail'];
+		}
+		if(!isArrayKeyAnEmptyString('sendername', $formvalues)){
+			$messages['sendername'] = $formvalues['sendername'];
+		}
+		# process receipients depending on select type
+		foreach ($users as $key => $userid){
+			$memb = new Member();
+			$id = $userid;
+			
+			$memb->populate($id); // debugMessage($memb->toArray());
+			if($memb->isUser()){
+				$recipients_array[$id]['recipientid'] = $memb->getID();
+			}
+			$messagedata[$id]['id'] = $memb->getID();
+			$messagedata[$id]['name'] = $memb->getName();
+			$messagedata[$id]['email'] = $memb->getEmail();
+			$messagedata[$id]['phone'] = $memb->getPhone();
+			$sent[] = $memb->getName();
+			
+			$messages['recipients'] = $recipients_array;
+			$messages['membertotal'] = count($messagedata);
+			$messages['usertotal'] = count($recipients_array);
+			// debugMessage($sent); 
+			// debugMessage($messagedata); 
+				
+			$msg = new Message();
+			$msg->processPost($messages);
+			/*debugMessage($msg->toArray());
+			debugMessage('error is '.$msg->getErrorStackAsString()); exit();*/
+		}
+		
+		if($msg->hasError()){
+			$session->setVar(ERROR_MESSAGE, "Error: ".$msg->getErrorStackAsString());
+			$session->setVar(FORM_VALUES, $this->_getAllParams());
+			$execresult = array('result'=>'fail', 'msg'=>"Error: ".$msg->getErrorStackAsString());
+			$this->_helper->redirector->gotoUrl(decode($formvalues[URL_SUCCESS]));
+		} else {
+			try {
+				$msg->save();
+				// send message to emails
+				if(count($messagedata) > 0){
+					foreach($messagedata as $key => $receipient){
+						$msgdetail = new MessageRecipient();
+						if(!isArrayKeyAnEmptyString('email', $receipient)){
+							// debugMessage($formvalues['senderemail'].'-'.$formvalues['sendername'].'-'.$messages['subject'].'-'. $receipient['email'].'-'.$receipient['name'].'-'.$messages['contents']);
+							// $msgdetail->sendInboxEmailNotification($formvalues['senderemail'], $formvalues['sendername'], $messages['subject'], $receipient['email'], $receipient['name'], $messages['contents']);
+						}
+					}
+				}
+							
+				if(count($messagedata) == 1){
+					$key = current(array_keys($messagedata));
+					$rcpt = $messagedata[$key]['name'];
+					$sentmessage = "Message sent to ".$rcpt;
+					$session->setVar(SUCCESS_MESSAGE, $sentmessage);
+					
+				} else { 
+					$sentmessage = "Message successfully sent to <b>".count($messagedata)."</b> member(s). <br />See full list of recipient(s) at the bottom of this page.";
+					$sentresult = createHTMLListFromArray($sent, 'successmsg alert alert-success');
+					$session->setVar('sentlist', $sentresult);
+					$session->setVar(SUCCESS_MESSAGE, "Message sent to ".count($messagedata)." members. <br />See full list of recipients at the bottom of this page.");
+				}
+				$execresult = array('result'=>'success', 'msg'=>$sentmessage);
+			} catch (Exception $e) {
+				$session->setVar(ERROR_MESSAGE, "An error occured in sending the message. ".$e->getMessage());
+				$session->setVar(FORM_VALUES, $this->_getAllParams());
+				$execresult = array('result'=>'success', 'msg'=>"An error occured in sending the message. ".$e->getMessage());
+			}
+		}
+	    // exit;
+	   	$this->_helper->redirector->gotoUrl(decode($formvalues[URL_SUCCESS]));
 	}
 }

@@ -4,6 +4,20 @@
 	$userid = $session->getVar("userid"); // debugMessage($userid);
 	$user->populate($userid);
 	
+	$customurl = '';
+	if($user->isRegionalClerk()){
+		$customurl = '/regionid/'.$user->getRegionID();
+	}
+	if($user->isProvinceClerk()){
+		$customurl = '/provinceid/'.$user->getProvinceID();
+	}
+	if($user->isDistrictClerk()){
+		$customurl = '/districtid/'.$user->getDistrictID();
+	}
+	if($user->isSubCountyClerk()){
+		$customurl = '/subcountyid/'.$user->getSubcountyID();
+	}
+	
 	$thecontroller = $request->getControllerName();
 	$theaction = $request->getActionName();
 	$publiccontrollers = array("signup","user"); 
@@ -21,6 +35,15 @@
 		$toggledclass = ' toggled';
 	}
 	
+	$c = new Doctrine_RawSql();
+	$c->select('{m.*}, {mr.*}');
+	$c->from('message m INNER JOIN messagerecipient mr ON (m.id = mr.messageid)');
+	$c->where("(mr.recipientid = '".$userid."' AND mr.isread = 0) ORDER BY m.datecreated");
+	$c->addComponent('m', 'Message m');
+	$c->addComponent('mr', 'm.recipients mr');
+	$unread_messages = $c->execute()->count();
+	$unread_label = ' &nbsp;<span class="pagedescription" style="color:red; font-size:14px;">('.$unread_messages.' Unread)</span>';
+	
 ?>
 <!-- Header -->
 <header class="navbar" id="headercontainer">
@@ -35,7 +58,7 @@
                     <span class="icon-bar"></span> 
                 </button>
        			<!--<div class="divider10"></div>-->
-        		<a class="navbar-brand margin0 padding0 hidden-xs" href="#" id="homelink">
+        		<a class="navbar-brand margin0 padding0 hidden-xs" href="<?php echo $this->baseUrl('index'); ?>" id="homelink">
                     <img class="img-responsive" id="logoimg" src="<?php echo $this->baseUrl('images/logo.png'); ?>" />		
                     <span class="paddingleft0" id="appname">
                     	<?php if(in_array($thecontroller, $publiccontrollers)){ ?>
@@ -50,44 +73,27 @@
             <div class="collapse navbar-collapse navonlogin" style="height:100px;">
                 <ul class="nav navbar-nav" id="headermenu">
 					<?php if ($acl->checkPermission('Dashboard', ACTION_VIEW)) { ?>
-                    	<li class="<?php echo $controller == 'dashboard' ? 'active' : ''; ?>"><a href="<?php echo $this->baseUrl('dashboard'); ?>" class="blockanchor"><span class="glyphicon xglyphicon-home"><i class="icon-large icon-home"></i></span><span class="menutext">Dashboard</span></a></li> 
+                    	<li class="<?php echo $controller == 'dashboard' ? 'active' : ''; ?>"><a class="blockanchor" href="<?php echo $this->baseUrl('dashboard'); ?>"><span class="glyphicon xglyphicon-home"><i class="icon-large icon-home <?php echo $controller == 'dashboard' ? 'white' : ''; ?>"></i></span><span class="menutext">Dashboard</span></a></li> 
                     <?php } ?>
-                    <?php if ($acl->checkPermission('Member', ACTION_LIST)) { ?>
-                    	<li class="<?php echo $controller == 'member' ? 'active' : ''; ?>"><a href="<?php echo $this->baseUrl('member/list'); ?>"><span class="glyphicon xglyphicon-user"><i class="icon-large icon-group"></i></span><span class="menutext">Members</span></a></li>
+                    <?php if ($acl->checkPermission('Message', ACTION_LIST)) { ?>
+                    	<li class="<?php echo $controller == 'notifications' ? 'active' : ''; ?>" id="message_counter">
+                        	<span class="count <?php echo $controller == 'notifications' ? 'count2' : 'count1'; ?> number"><?php echo $unread_messages; ?></span>
+                        	<a class="blockanchor" href="<?php echo $this->baseUrl('notifications/list'); ?>"><span class="glyphicon <?php echo $controller == 'notifications' ? 'glyphicon-envelope' : ''; ?>"><?php echo $controller == 'notifications' ? '' : '<i class="icon-large icon-envelope"></i>'; ?></span><span class="menutext">Notifications</span></a></li>
+                    <?php } ?>
+					<?php if ($acl->checkPermission('Member', ACTION_LIST)) { ?>
+                    	<li class="<?php echo $controller == 'member' ? 'active' : ''; ?>"><a class="blockanchor" href="<?php echo $this->baseUrl('member/list'.$customurl); ?>"><span class="glyphicon xglyphicon-user"><i class="icon-large icon-group <?php echo $controller == 'member' ? 'white' : ''; ?>"></i></span><span class="menutext">Members</span></a></li>
                     <?php } ?>
                     <?php if ($acl->checkPermission('Organisation', ACTION_LIST)) { ?>
-                    	<li class="<?php echo $controller == 'organisation' ? 'active' : ''; ?>"><a href="<?php echo $this->baseUrl('church/list'); ?>" class="blanklink"><span class="glyphicon"><i class="icon-large icon-temple-christianity-church"></i></span><span class="menutext">Churches</span></a></li>
+                    	<li class="<?php echo $controller == 'organisation' ? 'active' : ''; ?>"><a class="blockanchor" href="<?php echo $this->baseUrl('organisation/list'); ?>"><span class="glyphicon"><i class="icon-large icon-temple-christianity-church <?php echo $controller == 'organisation' ? 'white' : ''; ?>"></i></span><span class="menutext">Churches</span></a></li>
                     <?php } ?>
                     <?php if ($acl->checkPermission('User Account', ACTION_LIST)) { ?>
-                    	<li class="<?php echo $controller == 'profile' ? 'active' : ''; ?>"><a href="<?php echo $this->baseUrl('profile/list'); ?>" class="blanklink"><span class="glyphicon"><i class="icon-large icon-user"></i></span><span class="menutext">System Users</span></a></li>
+                    	<li class="<?php echo $controller == 'profile' ? 'active' : ''; ?>"><a class="blockanchor" href="<?php echo $this->baseUrl('profile/list'); ?>"><span class="glyphicon"><i class="icon-large icon-user <?php echo $controller == 'profile' ? 'white' : ''; ?>"></i></span><span class="menutext">System Users</span></a></li>
                     <?php } ?>
                     <?php if ($acl->checkPermission('Report Dashboard', ACTION_VIEW)) { ?>
-                    	<li class="<?php echo $controller == 'report' ? 'active' : ''; ?>"><a href="<?php echo $this->baseUrl('report/dashboard'); ?>" class="blanklink"><span class="glyphicon"><i class="icon-large icon-signal"></i></span><span class="menutext"> Reports</span></a></li>
+                    	<li class="<?php echo $controller == 'report' ? 'active' : ''; ?>"><a class="blockanchor" href="<?php echo $this->baseUrl('report/dashboard'); ?>"><span class="glyphicon"><i class="icon-large icon-signal <?php echo $controller == 'report' ? 'white' : ''; ?>"></i></span><span class="menutext"> Reports</span></a></li>
                     <?php } ?>
                 </ul>
                 <ul class="nav navbar-nav navbar-right" id="headerright">
-                    <!-- User Login Dropdown -->
-                    <?php if(false){ ?>
-                    <li class="dropdown user">
-                        <a href="<?php echo $this->baseUrl('profile/view/id/'.encode($user->getID())); ?>" class="dropdown-toggle" data-toggle="dropdown">
-                            <i class="icon-male"></i>
-                            <span class="username"><?php echo $user->getName(); ?></span>
-                            <i class="icon-caret-down small"></i>
-                        </a>
-                        <ul class="dropdown-menu">
-                            <?php if(isLoggedIn()){ ?>
-                                <li><a href="<?php echo $this->baseUrl('profile/view/id/'.encode($user->getID())); ?>"><i class="icon-user"></i> My Profile</a></li>
-                                <li><a href="<?php echo $this->baseUrl('profile/view/id/'.encode($user->getID()).'/tab/settings'); ?>"><i class="icon-tasks"></i> Preferences</a></li>
-                                <li><a href="<?php echo $this->baseUrl('profile/view/id/'.encode($user->getID()).'/tab/settings'); ?>"><i class="icon-cog"></i> Settings</a></li>
-                                <li class="divider"></li>
-                                <li><a href="<?php echo $this->baseUrl('user/logout'); ?>"><i class="icon-key"></i> Log Out</a></li>
-                            <?php } else { ?>
-                                <li class="divider"></li>
-                                <li><a href="<?php echo $this->baseUrl('user/login'); ?>"><i class="icon-key"></i> Login</a></li>
-                            <?php } ?>
-                        </ul>
-                    </li>
-                    <?php } ?>
                     <li class="userloggedinfo">
                     	<?php if($isloggedin){ ?>
                             <div class="row margin0 padding0">
@@ -97,15 +103,15 @@
                                         </a>
                                         <ul class="dropdown-menu margin0 padding0" id="menupulldown" style="margin:0; padding:0;">
                                             <?php if(isLoggedIn()){ ?>
-                                                <li><a class="blanklink" href="<?php echo $this->baseUrl('profile/view/id/'.encode($user->getID())); ?>"><i class="glyphicon glyphicon-user"></i> My Profile</a></li>
+                                                <li><a class="blockanchor" href="<?php echo $this->baseUrl('profile/view/id/'.encode($user->getID())); ?>"><i class="glyphicon glyphicon-user"></i> My Profile</a></li>
                                                 <li class="divider"></li>
-                                                <li><a class="blanklink" href="<?php echo $this->baseUrl('profile/index/id/'.encode($user->getID())); ?>"><i class="glyphicon glyphicon-pencil"></i> Update Profile</a></li>
-                                                <li><a class="blanklink" href="<?php echo $this->baseUrl('profile/view/id/'.encode($user->getID()).'/tab/account'); ?>"><i class="glyphicon glyphicon-cog"></i> Account Settings</a></li>
+                                                <li><a class="blockanchor" href="<?php echo $this->baseUrl('profile/index/id/'.encode($user->getID())); ?>"><i class="glyphicon glyphicon-pencil"></i> Update Profile</a></li>
+                                                <li><a class="blockanchor" href="<?php echo $this->baseUrl('profile/view/id/'.encode($user->getID()).'/tab/account'); ?>"><i class="glyphicon glyphicon-cog"></i> Account Settings</a></li>
                                                 <li class="divider"></li>
-                                                <li><a href="<?php echo $this->baseUrl('user/logout'); ?>"><i class="icon-key"></i> Log Out</a></li>
+                                                <li><a href="<?php echo $this->baseUrl('user/logout'); ?>" class="blockanchor"><i class="icon-key"></i> Log Out</a></li>
                                             <?php } else { ?>
                                                 <li class="divider"></li>
-                                                <li><a href="<?php echo $this->baseUrl('user/login'); ?>"><i class="icon-key"></i> Login</a></li>
+                                                <li><a href="<?php echo $this->baseUrl('user/login'); ?>" class="blockanchor"><i class="icon-key"></i> Login</a></li>
                                             <?php } ?>
                                         </ul>
                                     </li>
@@ -138,5 +144,5 @@
     </nav>
 </header>
 <?php if($isloggedin){ ?>
-	<div style="height:86px;"></div>
+	<div style="height:80px;"></div>
 <?php } ?>

@@ -1,0 +1,546 @@
+<?php
+	require_once APPLICATION_PATH.'/includes/header.php';
+	
+	$organisation = new Organisation();
+   	$type = $request->type;
+	if(isEmptyString($type)){
+		$type = 1;
+	}
+	
+	if(isEmptyString($request->id)){
+		$posturl = $this->baseUrl('organisation/create');
+		$id = '';
+		$title = "New Church";
+		$description = '';
+		$button_title = $this->translate("global_button_save"); 
+		$successmessage = $this->translate('global_save_success');
+		$organisation->setRegDate(date('Y-m-d'));
+		if($type == '1'){
+			$organisation->setType(1);
+		}
+		if($type == 'other'){
+			$organisation->setType(2);
+			$title = "New Organisation";
+		}
+	} else {
+		$organisation->populate(decode($request->id));
+		$id = $organisation->getID();
+		$posturl = $this->baseUrl('organisation/edit');
+		$title = "Update Church";
+		if($organisation->getType() != 1){
+			$title = "Update Organisation";
+		}
+		$description = '';
+		$button_title = $this->translate("global_button_save");
+		$successmessage = $this->translate('global_update_success');
+	}
+	
+	#in case of errors in session, populate the fields from session
+	if(!isEmptyString($session->getVar(ERROR_MESSAGE))){ 
+		$organisation->processPost($session->getVar(FORM_VALUES));	
+	}
+	
+	
+	
+	$coverpath = getOrganisationCoverPath();
+	$description = '';	
+	$viewurl = $this->baseUrl('organisation/view/id/'.encode($organisation->getID()));
+	$indexurl = $this->baseUrl('organisation/index/id/'.encode($organisation->getID()));
+	$listurl = $this->baseUrl('organisation/list');
+	$listitems = 'List Churches';
+	$this->headTitle($title.$browserappend);
+?>
+<script>
+$(document).ready(function() {
+	$('.titlebreadcrumb').html('<?php echo $homedir.'Churches / '.$title; ?>');
+	$('.titlelabel').html('<?php echo $title; ?>');
+	$('.desclabel').html('<?php echo $description; ?>');
+	$('.pageicon').html('<span class="icon-large icon-temple-christianity-church spaceleft"></span>');
+	
+	$("#indexform").validate({		
+		// define the validation rules one field at a time
+		rules: {
+			name: "required",
+			leadid: "required",
+			leadname: "required",
+			phone: {
+				required: true,
+				validnumber: true,
+				validate_ug: true,				
+				minlength: "<?php echo $config->country->phoneminlength; ?>"
+			},
+			email: {
+				required: false, 
+				email: true
+			},
+			country: "required",
+			regionid: "required",
+			provinceid: "required",
+			districtid: "required",
+			countyid: "required",
+			subcountyid: "required",
+			parishid: "required",
+			villageid: "required",
+			profileimage: "required",
+			regdate: "required",
+			type: "required"
+		}, 
+		// the messages for each of the fields being validated
+		messages: {		
+			name: "<?php echo $this->translate("organisation_name_error"); ?>",
+			leadid: "<?php echo $this->translate("organisation_contactid_error"); ?>",
+			leadname: "<?php echo $this->translate("organisation_contact_error"); ?>",
+			phone: {
+				required: "<?php echo $this->translate("profile_phonenumber_error"); ?>",
+				minlength: "<?php echo sprintf($this->translate("profile_phone_maxlength_error"), $config->country->phoneminlength); ?>"
+			},
+			email: {
+				"email": "<?php echo $this->translate("profile_email_invalid_error"); ?>"
+			},
+			country: "<?php echo $this->translate("profile_nationality_error"); ?>",
+			regionid: "<?php echo $this->translate("global_region_error"); ?>",
+			provinceid: "<?php echo $this->translate("global_province_error"); ?>",
+			districtid: "<?php echo $this->translate("global_district_error"); ?>",
+			countyid: "<?php echo $this->translate("global_country_error"); ?>",
+			subcountyid: "<?php echo $this->translate("global_subcountry_error"); ?>",
+			parishid: "<?php echo $this->translate("global_parish_error"); ?>",
+			villageid: "<?php echo $this->translate("global_village_error"); ?>",
+			profileimage: "Please browse for image on computer",
+			regdate: "<?php echo $this->translate("organisation_regdate_error"); ?>",
+			type: "Please select a Type"
+		},
+		// custom error positions
+		errorPlacement: function(error, element) {
+			switch(element.attr("name")){					
+				default:
+					if(element.hasClass("useid_error")){
+						error.appendTo("#"+element.attr("id")+"_error");
+					} else {
+						error.appendTo("#"+element.attr("name")+"_error");
+					}
+					break;
+			}			
+		},
+		ignore: ":hidden:not(select)"
+	});
+	
+	var dateofbirthOpts = datepickerOpts;
+	$(".datefield").datepicker(dateofbirthOpts);
+	
+	var regionid = '<?php echo $organisation->getRegionID(); ?>';
+	var provinceid = '<?php echo $organisation->getProvinceID(); ?>';
+	var districtid = '<?php echo $organisation->getDistrictID(); ?>';
+	var countyid = '<?php echo $organisation->getCountyID(); ?>';
+	var subcountyid = '<?php echo $organisation->getSubCountyID(); ?>';
+	var parishid = '<?php echo $organisation->getParishID(); ?>';
+	var villageid = '<?php echo $organisation->getVillageID(); ?>';
+	
+	// update locations when page first loads
+	regionTrigger(provinceid, districtid);
+	provinceTrigger(districtid);
+	districtTrigger(countyid);
+	countyTrigger(subcountyid);
+	subCountyTrigger(parishid);
+	parishTrigger(villageid);
+	
+	// update dropdowns when locations change
+	$('#regionid').change(function() {
+		regionTrigger(provinceid, districtid);
+	});
+	$('#provinceid').change(function() {
+		provinceTrigger(districtid);
+	});
+	$('#districtid').change(function() {
+		districtTrigger(countyid);
+	});
+	$('#countyid').change(function() {
+		countyTrigger(subcountyid);
+	});
+	$('#subcountyid').change(function() {
+		subCountyTrigger(parishid);
+	});
+	$('#parishid').change(function() {
+		parishTrigger(villageid);
+	});
+	
+	function regionTrigger(provinceid, districtid){
+		autoPopulateSelectChain('regionid', 'provinceid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/region_provinces/regionid/'); ?>', provinceid);
+		autoPopulateSelectChain('regionid', 'districtid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/region_districts/regionid/'); ?>', districtid);
+	}
+	
+	function provinceTrigger(districtid){
+		autoPopulateSelectChain('provinceid', 'districtid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/province_districts/provinceid/'); ?>', districtid);
+	}
+	
+	function districtTrigger(countyid){
+		autoPopulateSelectChain('districtid', 'countyid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/district_counties/districtid/'); ?>', countyid);
+		
+		autoPopulateSelectChain('districtid', 'countyid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/district_counties/districtid/'); ?>', countyid);
+	}
+	
+	function countyTrigger(subcountyid){
+		autoPopulateSelectChain('countyid', 'subcountyid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/county_subcounties/countyid/'); ?>', subcountyid);
+	}
+	
+	function countyTrigger(subcountyid){
+		autoPopulateSelectChain('countyid', 'subcountyid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/county_subcounties/countyid/'); ?>', subcountyid);
+	}
+	
+	function subCountyTrigger(parishid){
+		autoPopulateSelectChain('subcountyid', 'parishid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/subcounty_parishes/subcountyid/'); ?>', parishid);
+	}
+	
+	function parishTrigger(villageid){
+		autoPopulateSelectChain('parishid', 'villageid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/parish_villages/parishid/'); ?>', villageid);
+	}
+	
+	$(".contacttrigger").click(function(){
+		var id = $(this).attr('id');
+		if(id == 'contacttrigger_1'){
+			enableContainerByClass('contact_select');
+			disableContainerByClass('contact_text');
+		} else {
+			enableContainerByClass('contact_text');
+			disableContainerByClass('contact_select');
+		}
+	});
+	
+	<?php if(!isEmptyString($organisation->getLeadName()) || isEmptyString($organisation->getID()) || (isEmptyString($organisation->getLeadID()) && isEmptyString($organisation->getLeadName()))){ ?>
+		enableContainerByClass('contact_text');
+		disableContainerByClass('contact_select');
+	<?php } ?>
+	<?php if(!isEmptyString($organisation->getLeadID())){ ?>
+		enableContainerByClass('contact_select');
+		disableContainerByClass('contact_text');
+	<?php } ?>
+	
+});
+</script>
+<form class="form-horizontal" action="<?php echo $posturl; ?>" id="indexform" method="post" enctype="multipart/form-data">
+<div class="row-fluid margin0 view">
+    <div class="col-md-12 padding0">
+    	<div class="headerbox">
+            <table class="table border0 nohover margin0">                       
+                <tr>		                    
+                    <td class="padding2">
+                    	<button type="submit" class="btn btn-primary savethenview save"><i class="glyphicon glyphicon-ok icon-white"></i> <?php echo $button_title; ?></button>
+                        <a class="btn btn-default cancel gonowhere"><i class="glyphicon glyphicon-remove"></i> <?php echo $this->translate('global_button_cancel'); ?></a>
+                        <input type="hidden" name="entityname" value="Organisation" />
+                        <input type="hidden" id="id" name="id" value="<?php echo encode($organisation->getID()); ?>" />
+                        <input type="hidden" id="<?php echo SUCCESS_MESSAGE; ?>" name="<?php echo SUCCESS_MESSAGE; ?>" value="<?php echo $successmessage; ?>" />
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    <?php if($sessionhaserror) { ?>
+        <div class="alert alert-danger"><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
+    <?php } ?>
+    <?php if (!isEmptyString($session->getVar(SUCCESS_MESSAGE))) { ?>
+        <div class="alert alert-success alert-dismissable"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button> <?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
+    <?php } ?>
+    <div class="contentcontainer clearfix">
+        <div class="row-fluid margin0">
+            <div class="col-md-12">
+                <fieldset class="fieldsetcontainer">
+                    <legend><?php //echo $title; ?></legend>
+                    <div class="panel-body well-sm">
+                        <div class="row-fluid marginleft5">
+                            <div class="col-md-12">
+                            	<?php if($organisation->getType() != 1){ ?>
+                                    <div class="form-group">
+                                        <label class="col-md-12 control-label">Type: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                        <div class="col-md-8">
+                                        	<?php
+                                                $allvalues = array('2'=>'Ministry','1'=>'Church');
+                                                $dropdown = new Zend_Form_Element_Select('type',
+                                                                    array(
+                                                                        'multiOptions' => array_merge_maintain_keys(array('' => '<Select One>'), $allvalues),
+                                                                        'view' => new Zend_View(),
+                                                                        'decorators' => array('ViewHelper'),
+                                                                        'class' => array('form-control','chosen-select','width150')
+                                                                    )
+                                                );  
+                                                $dropdown->setValue($organisation->getType()); 
+                                                echo $dropdown->render();
+                                            ?>
+                                            <div id="type_error"></div>
+                                        </div>
+                                    </div>
+                                <?php } else { ?>
+                                	<input type="hidden" name="type" id="type" value="<?php echo $organisation->getType(); ?>" />
+                                <?php } ?>
+                                <div class="form-group">
+                                    <label class="col-md-12 control-label">Name: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                    <div class="col-md-8">
+                                        <input type="text" class="form-control" id="name" name="name" value="<?php echo $organisation->getName(); ?>" /><div id="name_error"></div>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="col-md-12 control-label">Biography:</label>
+                                    <div class="col-md-8">
+                                        <textarea name="bio" id="bio" class="form-control expanding"><?php echo $organisation->getBio(); ?></textarea>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="col-md-12 control-label">Vision:</label>
+                                    <div class="col-md-8">
+                                        <textarea name="vision" id="vision" class="form-control expanding"><?php echo $organisation->getVision(); ?></textarea>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="col-md-12 control-label">Mission:</label>
+                                    <div class="col-md-8">
+                                        <textarea name="mission" id="mission" class="form-control expanding"><?php echo $organisation->getMission(); ?></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </fieldset>
+                <fieldset class="fieldsetcontainer">
+                    <legend>Contacts</legend>
+                    <div class="panel-body well-sm">
+                        <div class="row-fluid marginleft5">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label class="col-md-12 control-label">Name of Contact Person: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                    <div class="col-md-8">
+                                        <div class="contact_text">
+                                            <input type="text" name="leadname" id="leadname" class="form-control input-width-medium" value="<?php echo $organisation->getLeadName(); ?>" />
+                                        </div>
+                                        <div class="divider2"></div>                                            
+                                        <div class="contact_select">
+                                            <?php
+                                                $allvalues = getUsers();
+                                                $dropdown = new Zend_Form_Element_Select('leadid',
+                                                                    array(
+                                                                        'multiOptions' => array_merge_maintain_keys(array('' => '<Select One>'), $allvalues),
+                                                                        'view' => new Zend_View(),
+                                                                        'decorators' => array('ViewHelper'),
+                                                                        'class' => array('form-control','chosen-select')
+                                                                    )
+                                                );  
+                                                $dropdown->setValue($organisation->getLeadID()); 
+                                                echo $dropdown->render();
+                                            ?>
+                                        </div>
+                                        <div class="divider2"></div> 
+                                        <label class="radio radio-inline"><input type="radio" name="contacttrigger" id="contacttrigger_0" class="contacttrigger <?php echo !isEmptyString($organisation->getLeadName()) || isEmptyString($organisation->getID()) || (isEmptyString($organisation->getLeadID()) && isEmptyString($organisation->getLeadName())) ? '1' : '0'; ?>" <?php echo !isEmptyString($organisation->getLeadName()) || isEmptyString($organisation->getID()) || (isEmptyString($organisation->getLeadID()) && isEmptyString($organisation->getLeadName())) ? 'checked' : ''; ?> /> Not a Member at this time</label>           
+                                        <label class="radio radio-inline"><input type="radio" name="contacttrigger" id="contacttrigger_1" class="contacttrigger <?php echo !isEmptyString($organisation->getLeadID()) ? '1' : '0'; ?>" <?php echo !isEmptyString($organisation->getLeadID()) ? 'checked' : ''; ?> /> Is a Member</label>
+                                        
+                                        <div id="leadid_error"></div>
+                                        <div id="leadname_error"></div>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="col-md-12 control-label">Role:</label>
+                                    <div class="col-md-8">
+                                        <input type="text" name="leadrole" id="leadrole" class="form-control input-width-medium" value="<?php echo $organisation->getLeadRole(); ?>" /><div id="leadrole_error"></div>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="col-md-12 control-label">Date Registered:</label>
+                                    <div class="col-md-8">
+                                        <input type="text" class="form-control input-sm datefield readonly width100" name="regdate" id="regdate" value="<?php echo changeMySQLDateToPageFormat($organisation->getRegDate()); ?>" /><div id="regdate_error"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 paddingleft10">
+                                <div class="form-group">
+                                    <label class="col-md-12 control-label">Contact Phone:</label>
+                                    <div class="col-md-8">
+                                        <input type="text" name="phone" id="phone" class="form-control width150 inline" value="<?php echo $organisation->getPhone(); ?>" placeholder="e.g 256782123456" maxlength="12" /> 
+                                        <input type="hidden" name="oldphone" id="oldphone" value="<?php echo $organisation->getPhone(); ?>" />
+                                        <div id="phone_error"></div>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="col-md-12 control-label">Contact Email:</label>
+                                    <div class="col-md-8">
+                                        <input type="text" name="email" id="email" class="form-control input-width-medium" value="<?php echo $organisation->getEmail(); ?>" /><div id="email_error"></div>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="col-md-12 control-label">Website/Facebook Page:</label>
+                                    <div class="col-md-8">
+                                        <input type="text" name="website" id="website" class="form-control" value="<?php echo $organisation->getWebsite(); ?>" /><div id="website_error"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </fieldset>
+                <div class="row-fluid margin0">
+                    <div class="col-md-12 paddingleft0">
+                        <fieldset class="fieldsetcontainer" style="margin-top:0;">
+                            <legend>Location</legend>
+                            <div class="panel-body well-sm">
+                                <div class="row-fluid marginleft5">
+                                    <div class="col-md-6">
+                                        <div class="form-group clearfix">
+                                            <label class="col-md-4 control-label"><?php echo $this->translate("global_region_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                            <div class="col-md-8">
+                                                <?php
+                                                      $values = getNFBPCRegions();
+                                                      $dropdown = new Zend_Form_Element_Select('regionid',
+                                                              array(
+                                                                    'multiOptions' => array_merge_maintain_keys(array('' => '<Select one>'), $values),
+                                                                    'view' => new Zend_View(),
+                                                                    'decorators' => array(array('ViewHelper')),
+                                                                    'class' => array('form-control','input-sm')
+                                                              )
+                                                      );
+                                                      
+                                                      $dropdown->setValue($organisation->getRegionID());
+                                                      echo $dropdown->render();
+                                                  ?><div id="regionid_error"></div>
+                                            </div>
+                                        </div>
+                                        <div class="form-group clearfix">
+                                            <label class="col-md-4 control-label"><?php echo $this->translate("global_province_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                            <div class="col-md-8">
+                                                <?php
+                                                      $values = getProvinces();
+                                                      $dropdown = new Zend_Form_Element_Select('provinceid',
+                                                              array(
+                                                                    'multiOptions' => array_merge_maintain_keys(array('' => '<Select one>'), $values),
+                                                                    'view' => new Zend_View(),
+                                                                    'decorators' => array(array('ViewHelper')),
+                                                                    'class' => array('form-control','input-sm')
+                                                              )
+                                                      );
+                                                      
+                                                      $dropdown->setValue($organisation->getProvinceID());
+                                                      echo $dropdown->render();
+                                                  ?><div id="provinceid_error"></div>
+                                            </div>
+                                        </div>
+                                        <div class="form-group clearfix">
+                                            <label class="col-md-4 control-label"><?php echo $this->translate("global_district_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                            <div class="col-md-8">
+                                                <?php
+                                                      $values = getDistricts();
+                                                      $dropdown = new Zend_Form_Element_Select('districtid',
+                                                              array(
+                                                                    'multiOptions' => array_merge_maintain_keys(array('' => '<Select one>'), $values),
+                                                                    'view' => new Zend_View(),
+                                                                    'decorators' => array(array('ViewHelper')),
+                                                                    'class' => array('form-control','input-sm')
+                                                              )
+                                                      );
+                                                      
+                                                      $dropdown->setValue($organisation->getDistrictID());
+                                                      echo $dropdown->render();
+                                                  ?><div id="districtid_error"></div>
+                                            </div>
+                                        </div>
+                                        <div class="form-group clearfix">
+                                            <label class="col-md-4 control-label"><?php echo $this->translate("global_county_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                            <div class="col-md-8">
+                                                <?php
+                                                      $values = array();
+                                                      $dropdown = new Zend_Form_Element_Select('countyid',
+                                                              array(
+                                                                    'multiOptions' => array_merge_maintain_keys(array('' => '<Select district first>'), $values),
+                                                                    'view' => new Zend_View(),
+                                                                    'decorators' => array(array('ViewHelper')),
+                                                                    'class' => array('form-control','input-sm')
+                                                              )
+                                                      );
+                                                      
+                                                      $dropdown->setValue($organisation->getCountyID());
+                                                      echo $dropdown->render();
+                                                  ?><div id="countyid_error"></div>
+                                            </div>
+                                        </div>
+                                        <div class="form-group clearfix">
+                                            <label class="col-md-4 control-label"><?php echo $this->translate("global_subcounty_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                            <div class="col-md-8">
+                                                <?php
+                                                      $values = array();
+                                                      $dropdown = new Zend_Form_Element_Select('subcountyid',
+                                                              array(
+                                                                    'multiOptions' => array_merge_maintain_keys(array('' => '<Select county first>'), $values),
+                                                                    'view' => new Zend_View(),
+                                                                    'decorators' => array(array('ViewHelper')),
+                                                                    'class' => array('form-control','input-sm')
+                                                              )
+                                                      );
+                                                      
+                                                      $dropdown->setValue($organisation->getSubCountyID());
+                                                      echo $dropdown->render();
+                                                  ?><div id="subcountyid_error"></div>
+                                            </div>
+                                        </div>
+                                        <div class="form-group clearfix">
+                                            <label class="col-md-4 control-label"><?php echo $this->translate("global_parish_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                            <div class="col-md-8">
+                                                <?php
+                                                      $values = array();
+                                                      $dropdown = new Zend_Form_Element_Select('parishid',
+                                                              array(
+                                                                    'multiOptions' => array_merge_maintain_keys(array('' => '<Select sub-county first>'), $values),
+                                                                    'view' => new Zend_View(),
+                                                                    'decorators' => array(array('ViewHelper')),
+                                                                    'class' => array('form-control','input-sm')
+                                                              )
+                                                      );
+                                                      
+                                                      $dropdown->setValue($organisation->getParishID());
+                                                      echo $dropdown->render();
+                                                  ?><div id="parishid_error"></div>
+                                            </div>
+                                        </div>
+                                        <div class="form-group clearfix">
+                                            <label class="col-md-4 control-label"><?php echo $this->translate("global_village_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                            <div class="col-md-8 nullifempty">
+                                                <?php
+                                                      $values = array();
+                                                      $dropdown = new Zend_Form_Element_Select('villageid',
+                                                              array(
+                                                                    'multiOptions' => array_merge_maintain_keys(array('' => '<Select parish first>'), $values),
+                                                                    'view' => new Zend_View(),
+                                                                    'decorators' => array(array('ViewHelper')),
+                                                                    'class' => array('form-control','input-sm')
+                                                              )
+                                                      );
+                                                      
+                                                      $dropdown->setValue($organisation->getVillageID());
+                                                      echo $dropdown->render();
+                                                  ?><div id="villageid_error"></div>
+                                            </div>
+                                        </div>
+                                        <div class="form-group clearfix">
+                                            <label class="col-md-4 control-label"><?php echo $this->translate("global_address_label"); ?>:</label>
+                                            <div class="col-md-8">
+                                                <textarea name="address1" id="address1" class="form-control expanding"><?php echo $organisation->getAddress1(); ?></textarea>
+                                            </div>
+                                        </div>
+                                        <div class="form-group clearfix">
+                                            <label class="col-md-4 control-label">GPS:</label>
+                                            <div class="col-md-8">
+                                                <input type="text" name="gpslat" id="gpslat" placeholder="Latitude e.g 0.301254" class="form-control isdecimal inline" value="<?php echo $organisation->getGpsLat(); ?>" style="margin-bottom:4px;" />
+                                                <input type="text" name="gpslng" id="gpslng" placeholder="Longitude e.g 30.362152" class="form-control isdecimal inline" value="<?php echo $organisation->getGpsLng(); ?>" style="margin-bottom:4px;" />
+                                                <div id="gpslat_error"></div><div id="gpslng_error"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </fieldset>                                                                        
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+	</div>                   
+</div>    
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

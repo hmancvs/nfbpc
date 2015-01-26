@@ -6,14 +6,27 @@ class AuditTrail extends BaseRecord {
 		parent::setTableDefinition();
 		
 		$this->setTableName('audittrail');
-		$this->hasColumn('userid', 'integer', 11);
-		$this->hasColumn('transactiontype', 'string', 50, array('notnull' => true, 'notblank' => true));
+		$this->hasColumn('userid', 'integer', null);
+		$this->hasColumn('module', 'integer', null);
+		$this->hasColumn('usecase', 'string', 50);
+		$this->hasColumn('transactiontype', 'string', 50, array('notblank' => true));
 		$this->hasColumn('transactiondetails', 'string', 1000);
-		$this->hasColumn('transactiondate','timestamp', null, array('notnull' => true, 'notblank' => true, 'default' => date("Y-m-d H:i:s")));
-		$this->hasColumn('executedby', 'integer', 11);
-		$this->hasColumn('success', 'enum', null, array('values' => array(1 => 'Y', 0 => 'N'), 'default' => 'N'));
-		$this->hasColumn('browserdetails', 'string', 100);
+		$this->hasColumn('transactiondate','timestamp', null, array('notblank' => true, 'default' => date("Y-m-d H:i:s")));
+		$this->hasColumn('status', 'enum', null, array('values' => array(1 => 'Y', 0 => 'N'), 'default' => 'N'));
 		
+		$this->hasColumn('url', 'string', 1000);
+		$this->hasColumn('isupdate', 'integer', null, array('default' => '0'));
+		$this->hasColumn('prejson', 'string', 65536);
+		$this->hasColumn('postjson', 'string', 65536);
+		$this->hasColumn('jsondiff', 'string', 65536);
+		
+		$this->hasColumn('browserdetails', 'string', 1000);
+		$this->hasColumn('browser', 'string', 50);
+		$this->hasColumn('version', 'string', 50);
+		$this->hasColumn('useragent', 'string', 255);
+		$this->hasColumn('os', 'string', 50);
+		$this->hasColumn('ismobile', 'string', 50);
+		$this->hasColumn('ipaddress', 'string', 50);
 	}
 	/**
 	 * Contructor method for custom functionality - add the fields to be marked as dates
@@ -22,11 +35,10 @@ class AuditTrail extends BaseRecord {
 		//$this->addDateFields(array()); 
 		// set the custom error messages
        	$this->addCustomErrorMessages(array(
-       									"userid.notblank" => "Please select member",
-       									"transactiontype.notblank" => "Please select transaction type",
-       									"transactiondetails.notblank" => "Please enter transaction details",	
-       									"transactiondate.notblank" => "Please enter the transaction date",
-       									"executedby.notblank" => "Please select member performing transaction"
+       									"userid.notblank" => "No User specified",
+       									"transactiontype.notblank" => "No transaction type specified",
+       									"transactiondetails.notblank" => "No transaction details specified",	
+       									"transactiondate.notblank" => "No transaction date specified"
        								));
        
 		parent::construct();		
@@ -50,12 +62,15 @@ class AuditTrail extends BaseRecord {
 	 * 
 	 * @see BaseRecord::processPost
 	 */
-	public function processPost($post_array) {
+	public function processPost($formvalues) {
 		// remove the executedby field if it is empty
-		if (isArrayKeyAnEmptyString('executedby', $post_array)) {
-			unset($post_array['executedby']); 
+		if (isArrayKeyAnEmptyString('isupdate', $formvalues)) {
+			unset($formvalues['isupdate']); 
 		}
-		parent::processPost($post_array); 
+		if (isArrayKeyAnEmptyString('userid', $formvalues)) {
+			unset($formvalues['userid']);
+		}
+		parent::processPost($formvalues); 
 	}	
 }
 ?>

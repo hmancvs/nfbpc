@@ -294,6 +294,9 @@ select.auto, .auto, td.auto, table.auto {
 .normaltext {
 	font-style:normal;
 }
+.italisize {
+	font-style:italic;
+}
 .pagedescription {
 	color:#666666;
 	font-style:italic;
@@ -368,6 +371,9 @@ a.link, .link {
 .minheight100 {
 	min-height:100px;
 }
+.minheight150 {
+	min-height:150px;
+}
 .minheight200 {
 	min-height:200px;
 }
@@ -414,72 +420,7 @@ a.link, .link {
 }
 
 /*Search bar */
-.contentArea {
-	width:320px;
-	margin:0 auto;
-	padding:0;
-	padding-bottom:0;
-	z-index:1;
-}
-#inputSearch {
-	width:290px;
-	padding:8px;
-	float:right;
-}
-#divResult {
-	position:absolute;
-	width:325px;
-	display:none;
-	margin-top:0;
-	margin-left:0;
-	border-top:0px;
-	overflow:hidden;
-	box-shadow: 0px 0px 5px #999;
-	border: 1px solid #6DADBD;
-	background-color: white;
-	z-index:900;
-	max-height:600px;
-	overflow-y:scroll;
-	list-style:none;
-}
-.display_box {
-	padding:4px; 
-	border-top:solid 1px #dedede; 
-	font-size:12px; 
-	min-height:0;
-	height:auto;
-	color:#666666;
-	padding-bottom:5px;
-}
-li.display_box.selected {
-	background:#EEEFEE;
-	color:#565B4F;
-	cursor:pointer;
-}
-.separator {
-	padding:0 5px 0 20px; 
-	border:solid 1px #dedede; 
-	height:auto;
-	background-color:#4D7496;
-	color:#fff;
-}
-.separator .allresults {
-	display:inline;
-	float:right;
-	position:relative;
-}
-.separator .allresults a {
-	color:#fff;
-	text-decoration:underline;
-}
-.separator span {
-	width:100%; 
-	display:inline;
-	color:#fff; 
-	text-align:left;
-	font-weight:bold;
-	font-size:11px; 
-}
+/**/
 
 /*
  * imgAreaSelect style to be used with deprecated options
@@ -650,7 +591,7 @@ li.display_box.selected {
 }
 .peoplelist {
     margin: 25px 0;
-	margin-top:10px;
+	margin-top:0;
 	-webkit-border-radius: 2px;
 	-moz-border-radius: 2px;
 	border-radius: 2px;
@@ -664,7 +605,7 @@ li.display_box.selected {
     border: 1px solid #CCCCCC;
     height: 130px;
     margin-bottom: 10px;
-    padding: 15px;
+    padding: 15px 10px;
 }
 .peoplelist .thumb {
     float: left;
@@ -674,7 +615,7 @@ li.display_box.selected {
     width: 80px;
 }
 .peoplelist .peopleinfo {
-    margin-left: 100px;
+    margin-left: 95px;
 	margin-top:-15px;
 }
 .peoplelist .peopleinfo h4 {
@@ -708,10 +649,10 @@ li.display_box.selected {
 /* custom pagination styles */
 .pager {
 	list-style: none outside none;
-	margin-bottom: 12px;
-	margin-left: 0;
+	margin-bottom: 0;
+	margin-left: 5px;
 	margin-top:0;
-	text-align: center;
+	text-align: left;
 }
 .pager:before, .pager:after {
     content: "";

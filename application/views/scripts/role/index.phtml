@@ -1,56 +1,64 @@
 <?php
-	require_once APPLICATION_PATH.'/includes/header.php';
+	include APPLICATION_PATH.'/includes/header.php';
 	
-	#create object
 	$role = new AclGroup();
+	$id = decode($request->id);
 	
-	$resourcelookuptype = new LookupType;
-	$resourcelookuptype->setName("ALL_RESOURCES");
-	$resourcearray = $resourcelookuptype->getOptionValuesFromQuery();
-	
-	$definedactions = ACL::getActions(); 
+	$resourcearray = getResources();
+	$definedactions = ACL::getActions();
 	
 	if(isEmptyString($request->id)){
-		$successmessage = $this->translate('global_save_success');
-		$button_title = $this->translate("global_button_save");
-		$posturl = $this->baseUrl("role/create");
 		$title = 'New User Role and Permissions';
+		$description = '';
+		$button_title = $this->translate("global_button_save"); 
+		$successmessage = $this->translate('global_save_success');
 	} else {
 		$role->populate(decode($request->id));
-		$successmessage = $this->translate('global_update_success');
-		$button_title = $this->translate("global_button_save_changes");
-		// $posturl = $this->baseUrl("role/edit"); 
 		$title = 'Update Permissions';
+		$description = '';
+		$button_title = $this->translate("global_button_save");
+		$successmessage = $this->translate('global_update_success');
 	}
 	$posturl = $this->baseUrl("role/processroles");
+	
 	#in case of errors in session, populate the fields from session
 	if(!isEmptyString($session->getVar(ERROR_MESSAGE))){ 
 		$role->processPost($session->getVar(FORM_VALUES));	
 	}
 	
-	$listurl = $this->baseUrl("role/list");
-	$description = $role->getName()." - ".$role->getDescription();
-	$icon = $this->baseUrl('images/icon_settings.png');
 	$this->headTitle($title.$browserappend);
 ?>
 <script>
-$(document).ready(function(){
-	$("#levelone_icon").addClass('icon-key');
-	$("#levelone_link").attr('href', '<?php echo $listurl; ?>').html('User Roles');
-	$("#leveltwo_link").html('Permissions');
+$(document).ready(function() {
+	$('.titlebreadcrumb').html('<?php echo $homedir.'Roles / '.$title; ?>');
+	$('.titlelabel').html('<?php echo $title; ?>');
+	$('.desclabel').html('<?php echo $description; ?>');
+	$('.pageicon').html('<span class="glyphicon glyphicon-cog"></span>');
 	
-	// validation code for the form
-	$("#aclgroupform").validate({		
+	$("#indexform").validate({		
 		// define the validation rules one field at a time
 		rules: {
 			name: "required",
 			description: "required"
 		}, 
 		// the messages for each of the fields being validated
-		messages: {				
+		messages: {		
 			name: "<?php echo $this->translate("role_name_error"); ?>",
 			description: "<?php echo $this->translate("role_description_error"); ?>"
-		}
+		},
+		// custom error positions
+		errorPlacement: function(error, element) {
+			switch(element.attr("name")){					
+				default:
+					if(element.hasClass("useid_error")){
+						error.appendTo("#"+element.attr("id")+"_error");
+					} else {
+						error.appendTo("#"+element.attr("name")+"_error");
+					}
+					break;
+			}			
+		},
+		ignore: ":hidden:not(select)"
 	});
 	
 	// handling of checkbox selections for the permissions
@@ -91,128 +99,123 @@ $(document).ready(function(){
 			$("input."+id).val('0');
 		}
 	});
-}); 
+});
 </script>
-
-<div id="index_role">
-    <!--=== Page Header ===-->
-    <div class="page-header">
-        <div class="page-title">
-            <h3><?php echo $title; ?></h3>
-            <span><?php echo isEmptyString($role->getID()) ? 'New Role and Permissions' : 'Edit Role Permissions'; ?></span>
-        </div>
-    </div>
-    <form id="indexform" class="form-horizontal row-border" action="<?php echo $posturl; ?>" method="post">
-        <input name="entityname" id="entityname" type="hidden" value="AclGroup" />
-        <input type="hidden" id="id" name="id" value="<?php echo encode($role->getID()); ?>" />
-        <input type="hidden" id="<?php echo SUCCESS_MESSAGE; ?>" name="<?php echo SUCCESS_MESSAGE; ?>" value="<?php echo $successmessage; ?>" /> 
-        <?php if ($sessionhaserror) { ?>
-            <div class="alert alert-danger fade in"><i class="icon-remove close" data-dismiss="alert"></i><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
-        <?php } ?>
-        <?php if (!isEmptyString($session->getVar(SUCCESS_MESSAGE))) { ?>
-            <div class="alert alert-success fade in"><i class="icon-remove close" data-dismiss="alert"></i><?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
-        <?php } ?>
-        <!--=== Page Content ===-->
-        <div class="form-actions fluid" id="topactions">
-            <div class="row">
-                <div class="col-md-12">
-                    <div class="xcol-md-offset-2 xcol-md-10 pull-left">
-                        <a class="btn button-previous" href="<?php echo $this->referer; ?>"><i class="icon-remove"></i> <?php echo $this->translate('global_button_cancel'); ?></a>
-                        <button type="submit" class="btn btn-primary button-submit save" name="save"><i class="icon-ok icon-white"></i> <?php echo $button_title; ?></button>
-                    </div>
-                </div>
+<div class="row-fluid margin0 index">
+    <form id="indexform" class="form-horizontal" role="form" action="<?php echo $posturl; ?>" method="post">
+        <div class="col-md-12 padding0">
+            <div class="headerbox">
+                <table class="table border0 nohover margin0">                       
+                    <tr>		                    
+                        <td class="padding2">
+                            <button type="submit" class="btn btn-primary savethenview save"><i class="glyphicon glyphicon-ok icon-white"></i> <?php echo $button_title; ?></button>
+                            <a class="btn btn-default cancel gonowhere"><i class="glyphicon glyphicon-remove"></i> <?php echo $this->translate('global_button_cancel'); ?></a>
+                            <input name="entityname" id="entityname" type="hidden" value="AclGroup" />
+        					<input type="hidden" id="id" name="id" value="<?php echo encode($role->getID()); ?>" />
+                            <input type="hidden" id="<?php echo SUCCESS_MESSAGE; ?>" name="<?php echo SUCCESS_MESSAGE; ?>" value="<?php echo $successmessage; ?>" /> 
+                        </td>
+                    </tr>
+                </table>
             </div>
         </div>
-        <div class="row">
-            <div class="col-md-12">
-                <div class="widget box">
-                    <div class="widget-header">
-                        <h4><i class="icon-reorder"></i> About</h4>
-                    </div>
-                    <div class="widget-content leftalignlabels clearfix">
-                    	<table class="table xtable-bordered responsive">
-                            <tbody>
-                                <tr>
-                                    <td style="width:120px;"><label class="control-label name">Name: <?php echo $this->translate("global_required_field_marker"); ?></label></td>
-                                    <td><input type="text" name="name" id="name" class="col-md-3" value="<?php echo $role->getName(); ?>" /><div id="name_error"></div>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td><label class="control-label name">Description: <?php echo $this->translate("global_required_field_marker"); ?></label></td>
-                                    <td><textarea name="description" id="description" class="expanding col-md-5" style="min-height:70px; width:85%;"><?php echo $role->getdescription(); ?></textarea><div id="description_error"></div>
-                                    </td>
-                                </tr>
-                            </tbody>                    
-                        </table>
-                    </div>
-             	</div>
-			</div>
-		</div> 
-        <div class="row">
-            <div class="col-md-12">
-                <div class="widget box">
-                    <div class="widget-header">
-                        <h4><i class="icon-reorder"></i> Persmissions</h4>
-                    </div>
-                    <div class="widget-content leftalignlabels clearfix"> 
-                    	<table class="table table-bordered contentviewtable">
-                            <thead>
-                                <tr>
-                                    <th class="xlabel">Resources</th>
-                                    <th class="xlabel">All</th> 	
-                                    <?php
-                                        foreach($definedactions as $value) {
-                                    ?>
-                                    <th class="xlabel" style="width:11%; text-align:center;"><?php echo ucfirst($value); ?></th>
-                                    <?php 
-                                        } // end creating the header column for each action
-                                    ?> 
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php
-                                    $counter = 0;
-                                    foreach($resourcearray as $resourceid => $resourceName) {
-                                    // load the permission instance for the specified resource, since for each group and resource there is only one permission instance
-                                    $theresource = new AclResource();
-                                    $theresource->populate($resourceid);
-                                    // debugMessage($theresource->toArray());
-                                    $permission = $role->getPermissionForResource($resourceid); 
-                                    // debugMessage($permission->toArray());
-                                    
-                                    if(!isEmptyString($permission->getID())){
-                                         $resource_ref = $counter;
-                                    } else {
-                                        $resource_ref = md5($resourceid); 
-                                    }
-                                ?>
-                                <tr>
-                                    <td class="xlabel"><?php echo $resourceName; ?>
-                                    <input type="hidden" name="permissions[<?php echo $resource_ref; ?>][resourceid]" id="permissions_<?php echo $resource_ref; ?>_resourceid" value="<?php echo $resourceid; ?>" />
-                                    <input type="hidden" name="permissions[<?php echo $resource_ref; ?>][id]" id="permissions_<?php echo $resource_ref; ?>_id" value="<?php echo $permission->getID(); ?>" />
-                                    <input type="hidden" name="permissions[<?php echo $resource_ref; ?>][groupid]" id="permissions_<?php echo $resource_ref; ?>_groupid" value="<?php echo $role->getID(); ?>" /></td>
-                                    <td><input name="allpermissionscheckbox" id="checkall_<?php echo $resourceid; ?>" type="checkbox" value="resource_<?php echo $resourceid; ?>" /></td>                     
-                                    <?php 
-                                        foreach($definedactions as $theaction) {
-                                    ?>
-                                        <td align="center">
-                                        <?php if ($theresource->get($theaction) == 1) { ?>
-                                            <input type="checkbox" name="chk<?php echo $theaction; ?>[]" id="chk<?php echo $theaction; ?>_<?php echo $resourceid; ?>" value="1" class="resource_<?php echo $resourceid; ?> resourcetrigger" <?php echo $permission->getCheckedStatus($theaction); ?>  />
-                                            <input type="hidden" name="permissions[<?php echo $resource_ref; ?>][<?php echo $theaction; ?>]" id="<?php echo $theaction; ?>_<?php echo $resourceid; ?>" class="chk<?php echo $theaction; ?>_<?php echo $resourceid; ?> checkall_<?php echo $resourceid; ?>" value="<?php echo $permission->checkPermissionForAction($theaction); ?> " />
-                                        <?php } ?>	
-                                        </td>	
-                                    <?php } ?>  
-                                </tr>
-                                <?php $counter++; } ?> 
-                            </tbody>                             
-                        </table>
-                    </div>
-				</div>
-			</div>
-		</div>                                                                          
-    </form>
-</div> 
-   
+        <?php if ($sessionhaserror) { ?>
+            <div class="alert alert-danger"><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
+        <?php } ?>
+        <?php if (!isEmptyString($session->getVar(SUCCESS_MESSAGE))) { ?>
+            <div class="alert alert-success alert-dismissable"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button> <?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
+        <?php } ?>
+        <div class="contentcontainer clearfix">
+        	<div class="row-fluid marginleft5">
+            	<div class="col-md-12">
+                    <fieldset class="fieldsetcontainer">
+                        <legend>About</legend>
+                        <div class="panel-body well-sm">
+                            <div class="col-md-9">
+                            	<div class="row-fluid margin">
+                                	<div class="col-md-12 paddingleft0">
+                                    	<div class="form-group">
+                                            <label class="col-sm-2 control-label"><?php echo $this->translate("global_name_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                            <div class="col-sm-10">
+                                                <input type="text" class="form-control input-sm width300" id="name" name="name" value="<?php echo $role->getName(); ?>" /><div id="name_error"></div>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="col-md-2 control-label"><?php echo $this->translate('global_description_label'); ?>:</label>
+                                            <div class="col-md-10">
+                                                <textarea class="form-control expanding" id="description" name="description"><?php echo $role->getDescription(); ?></textarea>
+                                                <div id="description_error"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </fieldset>
+                    <fieldset class="fieldsetcontainer">
+                        <legend>Permissions</legend>
+                        <div class="panel-body well-sm">
+                            <div class="col-md-12">
+                            	<div class="row-fluid margin">
+                                	<table class="table table-bordered contentviewtable">
+                                        <thead>
+                                            <tr>
+                                                <th class="xlabel">Resources</th>
+                                                <th class="xlabel">All</th> 	
+                                                <?php
+                                                    foreach($definedactions as $value) {
+                                                ?>
+                                                <th class="xlabel" style="width:11%; text-align:center;"><?php echo ucfirst($value); ?></th>
+                                                <?php 
+                                                    } // end creating the header column for each action
+                                                ?> 
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php
+                                                $counter = 0;
+                                                foreach($resourcearray as $resourceid => $resourceName) {
+                                                // load the permission instance for the specified resource, since for each group and resource there is only one permission instance
+                                                $theresource = new AclResource();
+                                                $theresource->populate($resourceid);
+                                                // debugMessage($theresource->toArray());
+                                                $permission = $role->getPermissionForResource($resourceid); 
+                                                // debugMessage($permission->toArray());
+                                                
+                                                if(!isEmptyString($permission->getID())){
+                                                     $resource_ref = $counter;
+                                                } else {
+                                                    $resource_ref = md5($resourceid); 
+                                                }
+                                            ?>
+                                            <tr>
+                                                <td class="xlabel"><?php echo $resourceName; ?>
+                                                <input type="hidden" name="permissions[<?php echo $resource_ref; ?>][resourceid]" id="permissions_<?php echo $resource_ref; ?>_resourceid" value="<?php echo $resourceid; ?>" />
+                                                <input type="hidden" name="permissions[<?php echo $resource_ref; ?>][id]" id="permissions_<?php echo $resource_ref; ?>_id" value="<?php echo $permission->getID(); ?>" />
+                                                <input type="hidden" name="permissions[<?php echo $resource_ref; ?>][groupid]" id="permissions_<?php echo $resource_ref; ?>_groupid" value="<?php echo $role->getID(); ?>" /></td>
+                                                <td><input name="allpermissionscheckbox" id="checkall_<?php echo $resourceid; ?>" type="checkbox" value="resource_<?php echo $resourceid; ?>" /></td>                     
+                                                <?php 
+                                                    foreach($definedactions as $theaction) {
+                                                ?>
+                                                    <td align="center">
+                                                    <?php if ($theresource->get($theaction) == 1) { ?>
+                                                        <input type="checkbox" name="chk<?php echo $theaction; ?>[]" id="chk<?php echo $theaction; ?>_<?php echo $resourceid; ?>" value="1" class="resource_<?php echo $resourceid; ?> resourcetrigger" <?php echo $permission->getCheckedStatus($theaction); ?>  />
+                                                        <input type="hidden" name="permissions[<?php echo $resource_ref; ?>][<?php echo $theaction; ?>]" id="<?php echo $theaction; ?>_<?php echo $resourceid; ?>" class="chk<?php echo $theaction; ?>_<?php echo $resourceid; ?> checkall_<?php echo $resourceid; ?>" value="<?php echo $permission->checkPermissionForAction($theaction); ?> " />
+                                                    <?php } ?>	
+                                                    </td>	
+                                                <?php } ?>  
+                                            </tr>
+                                            <?php $counter++; } ?> 
+                                        </tbody>                             
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </fieldset>
+                </div>
+            </div>
+   		</div>
+ 	</form>
+</div>
 <?php
 	require_once APPLICATION_PATH.'/includes/footer.php';
 ?>

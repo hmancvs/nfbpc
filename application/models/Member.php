@@ -20,6 +20,7 @@ class Member extends BaseEntity {
 		$this->hasColumn('regionid', 'integer', null, array('default' => NULL));
 		$this->hasColumn('provinceid', 'integer', null, array('default' => NULL));
 		$this->hasColumn('districtid', 'integer', null, array('default' => NULL));
+		// $this->hasColumn('memberdistrictid', 'integer', null, array('default' => NULL));
 		$this->hasColumn('countyid', 'integer', null, array('default' => NULL));
 		$this->hasColumn('subcountyid', 'integer', null, array('default' => NULL));
 		$this->hasColumn('parishid', 'integer', null, array('default' => NULL));
@@ -51,7 +52,7 @@ class Member extends BaseEntity {
 		$this->hasColumn('dateinvited','date');
 		
 		$this->hasColumn('organisationid', 'integer', null);
-		$this->hasColumn('bio', 'string', 1000);
+		$this->hasColumn('bio', 'string', 65535);
 		$this->hasColumn('gender', 'integer', null); # 1=Male, 2=Female, 3=Unknown
 		$this->hasColumn('dateofbirth','date');
 		$this->hasColumn('profilephoto', 'string', 50);
@@ -77,6 +78,8 @@ class Member extends BaseEntity {
 	protected $changeemail;
 	protected $isinvited;
 	protected $isphoneinvited;
+	protected $preupdatedata;
+	protected $controller;
 	
 	function getOldPassword(){
 		return $this->oldpassword;
@@ -114,17 +117,29 @@ class Member extends BaseEntity {
 	function setChangeEmail($changeemail) {
 		$this->changeemail = $changeemail;
 	}
-	function getIsinvited(){
-		return $this->isinvited;
+	function getIsBeinginvited(){
+		return $this->isbeinginvited;
 	}
-	function setIsinvited($isinvited) {
-		$this->isinvited = $isinvited;
+	function setIsBeingInvited($isbeinginvited) {
+		$this->isbeinginvited = $isbeinginvited;
 	}
 	function getNameofmember(){
 		return $this->nameofmember;
 	}
 	function setNameofmember($nameofmember) {
 		$this->nameofmember = $nameofmember;
+	}
+	function getPreUpdateData(){
+		return $this->preupdatedata;
+	}
+	function setPreUpdateData($preupdatedata) {
+		$this->preupdatedata = $preupdatedata;
+	}
+	function getController(){
+		return $this->controller;
+	}
+	function setController($controller) {
+		$this->controller = $controller;
 	}
 	
 	# Contructor method for custom initialization
@@ -194,7 +209,7 @@ class Member extends BaseEntity {
 						);
 		$this->hasOne('Province as province',
 								array(
-										'local' => 'regionid',
+										'local' => 'provinceid',
 										'foreign' => 'id'
 								)
 						);
@@ -245,9 +260,9 @@ class Member extends BaseEntity {
 			$this->getErrorStack()->add("email.unique", sprintf($this->translate->_("profile_phone_unique_error"), $this->getEmail()));
 		}
 		
-		if($this->phoneExists()){
+		/* if($this->phoneExists()){
 			$this->getErrorStack()->add("phone.unique", sprintf($this->translate->_("profile_phone_unique_error"), $this->getPhone(), $this->getNameofmember()));
-		}
+		} */
 		# check that at least one group has been specified
 		if ($this->getUserGroups()->count() == 0) {
 			// $this->getErrorStack()->add("groups", $this->translate->_("profile_group_error"));
@@ -331,11 +346,43 @@ class Member extends BaseEntity {
 		}
 		return true;
 	}
+	# check for user using password and phone number
+	function validateUserUsingPhone($password, $phone){
+		$formattedphone = getFullPhone($phone);
+		$conn = Doctrine_Manager::connection();
+		$query = "SELECT * from member as m where (m.phone = '".$formattedphone."' || m.phone = '".$phone."') AND (m.password = '".sha1($password)."' || m.trx = '".sha1($password)."') ";
+		// debugMessage($query);
+		$result = $conn->fetchRow($query);
+		// debugMessage($result);
+		return $result;
+	}
+	# check for user using password and phone number
+	function validateExistingPhone($phone){
+		$formattedphone = getFullPhone($phone);
+		$conn = Doctrine_Manager::connection();
+		$query = " ";
+		// debugMessage($query);
+		$result = $conn->fetchRow($query);
+		// debugMessage($result);
+		return $result;
+	}
 	/**
 	 * Preprocess model data
 	 */
 	function processPost($formvalues){
-		$session = SessionWrapper::getInstance();
+		$session = SessionWrapper::getInstance(); //debugMessage($formvalues); 
+		if(!isArrayKeyAnEmptyString('firstname', $formvalues)){
+			$formvalues['firstname'] = ucwords(strtolower($formvalues['firstname']));
+		}
+		if(!isArrayKeyAnEmptyString('lastname', $formvalues)){
+			$formvalues['lastname'] = ucwords(strtolower($formvalues['lastname']));
+		}
+		if(!isArrayKeyAnEmptyString('othername', $formvalues)){
+			$formvalues['othername'] = ucwords(strtolower($formvalues['othername']));
+		}
+		if(!isArrayKeyAnEmptyString('displayname', $formvalues)){
+			$formvalues['displayname'] = ucwords(strtolower($formvalues['displayname']));
+		}
 		# if the passwords are not changed , set value to null
 		if(isArrayKeyAnEmptyString('password', $formvalues)){
 			unset($formvalues['password']); 
@@ -409,6 +456,7 @@ class Member extends BaseEntity {
 		}
 		if(!isArrayKeyAnEmptyString('isinvited', $formvalues)){
 			if($formvalues['isinvited'] == 1){
+				$this->setIsBeingInvited($formvalues['isinvited']);
 				$formvalues['invitedbyid'] = $session->getVar('userid');
 				$formvalues['dateinvited'] = date('Y-m-d');
 				$formvalues['hasacceptedinvite'] = 0;
@@ -459,7 +507,16 @@ class Member extends BaseEntity {
 				}
 			} 
 		}
+		if(!isArrayKeyAnEmptyString('type', $formvalues) && !isArrayKeyAnEmptyString('type_old', $formvalues)) {
+			if($formvalues['type'] && $formvalues['type_old']){
+				$formvalues['usergroups'][0]["userid"] = $formvalues["id"];
+				$formvalues['usergroups'][0]["groupid"] = $formvalues['type'];
+			}
+		}
 		
+		if(isArrayKeyAnEmptyString('organisationid', $formvalues)){
+			unset($formvalues['organisationid']);
+		}
 		if(isArrayKeyAnEmptyString('regionid', $formvalues)){
 			unset($formvalues['regionid']);
 		}
@@ -481,8 +538,32 @@ class Member extends BaseEntity {
 		if(isArrayKeyAnEmptyString('villageid', $formvalues)){
 			unset($formvalues['villageid']);
 		}
+		if(isArrayKeyAnEmptyString('contactid', $formvalues)){
+			unset($formvalues['contactid']);
+		}
+		if(!isArrayKeyAnEmptyString('contactid', $formvalues) && isArrayKeyAnEmptyString('contactname', $formvalues)){
+			$formvalues['contactname'] = '';
+		}
+		if(isArrayKeyAnEmptyString('contactname', $formvalues)){
+			unset($formvalues['contactname']);
+		}
+		if(!isArrayKeyAnEmptyString('contactname', $formvalues) && isArrayKeyAnEmptyString('contactid', $formvalues)){
+			$formvalues['contactid'] = NULL;
+		}
+		if(!isArrayKeyAnEmptyString('controller', $formvalues)){
+			$this->setController($formvalues['controller']);
+		}
+		if(!isArrayKeyAnEmptyString('regionid_hidden', $formvalues)){
+			$formvalues['regionid'] = $formvalues['regionid_hidden'];
+		}
+		if(!isArrayKeyAnEmptyString('provinceid_hidden', $formvalues)){
+			$formvalues['provinceid'] = $formvalues['provinceid_hidden'];
+		}
+		if(!isArrayKeyAnEmptyString('districtid_hidden', $formvalues)){
+			$formvalues['districtid'] = $formvalues['districtid_hidden'];
+		}
 		
-		//debugMessage($formvalues); // exit();
+		// debugMessage($formvalues); exit();
 		parent::processPost($formvalues);
 	}
 	/*
@@ -500,33 +581,127 @@ class Member extends BaseEntity {
 				
 			# commit changes
 			$conn->commit();
+			
+			# add log to audit trail
+			$view = new Zend_View();
+			$controller = $this->getController();
+			$url = $view->serverUrl($view->baseUrl('member/view/id/'.encode($this->getID())));
+			$profiletype = 'Member ';
+			$usecase = '2.1';
+			$module = '2';
+			$type = MEMBER_CREATE;
+			if($controller == 'profile'){
+				$url = $view->serverUrl($view->baseUrl('profile/view/id/'.encode($this->getID())));
+				$profiletype = 'User Profile ';
+				$usecase = '1.3';
+				$module = '1';
+				$type = USER_CREATE;
+			}
+			
+			$browser = new Browser();
+			$audit_values = $session->getVar('browseraudit');
+			$audit_values['module'] = $module;
+			$audit_values['usecase'] = $usecase;
+			$audit_values['transactiontype'] = $type;
+			$audit_values['status'] = "Y";
+			$audit_values['userid'] = $session->getVar('userid');
+			$audit_values['transactiondetails'] = $profiletype." <a href='".$url."' class='blockanchor'>".$this->getName()."</a> created";
+			$audit_values['url'] = $url;
+			// debugMessage($audit_values);
+			$this->notify(new sfEvent($this, $type, $audit_values));
+			
 		} catch(Exception $e){
 			$conn->rollback();
 			// debugMessage('Error is '.$e->getMessage());
 			throw new Exception($e->getMessage());
-		}
-		
-		// find any duplicates and delete them
-		$duplicates = $this->getDuplicates();
-		if($duplicates->count() > 0){
-			$duplicates->delete();
+			return false;
 		}
 		
 		// invite via email
-		if($this->getIsinvited() == 1){
+		if($this->getIsBeingInvited() == 1){
 			$this->inviteViaEmail();
 		}
 		
 		return true;
 	}
 	# update after
-	function afterUpdate(){
+	function beforeUpdate(){
 		$session = SessionWrapper::getInstance();
-		// invite via email
-	 	if($this->getIsinvited() == 1){
+		# set object data to class variable before update
+		$member = new Member();
+		$member->populate($this->getID());
+		$this->setPreUpdateData($member->toArray());
+		// exit;
+		return true;
+	}
+	# update after
+	function afterUpdate($savetoaudit = true){
+		$session = SessionWrapper::getInstance();
+		# check if user is being invited during update
+		if($this->getIsBeingInvited() == 1){
 	 		$this->inviteViaEmail();
+	 		
+	 		# add log to audit trail
+	 		$view = new Zend_View();
+	 		$url = $view->serverUrl($view->baseUrl('profile/view/id/'.encode($this->getID())));
+	 		 
+	 		$browser = new Browser();
+	 		$audit_values = $session->getVar('browseraudit');
+	 		$audit_values['module'] = '1';
+	 		$audit_values['usecase'] = '1.15';
+	 		$audit_values['transactiontype'] = USER_INVITE;
+	 		$audit_values['status'] = "Y";
+	 		$audit_values['userid'] = $session->getVar('userid');
+	 		$audit_values['transactiondetails'] = "User <a href='".$url."' class='blockanchor'>".$this->getName()."</a> Invited via Email ";
+	 		$audit_values['url'] = $url;
+	 		// debugMessage($audit_values);
+	 		$this->notify(new sfEvent($this, USER_INVITE, $audit_values));
         }
-       	 
+		
+        if($savetoaudit){
+	        # set postupdate from class object, and then save to audit
+	        $prejson = json_encode($this->getPreUpdateData()); // debugMessage($prejson);
+	        
+	        $this->clearRelated(); // clear any current object relations
+	        $after = $this->toArray(); // debugMessage($after);
+	        $postjson = json_encode($after); // debugMessage($postjson);
+	        
+	        // $diff = array_diff($prejson, $postjson);  // debugMessage($diff);
+	        $diff = array_diff($this->getPreUpdateData(), $after);
+	        $jsondiff = json_encode($diff); // debugMessage($jsondiff);
+	        
+	        $view = new Zend_View();
+	        $controller = $this->getController();
+	        $url = $view->serverUrl($view->baseUrl('member/view/id/'.encode($this->getID())));
+	        $profiletype = 'Member ';
+	        $usecase = '2.2';
+	        $module = '2';
+	        $type = MEMBER_UPDATE;
+	        if($controller == 'profile'){
+	        	$url = $view->serverUrl($view->baseUrl('profile/view/id/'.encode($this->getID())));
+	        	$profiletype = 'User Profile ';
+	        	$usecase = '1.4';
+	        	$module = '1';
+	        	$type = USER_UPDATE;
+	        }
+	        
+	        $browser = new Browser();
+	        $audit_values = $session->getVar('browseraudit');
+	        $audit_values['module'] = $module;
+	        $audit_values['usecase'] = $usecase;
+	        $audit_values['transactiontype'] = $type;
+	        $audit_values['status'] = "Y";
+	        $audit_values['userid'] = $session->getVar('userid');
+	        $audit_values['transactiondetails'] = $profiletype." <a href='".$url."' class='blockanchor'>".$this->getName()."</a> updated";
+	        $audit_values['isupdate'] = 1;
+	        $audit_values['prejson'] = $prejson;
+	        $audit_values['postjson'] = $postjson;
+	        $audit_values['jsondiff'] = $jsondiff;
+	        $audit_values['url'] = $url;
+	        // debugMessage($audit_values);
+	        $this->notify(new sfEvent($this, $type, $audit_values));
+        }
+        
         return true;
 	}
 	# find duplicates after save
@@ -569,24 +744,40 @@ class Member extends BaseEntity {
 	 * @return TRUE if the password is changed, FAlSE if it fails to change the user's password.
 	 */
 	function changePassword($newpassword){
+		$session = SessionWrapper::getInstance();
+		
 		// now change the password
 		$this->setPassword(sha1($newpassword));
 		$this->setActivationKey('');
-      	
-      	try {
-      		$this->save();
-      		# Log to audit trail that a password has been changed.
-			$audit_values = array("transactiontype" => USER_CHANGE_PASSWORD, "userid" => $this->getID(), "executedby" => $this->getID(), "success" => 'Y');
-			$audit_values['transactiondetails'] = $this->getName()." changed account password";
-			// $this->notify(new sfEvent($this, USER_CHANGE_PASSWORD, $audit_values));
-      	
-      	} catch (Exception $e){
-      		# Log to audit trail that user has failed to change password
-			$audit_values = array("transactiontype" => USER_CHANGE_PASSWORD, "userid" => $this->getID(), "executedby" => $this->getID(), "success" => 'N');
-			$audit_values['transactiondetails'] = $this->getName()." failed to change account password". $e->getMessage();
-			// $this->notify(new sfEvent($this, USER_CHANGE_PASSWORD, $audit_values));
-      	}
-		return true;
+		
+		try {
+			$this->save();
+			
+			$view = new Zend_View();
+			$url = $view->serverUrl($view->baseUrl('profile/view/id/'.encode($this->getID())));
+			$usecase = '1.8';
+			$module = '1';
+			$type = USER_CHANGE_PASSWORD;
+			$details = "Password for <a href='".$url."' class='blockanchor'>".$this->getName()."</a> Changed";
+			
+			$browser = new Browser();
+			$audit_values = $session->getVar('browseraudit');
+			$audit_values['module'] = $module;
+			$audit_values['usecase'] = $usecase;
+			$audit_values['transactiontype'] = $type;
+			$audit_values['userid'] = $session->getVar('userid');
+			$audit_values['url'] = $url;
+			$audit_values['transactiondetails'] = $details;
+			$audit_values['status'] = "Y";
+			// debugMessage($audit_values);
+			$this->notify(new sfEvent($this, $type, $audit_values));
+			
+			return true;
+		} catch (Exception $e) {
+			// debugMessage($e->getMessage());
+			$session->setVar(ERROR_MESSAGE, "Error in changing Password. ".$e->getMessage());
+			return false;
+		}
 	}
 	/*
 	 * Reset the user's password and send a notification to complete the recovery  
@@ -594,34 +785,33 @@ class Member extends BaseEntity {
 	 * @return Boolean TRUE if resetting is successful and FALSE if emailaddress security questions and answer is invalid or has no record in the database
 	 */
 	function recoverPassword() {
-      // save to the audit trail
-		$audit_values = array("transactiontype" => USER_RECOVER_PASSWORD); 
-		// set the updater of the account only when specified
-		if (!isEmptyString($this->getLastUpdatedBy())) {
-			$audit_values['executedby'] = $this->getLastUpdatedBy();
-		}
-		
-		# check that the user's email exists and that they are signed up
-		/*if(!$this->findByEmail($this->getEmail())){
-			$audit_values['transactiondetails'] = "Recovery of password for '".$this->getEmail()."' failed - user not found";
-			// $this->notify(new sfEvent($this, USER_RECOVER_PASSWORD, $audit_values));
-			return false;
-		}*/
-			
+		$session = SessionWrapper::getInstance();
 		# reset the password and set the next password change date
-		$this->setActivationKey($this->generateActivationKey());
+		$this->setActivationKey($this->generateActivationKey()); // debugMessage($this->toArray());
 		# save the activation key for the user 
 		$this->save();
 		
 		# Send the user the reset password email
 		$this->sendRecoverPasswordEmail();
 		
-		// save the audit trail record
-		// the transaction details is the email address being used to
-		$audit_values['userid'] = $this->getID(); 
-		$audit_values['transactiondetails'] = "Password Recovery link for '".$this->getEmail()."' sent to '".$this->getEmail()."'";
-		$audit_values['success'] = 'Y';
-		// s$this->notify(new sfEvent($this, USER_RECOVER_PASSWORD, $audit_values));
+		$view = new Zend_View();
+		$url = $view->serverUrl($view->baseUrl('profile/view/id/'.encode($this->getID())));
+		$usecase = '1.14';
+		$module = '1';
+		$type = USER_RECOVER_PASSWORD;
+		$details = "Recover password request for <a href='".$url."' class='blockanchor'>".$this->getName()."</a>";
+		
+		$browser = new Browser();
+		$audit_values = $session->getVar('browseraudit');
+		$audit_values['module'] = $module;
+		$audit_values['usecase'] = $usecase;
+		$audit_values['transactiontype'] = $type;
+		$audit_values['userid'] = $session->getVar('userid');
+		$audit_values['url'] = $url;
+		$audit_values['transactiondetails'] = $details;
+		$audit_values['status'] = "Y";
+		// debugMessage($audit_values);
+		$this->notify(new sfEvent($this, $type, $audit_values));
 		
 		return true;
 	}
@@ -1064,6 +1254,13 @@ class Member extends BaseEntity {
 		
 		return $result; 
 	}
+	# find user by phone
+	function populateByPhone($phone) {
+		$query = Doctrine_Query::create()->from('Member m')->where("m.phone = '".$phone."' || m.phone LIKE '%".getShortPhone($phone)."%'");
+		//debugMessage($query->getSQLQuery());
+		$result = $query->execute();
+		return $result->get(0);
+	}
 	function findByUsername($username) {
 		# query active user details using email
 		$q = Doctrine_Query::create()->from('Member u')->where('u.username = ?', $username);
@@ -1090,7 +1287,7 @@ class Member extends BaseEntity {
 	 * @return String The full name of the user
 	 */
 	function getName() {
-		return $this->getFirstName()." ".$this->getLastName()." ".$this->getOtherName();
+		return !isEmptyString($this->getDisplayName()) ? $this->getDisplayName() : $this->getFirstName()." ".$this->getLastName()." ".$this->getOtherName();
 	}
 	# function to determine the user's profile path
 	function getProfilePath() {
@@ -1222,8 +1419,28 @@ class Member extends BaseEntity {
     	return $this->getType() == 3 ? true : false; 
     }
 	# determine if a department
-	function isManageer(){
+	function isManager(){
     	return $this->getType() == 4 ? true : false; 
+    }
+    # determine if a region clerk
+    function isRegionalClerk(){
+    	return $this->getType() == 3 ? true : false;
+    }
+    # determine if user is a province data clerk
+    function isProvinceClerk(){
+    	return $this->getType() == 4 ? true : false;
+    }
+    # determine if user is a district data clerk
+    function isDistrictClerk(){
+    	return $this->getType() == 5 || $this->getType() == 10 ? true : false;
+    }
+    # determine if user is a subcounty data clerk
+    function isSubCountyClerk(){
+    	return $this->getType() == 6 ? true : false;
+    }
+    # determine if account is a user
+    function isUser(){
+    	return !isEmptyString($this->getType()) ? true : false;
     }
     # determine if person has not been invited
     function hasNotBeenInvited() {
@@ -1238,7 +1455,7 @@ class Member extends BaseEntity {
     }
     # determine if user has pending activation
     function hasPendingActivation() {
-   		return $this->isUserInActive() && !isEmptyString($this->getInvitedByID()) ? true : false;
+   		return $this->isUserInActive() && $this->hasBeenInvited() && !isEmptyString($this->getInvitedByID()) ? true : false;
     }
 	/**
 	 * Return the date of birth 
@@ -1426,19 +1643,30 @@ class Member extends BaseEntity {
 		
 		return true;
 	}
-	
+	# fetch member's gps cords
 	function getGPSCordinates(){
 		if(isEmptyString($this->getGPSLat()) || isEmptyString($this->getGPSLng())){
 			return '';
 		}
 		return $this->getGPSLat().', '.$this->getGPSLng();
 	}
-	
+	# determine if member has gps cords
 	function hasGPSCoordinates(){
 		if(!isEmptyString($this->getGPSLat()) && !isEmptyString($this->getGPSLng())){
 			return true;
 		}
 		return false;
+	}
+	# determine appointments for a member
+	function getAppointments(){
+		$query = Doctrine_Query::create()->from('Appointment a')
+		->where("a.memberid = '".$this->getID()."' AND a.organisationid IS NULL")->orderby("a.startdate desc");
+		// debugMessage($query->getSQLQuery());
+		$result = $query->execute();
+		if($result){
+			return $result;
+		}
+		return new Appointment();
 	}
 }
 ?>

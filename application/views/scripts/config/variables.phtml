@@ -18,108 +18,25 @@
 		$step = 'list';
 	}
 	
-	if(in_array($lookupid, $listabletypes)){
-		$islistable = true;
+	if(!isEmptyString($lookupid)){
+		$lookuptype->populate($lookupid);
+		$nextindex = $lookuptype->getNextInsertIndex();
+		$columnheading = $title = $breadcrumbtitle = $lookuptype->getDisplayName();
+		$description = $lookuptype->getDescription(); 
+		if(in_array($lookupid, $aliasedtypes)){
+			$widthstyle = 'width:95%;';
+		}
 	}
+	// debugMessage($nextindex);
 	
-	if(!$islistable){
-		if(!isEmptyString($lookupid)){
-			$lookuptype->populate($lookupid);
-			$nextindex = $lookuptype->getNextInsertIndex();
-			$columnheading = $title = $breadcrumbtitle = $lookuptype->getDisplayName();
-			$description = $lookuptype->getDescription(); 
-			if(in_array($lookupid, $aliasedtypes)){
-				$widthstyle = 'width:95%;';
-			}
-		}
-		// debugMessage($nextindex);
-		
-		$subcat = '';
-		if(!isEmptyString($request->parentid)){
-			$category = new Category();
-			$category->populate($request->parentid);
-			$subcat = ' - '.$category->getName();
-			$columnheading = $subcat;
-		}
-	} else {
-		if(!isEmptyString($lookupid)){
-			$lookuptype->populate($lookupid);
-			$nextindex = $lookuptype->getNextInsertIndex();
-			$columnheading = $title = $breadcrumbtitle = $lookuptype->getDisplayName();
-			$description = $lookuptype->getDescription(); 
-			if(in_array($lookupid, $aliasedtypes)){
-				$widthstyle = 'width:95%;';
-			}
-		}
-		
-		$states = getStates();
-		$counties = getAllCounties();
-		$listtitle = 'Name';
-		$posturl = '';
-		$companytype = "Company";
-		if($lookupid == 43){
-			$listtitle = 'New Funder';
-			$companytype = "Funder";
-		}
-		if($lookupid == 45){
-			$listtitle = 'New Employer';
-			$companytype = "Employer";
-		}
-		
-		if($step == 'list'){
-			$paginate = new Pagination();	
-			$paginate->setView($this);
-			# set the search columns to be used on this list
-			$paginate->setSearchColumns(array("c.name"));
-			$paginate->setFilterColumns(array());
-			$paginate->setItemCountPerPage("ALL");
-			if($lookupid == 45){
-				$paginate->setItemCountPerPage("25");
-			}
-			
-			# define the letter to be clicked to ease navigation 
-			$order_query = " ORDER BY c.datecreated DESC ";
-			$paginate->processPost($request->getParams());
-			
-			if($lookupid == 43){
-				$listtitle = 'Name of Funder';
-				$all_results_query = "SELECT c.* FROM company c  where c.type = 1 ".$paginate->getSearchAndFilterSQL()." ".$order_query;
-			}
-			if($lookupid == 45){
-				$listtitle = 'Name of Employer';
-				$all_results_query = "SELECT c.* FROM company c  where c.type = 2 ".$paginate->getSearchAndFilterSQL()." ".$order_query;
-			}
-			// debugMessage($all_results_query);
-
-			$paginate->setItemCountFromSQLQuery($all_results_query);
-			$current_results_query = $all_results_query." ".$paginate->getSQLLimit();
-			
-			$conn = Doctrine_Manager::connection(); 
-			$result = $conn->fetchAll($current_results_query);
-			$has_no_data = (count($result) == 0) ? true : false;
-		}
-		if($step == 'view' || $step == 'edit' || $step == 'new'){
-			$company = new Company();
-			
-			if(!isEmptyString($request->id)){
-				$company->populate(decode($request->id));
-				$listtitle = $company->getName();
-			} else {
-				if($lookupid == 43){
-					$company->setType(1);
-				}
-				if($lookupid == 45){
-					$company->setType(2);
-				}
-			}
-			$posturl = $this->baseUrl('company/create');
-			$successmessage = $this->translate('profile_add_success');
-			if($step == 'edit'){
-				$posturl = $this->baseUrl('company/edit');
-				$successmessage = $this->translate('profile_update_success');
-			}
-		}
+	$subcat = '';
+	if(!isEmptyString($request->parentid)){
+		$category = new Category();
+		$category->populate($request->parentid);
+		$subcat = ' - '.$category->getName();
+		$columnheading = $subcat;
 	}
+
 	
 	$this->headTitle($title.$browserappend);
 	$showsearch = true;
@@ -221,51 +138,6 @@ $(document).ready(function(){
 		$.blockUI({ message: '<?php echo $blockcontent; ?>' }); 
 		window.location.href = url;
 	});
-	
-	<?php if($step == 'edit' || $step == 'new'){ ?>
-		$('.edit, .requiredmark, .save_trigger, .cancel_trigger').removeClass('hidden').show();
-		$('.view, .update_trigger').addClass('hidden').hide();
-		$('.edit .form-control').attr('readonly', false).attr('disabled', false);
-	<?php } ?>
-	
-	// validation 
-	$("#indexform").validate({		
-		// define the validation rules one field at a time
-		rules: {
-			name: "required",
-			alias: "required",
-			contactperson: "required",
-			phone: "required",
-			state: "required",
-			city: "required",
-			zipcode: "required",
-			addressline1: "required"
-		}, 
-		// the messages for each of the fields being validated
-		messages: {
-			name: "<?php echo $this->translate("company_companyname_error"); ?>",
-			alias: "<?php echo $this->translate("company_alias_error"); ?>",
-			contactperson: "<?php echo $this->translate("company_contactperson_error"); ?>",
-			phone: "<?php echo $this->translate("company_contactphone_error"); ?>",
-			state: "<?php echo $this->translate("global_state_error"); ?>",
-			city: "<?php echo $this->translate("global_city_error"); ?>",
-			zipcode: "<?php echo $this->translate("global_zipcode_error"); ?>",
-			addressline1: "<?php echo $this->translate("global_address_error"); ?>"
-		},
-		// custom error positions
-		errorPlacement: function(error, element) {
-			switch(element.attr("name")){					
-				default:
-					if(element.hasClass("useid_error")){
-						error.appendTo("#"+element.attr("id")+"_error");
-					} else {
-						error.appendTo("#"+element.attr("name")+"_error");
-					}
-					break;
-			}			
-		}
-	});
-	
 });
 </script>
 <div class="row-fluid margin0">
@@ -319,363 +191,105 @@ $(document).ready(function(){
         </div>
     </form>
     <div class="contentcontainer clearfix">
-    <?php if(!$islistable){ ?>
-    	<table class="table list table-hover table-bordered" style="margin:5px; <?php echo $widthstyle; ?>">
-            <thead>
-                <tr>
-                    <th style="width:20px;" class="centeralign">#</th>
-                    <?php if(in_array($lookuptype->getID(), $aliasedtypes)){ ?>
-                    	<th style="width:130px;">Code</th>
-                    <?php } ?>
-                    <th>Variable Name</th>
-                    <!--<th style="width:125px;">System Value</th>-->
-                </tr>
-            </thead>
-            <?php if(isEmptyString($lookuptype->getID())){ ?>
-            	<tbody><tr><td colspan="3"><div class="alert alert-info clear padding10 margin10">Select a Variable Type</div></td></tr></tbody>
-            <?php } ?>
-            <?php if(!isEmptyString($request->type)){ ?>
-                <tbody id="global">
-                    <?php 
-                        $itemvalues = $lookuptype->getAllDataValues();
-                        // debugMessage($itemvalues);
-                        $x = 1;
-                        foreach($itemvalues as $value){
-                    ?>
-                    <tr id="lookup_<?php echo $value['id']; ?>" class="editable">
-                        <td class="centeralign"><?php echo $x; ?></td>
-                        <?php if(in_array($lookuptype->getID(), $aliasedtypes)){ ?>
-                            <td>
-                            	<div style="position:relative;">
-                                    <span class="display" id="text_alias_<?php echo $value['id']; ?>"><?php echo $value['alias']; ?></span>
-                                    <span class="edit" id="html_alias_<?php echo $value['id']; ?>">
-                                    	<input type="text" name="newalias_<?php echo $value['id']; ?>" id="newalias_<?php echo $value['id']; ?>" class="form-control inline updatevariable centeralign" rowid="<?php echo $value['id']; ?>" style="width:90%; padding:4px;" value="<?php echo $value['alias']; ?>" />
-	                              	</span>
-                               	</div>
-                            </td>
-                        <?php } ?>
-                        <td>
-                            <div style="position:relative;">
-                                <span class="display" id="text_<?php echo $value['id']; ?>"><?php echo stripcslashes($value['lookupvaluedescription']); ?></span>
-                                <span class="edit" id="html_<?php echo $value['id']; ?>">
-                                    <input type="text" name="newvalue_<?php echo $value['id']; ?>" id="newvalue_<?php echo $value['id']; ?>" class="form-control inline updatevariable" rowid="<?php echo $value['id']; ?>" style="width:65%; padding:4px;" value="<?php echo $value['lookupvaluedescription']; ?>" />
-                                    <label class="pull-right">
-                                        <a href="javascript:void(0)" id="save_<?php echo $value['id']; ?>" theid="<?php echo $value['id']; ?>" index="<?php echo $value['lookuptypevalue']; ?>" class="btn btn-success btn-sm lineblocked update" title="Update Item" ><i class="glyphicon glyphicon-ok"></i> Save</a>&nbsp;
-                                        <a href="javascript:void(0)" style="font-size:10px;" class="cancel_edit" id="cancel_<?php echo $value['id']; ?>" rowid="<?php echo $value['id']; ?>">Cancel</a>
-                                        <label class="hidden margin0 padding0" id="wait_<?php echo $value['id']; ?>" style="position:absolute; right:0; top:0;">
-                                            <span class="pagedescription">wait...</span>
-                                            <img style="margin-left:0; width:26px;" src="<?php echo $this->baseUrl('images/farmisloader.gif'); ?>" />
-                                        </label>
-                                    </label>
-                                    <div class="divider5"></div>
-                                    <div id="add_error_<?php echo $value['id']; ?>" class="margin0" style=""></div>
-                                    <div id="code_error_<?php echo $value['id']; ?>" class="margin0" style=""></div>
-                                </span>
-                                
-                                <div class="buttons" id="buttons_<?php echo $value['id']; ?>" style="position:absolute; right:0; top:-3px;">
-                                    <?php if($lookuptype->updatesAllowed()){ ?>
-                                        <a href="javascript:void(0)" id="updatevalue_<?php echo $value['id']; ?>" rowid="<?php echo $value['id']; ?>" class="updatevalue btn btn-info btn-sm" title="Update Value"><i class="glyphicon glyphicon-pencil"></i></a>
-                                    <?php } ?>    
-                                    <?php if($lookuptype->addNoDeleteAllowed()){ 
-                                        $classname = "LookupTypeValue";
-                                        $deleteline = $value['id'];
-                                        
-                                    ?>
-                                        <a id="deletevalue_<?php echo $value['id']; ?>" rowid="<?php echo $value['id']; ?>" class="xdeletevalue btn btn-sm deleteline xremoveline gonowhere" title="Delete Value" action="<?php echo $this->baseUrl('config/delete/id/'.$deleteline."/entityname/".$classname."/successurl/".encode($this->baseUrl('config/variables/type/'.$request->type))); ?>"><i class="glyphicon glyphicon-remove"></i></a>
-                                    <?php } else { ?>
-                                        <a class="gonowhere alert-dialog" title="Delete disabled" message="<div class='alert alert-danger'>Delete on this resource is disabled. Contact super Admin</div>">--</a>
-                                    <?php } ?>
-                                </div>
-                            </div>
-                        </td>
-                        <!--<td class="centeralign" style="color:#999999;"><?php //echo $value['lookuptypevalue']; ?></td>-->
-                    </tr>
-                    <?php $x++;} ?>
-                    <?php if($lookuptype->updatesAllowed() && !isEmptyString($lookuptype->getID())){ ?>
-                        <tr>
-                            <td class="centeralign"><?php echo $x; ?></td>
-                            <?php if(in_array($lookuptype->getID(), $aliasedtypes)){ ?>
-                                <td><input type="text" name="newalias" id="newalias" class="form-control centeralign inline" style="width:90%; padding:4px;" />&nbsp;</td>
-                            <?php } ?>
-                            <td>
-                                <div style="position:relative;">
-                                    <input type="text" name="newvalue" id="newvalue" class="form-control inline" style="width:70%; padding:4px;" />&nbsp;
-                                    <label class="pull-right">
-                                        <a href="javascript:void(0)" id="save" theid="<?php echo $lookuptype->getID(); ?>" class="btn btn-success btn-sm lineblocked" title="Save New Item" ><i class="glyphicon glyphicon-ok"></i> Add</a>
-                                        <label class="margin0 padding0 hidden" id="wait_0" style="position:absolute; right:0; top:0;">
-                                            <span class="pagedescription">wait...</span>
-                                            <img style="margin-left:0; width:26px;" src="<?php echo $this->baseUrl('images/farmisloader.gif'); ?>" />
-                                        </label>
-                                    </label>
-                                    <div class="divider5"></div>
-                                    <div id="add_error" class="margin0" style=""></div><div id="code_error" class="margin0" style=""></div>
-                                </div>
-                            </td>
-                        </tr>
-                    <?php } ?>
-                </tbody>
-            <?php } ?>    
-        </table>
-        <?php if(!$lookuptype->updatesAllowed()){ ?>
-            <div class="alert alert-info" style="margin:10px;">Updates to this variable are currently disabled. <br />Contact Super Admin</div>
-        <?php } ?>
-    <?php } ?>
-    <?php if($islistable){ ?>
-        <form id="indexform" class="form-horizontal company" role="form" action="<?php echo $posturl; ?>" method="post">
-        	<div class="panel-body padding0">
-                <table class="table xlist table-bordered" style="margin:5px; width:80%;">
-                    <thead>
-                        <tr>
-                            <th><?php echo $listtitle; ?>
-                            <div class="padding0 pull-right rightalign">
-                            	<?php if($step == 'list'){ ?>
-                                    <p class="margin0 lineblocked" style="padding-right:0; margin-right:0;">
-                                        <a href="<?php echo $this->baseUrl('config/variables/type/'.$lookupid.'/step/new'); ?>" class="btn btn-xs btn-primary update_trigger"><i class="glyphicon glyphicon-plus"></i> New <?php echo $companytype; ?></a>
-                                    </p>
-                             	<?php } ?> 
-                            </div>
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if($step == 'list'){ ?>
-                            <?php if ($has_no_data) { ?>
-                                <tr>
-                                    <td colspan="2"><div class="divider30"></div> <div style="clear:both;" class="alert alert-warning margin5"><?php echo $this->translate("global_list_noentries"); ?></div></td>
-                                </tr>
-                            <?php } else { ?>	
-                                <?php
-                                    $counter = 1; 				  		
-                                    foreach($result as $line){
-                                        $id = $line['id'];	
-                                ?>
-                                    <tr>
-                                        <td><a href="<?php echo $this->baseUrl('config/variables/type/'.$lookupid.'/step/view/id/'.encode($line['id'])); ?>"><?php echo $line['name']; ?></a></td>
-                                    </tr>
-                                <?php } ?>
-                            <?php } ?>
-                        <?php } ?> 
-                        <?php if($step == 'view' || $step == 'edit' || $step == 'new'){ ?>
-                        	<input type="hidden" id="entityname" name="entityname" value="Company" />
-                            <input type="hidden" id="id" name="id" value="<?php echo encode($company->getID()); ?>" />
-                            <input type="hidden" id="type" name="type" value="<?php echo $company->getType(); ?>" />
-                            <input type="hidden" class="successurl" id="<?php echo URL_SUCCESS; ?>" name="<?php echo URL_SUCCESS; ?>" value="<?php echo encode($this->baseUrl('config/variables/type/'.$lookupid.'/step/view')); ?>" />
-                            <input type="hidden" class="failureurl" id="<?php echo URL_FAILURE; ?>" name="<?php echo URL_FAILURE; ?>" value="<?php echo encode($this->viewurl); ?>" />
-                            <input type="hidden" id="<?php echo SUCCESS_MESSAGE; ?>" name="<?php echo SUCCESS_MESSAGE; ?>" value="<?php echo $successmessage; ?>" />
-                            <tr>
-                                <td>
-                                	<div class="row-fluid margin0">
-                                        <div class="col-md-12 padding0 pull-right rightalign">
-                                            <?php if($step == 'edit' || $step == 'new'){ ?>
-                                                <p class="margin0 lineblocked">
-                                                    <button type="submit" class="btn btn-success btn-xs button-submit save_trigger" name="save"><i class="glyphicon glyphicon-ok"></i> <?php echo $step == 'new' ? $this->translate('global_button_save') : $this->translate('global_button_save_changes'); ?></button>
-                                                </p>
-                                                <p class="margin0 lineblocked">
-                                                    <a class="gonowhere cancel cancel_trigger"><?php echo $this->translate('global_button_cancel'); ?></a>
-                                                </p>
-                                            <?php } ?>
-                                            <?php if($step == 'view'){ ?>
-                                                <p class="margin0 lineblocked" style="padding-right:0; margin-right:0;">
-                                                    <a href="<?php echo $this->baseUrl('config/variables/type/'.$lookupid.'/step/edit/id/'.$request->id); ?>" class="btn btn-xs btn-primary update_trigger"><i class="glyphicon glyphicon-pencil"></i> Update</a>
-                                                </p>
-                                                <p class="margin0 lineblocked" style="padding-right:0; margin-right:0;">
-                                                	<a class="btn btn-default btn-xs deleteline" action="<?php echo $this->baseUrl('company/delete/id/'.encode($company->getID())."/entityname/Company/successurl/".encode($this->baseUrl('config/variables/type/'.$lookupid))); ?>"><i class="glyphicon glyphicon-remove"></i> Delete</a>
-                                               	</p>
-                                                <p class="margin0 lineblocked" style="padding-right:0; margin-right:0;">
-                                                    <a href="<?php echo $this->baseUrl('config/variables/type/'.$lookupid); ?>" class="btn btn-xs btn-default"><i class="glyphicon glyphicon-list"></i> All <?php echo $companytype; ?>s</a>
-                                                </p>
-                                            <?php } ?>
-                                        </div>
-                                    </div>
-                                    <fieldset class="fieldsetcontainer">
-                                        <legend><?php echo $companytype; ?> Details</legend>
-                                        <div class="panel-body well-sm">
-                                            <div class="col-md-6">
-                                                <div class="form-group">
-                                                    <label class="col-md-4 control-label"><?php echo $this->translate("company_name_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
-                                                    <div class="col-md-8">
-                                                        <p class="form-control-static nullifempty view"><?php echo $company->getName(); ?></p>
-                                                        <?php if(($step == 'edit' || $step == 'new')){ ?>
-                                                        <div class="edit">
-                                                            <input type="text" class="form-control input-sm" id="name" name="name" value="<?php echo $company->getName(); ?>" />
-                                                            <div id="name_error"></div>
-                                                        </div>
-                                                        <?php } ?>
-                                                    </div>
-                                                </div>
-                                                <?php if($lookupid == 43){ ?>
-                                                <div class="form-group">
-                                                    <label class="col-md-4 control-label"><?php echo $this->translate("company_alias_label"); ?> <small>(Shortname)</small>: <?php echo $this->translate("global_required_field_marker"); ?></label>
-                                                    <div class="col-md-8">
-                                                        <p class="form-control-static nullifempty view"><?php echo $company->getalias(); ?></p>
-                                                        <?php if(($step == 'edit' || $step == 'new')){ ?>
-                                                        <div class="edit">
-                                                            <input type="text" class="form-control input-sm" id="alias" name="alias" value="<?php echo $company->getalias(); ?>" />
-                                                            <div id="alias_error"></div>
-                                                        </div>
-                                                        <?php } ?>
-                                                    </div>
-                                                </div>
-                                                <?php } ?>
-                                                <div class="form-group">
-                                                    <label class="col-md-4 control-label"><?php echo $this->translate("company_contactperson_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
-                                                    <div class="col-md-8">
-                                                        <p class="form-control-static nullifempty view"><?php echo $company->getContactPerson(); ?></p>
-                                                        <?php if(($step == 'edit' || $step == 'new')){ ?>
-                                                        <div class="edit">
-                                                            <input type="text" class="form-control input-sm" id="contactperson" name="contactperson" value="<?php echo $company->getContactPerson(); ?>" />
-                                                            <div id="contactperson_error"></div>
-                                                        </div>
-                                                        <?php } ?>
-                                                    </div>
-                                                </div>
-                                                <div class="form-group">
-                                                    <label class="col-md-4 control-label"><?php echo $this->translate("company_contactphone_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
-                                                    <div class="col-md-8">
-                                                        <p class="form-control-static nullifempty view"><?php echo $company->getPhone(); ?></p>
-                                                        <?php if(($step == 'edit' || $step == 'new')){ ?>
-                                                        <div class="edit">
-                                                            <input type="text" class="form-control input-sm" id="phone" name="phone" value="<?php echo $company->getPhone(); ?>" />
-                                                            <div id="phone_error"></div>
-                                                        </div>
-                                                        <?php } ?>
-                                                    </div>
-                                                </div>
-                                                <div class="form-group">
-                                                    <label class="col-md-4 control-label"><?php echo $this->translate("company_contactemail_label"); ?>:</label>
-                                                    <div class="col-md-8">
-                                                        <p class="form-control-static nullifempty view"><?php echo $company->getEmail(); ?></p>
-                                                        <?php if(($step == 'edit' || $step == 'new')){ ?>
-                                                        <div class="edit">
-                                                            <input type="text" class="form-control input-sm" id="email" name="email" value="<?php echo $company->getEmail(); ?>" />
-                                                            <div id="email_error"></div>
-                                                        </div>
-                                                        <?php } ?>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                 <div class="form-group">
-                                                    <label class="col-md-4 control-label"><?php echo $this->translate("global_addressline1_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
-                                                    <div class="col-md-8">
-                                                        <p class="form-control-static nullifempty view"><?php echo $company->getAddressline1(); ?></p>
-                                                        <?php if(($step == 'edit' || $step == 'new')){ ?>
-                                                        <div class="edit">
-                                                            <input type="text" class="form-control input-sm" id="addressline1" name="addressline1" value="<?php echo $company->getAddressline1(); ?>" />
-                                                            <div id="addressline1_error"></div>
-                                                        </div>
-                                                        <?php } ?>
-                                                    </div>
-                                                </div>
-                                                <div class="form-group">
-                                                    <label class="col-md-4 control-label"><?php echo $this->translate("global_addressline2_label"); ?>:</label>
-                                                    <div class="col-md-8">
-                                                        <p class="form-control-static nullifempty view"><?php echo $company->getAddressline2(); ?></p>
-                                                        <?php if(($step == 'edit' || $step == 'new')){ ?>
-                                                        <div class="edit">
-                                                            <input type="text" class="form-control input-sm" id="addressline2" name="addressline2" value="<?php echo $company->getAddressline2(); ?>" />
-                                                        </div>
-                                                        <?php } ?>
-                                                    </div>
-                                                </div>
-                                                <div class="form-group">
-                                                    <label class="col-md-4 control-label"><?php echo $this->translate("global_city_label"); ?>/<?php echo $this->translate("global_town_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
-                                                    <div class="col-md-8">
-                                                        <p class="form-control-static nullifempty view"><?php echo $company->getCity(); ?></p>
-                                                        <?php if(($step == 'edit' || $step == 'new')){ ?>
-                                                        <div class="edit">
-                                                            <input type="text" class="form-control input-sm" id="city" name="city" value="<?php echo $company->getCity(); ?>" />
-                                                            <div id="city_error"></div>
-                                                        </div>
-                                                        <?php } ?>
-                                                    </div>
-                                                </div>
-                                                 <div class="form-group">
-                                                    <label class="col-md-4 control-label"><?php echo $this->translate("global_state_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
-                                                    <div class="col-md-8">
-                                                        <p class="form-control-static nullifempty view"><?php echo isArrayKeyAnEmptyString($company->getState(), $states) ? '': $states[$company->getState()]; ?></p>  
-                                                        <?php if(($step == 'edit' || $step == 'new')){ ?>
-                                                        <div class="edit">
-                                                            <?php
-                                                                $dropdown = new Zend_Form_Element_Select('state',
-                                                                                    array(
-                                                                                        'multiOptions' => array_merge_maintain_keys(array('' => '<Select One>'), $states),
-                                                                                        'view' => new Zend_View(),
-                                                                                        'decorators' => array('ViewHelper'),
-                                                                                        'class' => array('form-control','input-sm')
-                                                                                    )
-                                                                );  
-                                                                $dropdown->setValue($company->getState()); 
-                                                                echo $dropdown->render();
-                                                            ?>
-                                                            <div id="state_error"></div>
-                                                        </div>
-                                                        <?php } ?>
-                                                    </div>
-                                                </div>
-                                                <div class="form-group">
-                                                    <label class="col-md-4 control-label"><?php echo $this->translate("global_zipcode_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
-                                                    <div class="col-md-8">
-                                                        <p class="form-control-static nullifempty view"><?php echo $company->getZipCode(); ?></p>
-                                                        <?php if(($step == 'edit' || $step == 'new')){ ?>
-                                                        <div class="edit">
-                                                            <input type="text" class="form-control input-sm width100" id="zipcode" name="zipcode" value="<?php echo $company->getZipCode(); ?>" />
-                                                            <div id="zipcode_error"></div>
-                                                        </div>
-                                                        <?php } ?>
-                                                    </div>
-                                                </div>
-                                                <div class="form-group">
-                                                    <label class="col-md-4 control-label"><?php echo $this->translate("global_county_label"); ?>:</label>
-                                                    <div class="col-md-8">
-                                                        <p class="form-control-static nullifempty view"><?php echo isArrayKeyAnEmptyString($company->getCounty(), $counties) ? '': $counties[$company->getCounty()]; ?></p>  
-                                                        <?php if(($step == 'edit' || $step == 'new')){ ?>
-                                                        <div class="edit">
-                                                            <?php
-                                                                $dropdown = new Zend_Form_Element_Select('county',
-                                                                                    array(
-                                                                                        'multiOptions' => array_merge_maintain_keys(array('' => '<Select One>'), $counties),
-                                                                                        'view' => new Zend_View(),
-                                                                                        'decorators' => array('ViewHelper'),
-                                                                                        'class' => array('form-control','input-sm',)
-                                                                                    )
-                                                                );  
-                                                                $dropdown->setValue($company->getCounty()); 
-                                                                echo $dropdown->render();
-                                                            ?><input type="hidden" class="form-control" name="county_old" id="county_old" value="<?php echo $company->getCounty(); ?>" />
-                                                            <div id="county_error"></div>
-                                                        </div>
-                                                        <?php } ?>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </fieldset>
-                                </td>
-                            </tr>
-                        <?php } ?>                  
-                    </tbody>
-                </table>
-            </div>
-            <?php if($step == 'list'){ ?>
-            <div class="row-fluid padding10">
-                <div class="table-footer col-md-10">
-                    <div class="col-md-6 padding0" style="margin-bottom:10px;">
-                        <div class="table-actions">
-                            <div class="row col-md-12 margin0 padding0 clearfix">
-                                <div class="col-md-6 padding0 floatleft"><?php echo $paginate->getListCountDropDown(); ?></div>
-                                <div class="col-md-6 paddingleft5 rightalign" style="margin-bottom:5px;"><?php echo sprintf($this->translate("global_list_counter"), $paginate->getItemCounterText()); ?></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-6 padding0">
-                        <?php echo $paginate->getPaginationLinks(); ?>
-                    </div>
-                </div>
-            </div>
-            <?php } ?>
-        </form>
-    <?php } ?>
+	<table class="table list table-hover table-bordered" style="margin:5px; <?php echo $widthstyle; ?>">
+		<thead>
+			<tr>
+				<th style="width:20px;" class="centeralign">#</th>
+				<?php if(in_array($lookuptype->getID(), $aliasedtypes)){ ?>
+					<th style="width:130px;">Code</th>
+				<?php } ?>
+				<th>Variable Name</th>
+				<!--<th style="width:125px;">System Value</th>-->
+			</tr>
+		</thead>
+		<?php if(isEmptyString($lookuptype->getID())){ ?>
+			<tbody><tr><td colspan="3"><div class="alert alert-info clear padding10 margin10">Select a Variable Type</div></td></tr></tbody>
+		<?php } ?>
+		<?php if(!isEmptyString($request->type)){ ?>
+			<tbody id="global">
+				<?php 
+					$itemvalues = $lookuptype->getAllDataValues();
+					// debugMessage($itemvalues);
+					$x = 1;
+					foreach($itemvalues as $value){
+				?>
+				<tr id="lookup_<?php echo $value['id']; ?>" class="editable">
+					<td class="centeralign"><?php echo $x; ?></td>
+					<?php if(in_array($lookuptype->getID(), $aliasedtypes)){ ?>
+						<td>
+							<div style="position:relative;">
+								<span class="display" id="text_alias_<?php echo $value['id']; ?>"><?php echo $value['alias']; ?></span>
+								<span class="edit" id="html_alias_<?php echo $value['id']; ?>">
+									<input type="text" name="newalias_<?php echo $value['id']; ?>" id="newalias_<?php echo $value['id']; ?>" class="form-control inline updatevariable centeralign" rowid="<?php echo $value['id']; ?>" style="width:90%; padding:4px;" value="<?php echo $value['alias']; ?>" />
+								</span>
+							</div>
+						</td>
+					<?php } ?>
+					<td>
+						<div style="position:relative;">
+							<span class="display" id="text_<?php echo $value['id']; ?>"><?php echo stripcslashes($value['lookupvaluedescription']); ?></span>
+							<span class="edit" id="html_<?php echo $value['id']; ?>">
+								<input type="text" name="newvalue_<?php echo $value['id']; ?>" id="newvalue_<?php echo $value['id']; ?>" class="form-control inline updatevariable" rowid="<?php echo $value['id']; ?>" style="width:65%; padding:4px;" value="<?php echo $value['lookupvaluedescription']; ?>" />
+								<label class="pull-right">
+									<a href="javascript:void(0)" id="save_<?php echo $value['id']; ?>" theid="<?php echo $value['id']; ?>" index="<?php echo $value['lookuptypevalue']; ?>" class="btn btn-success btn-sm lineblocked update" title="Update Item" ><i class="glyphicon glyphicon-ok"></i> Save</a>&nbsp;
+									<a href="javascript:void(0)" style="font-size:10px;" class="cancel_edit" id="cancel_<?php echo $value['id']; ?>" rowid="<?php echo $value['id']; ?>">Cancel</a>
+									<label class="hidden margin0 padding0" id="wait_<?php echo $value['id']; ?>" style="position:absolute; right:0; top:0;">
+										<span class="pagedescription">wait...</span>
+										<img style="margin-left:0; width:26px;" src="<?php echo $this->baseUrl('images/farmisloader.gif'); ?>" />
+									</label>
+								</label>
+								<div class="divider5"></div>
+								<div id="add_error_<?php echo $value['id']; ?>" class="margin0" style=""></div>
+								<div id="code_error_<?php echo $value['id']; ?>" class="margin0" style=""></div>
+							</span>
+							
+							<div class="buttons" id="buttons_<?php echo $value['id']; ?>" style="position:absolute; right:0; top:-3px;">
+								<?php if($lookuptype->updatesAllowed()){ ?>
+									<a href="javascript:void(0)" id="updatevalue_<?php echo $value['id']; ?>" rowid="<?php echo $value['id']; ?>" class="updatevalue btn btn-info btn-sm" title="Update Value"><i class="glyphicon glyphicon-pencil"></i></a>
+								<?php } ?>    
+								<?php if($lookuptype->addNoDeleteAllowed()){ 
+									$classname = "LookupTypeValue";
+									$deleteline = $value['id'];
+									
+								?>
+									<a id="deletevalue_<?php echo $value['id']; ?>" rowid="<?php echo $value['id']; ?>" class="xdeletevalue btn btn-sm deleteline xremoveline gonowhere" title="Delete Value" action="<?php echo $this->baseUrl('config/delete/id/'.$deleteline."/entityname/".$classname."/successurl/".encode($this->baseUrl('config/variables/type/'.$request->type))); ?>"><i class="glyphicon glyphicon-remove"></i></a>
+								<?php } else { ?>
+									<a class="gonowhere alert-dialog" title="Delete disabled" message="<div class='alert alert-danger'>Delete on this resource is disabled. Contact super Admin</div>">--</a>
+								<?php } ?>
+							</div>
+						</div>
+					</td>
+					<!--<td class="centeralign" style="color:#999999;"><?php //echo $value['lookuptypevalue']; ?></td>-->
+				</tr>
+				<?php $x++;} ?>
+				<?php if($lookuptype->updatesAllowed() && !isEmptyString($lookuptype->getID())){ ?>
+					<tr>
+						<td class="centeralign"><?php echo $x; ?></td>
+						<?php if(in_array($lookuptype->getID(), $aliasedtypes)){ ?>
+							<td><input type="text" name="newalias" id="newalias" class="form-control centeralign inline" style="width:90%; padding:4px;" />&nbsp;</td>
+						<?php } ?>
+						<td>
+							<div style="position:relative;">
+								<input type="text" name="newvalue" id="newvalue" class="form-control inline" style="width:70%; padding:4px;" />&nbsp;
+								<label class="pull-right">
+									<a href="javascript:void(0)" id="save" theid="<?php echo $lookuptype->getID(); ?>" class="btn btn-success btn-sm lineblocked" title="Save New Item" ><i class="glyphicon glyphicon-ok"></i> Add</a>
+									<label class="margin0 padding0 hidden" id="wait_0" style="position:absolute; right:0; top:0;">
+										<span class="pagedescription">wait...</span>
+										<img style="margin-left:0; width:26px;" src="<?php echo $this->baseUrl('images/farmisloader.gif'); ?>" />
+									</label>
+								</label>
+								<div class="divider5"></div>
+								<div id="add_error" class="margin0" style=""></div><div id="code_error" class="margin0" style=""></div>
+							</div>
+						</td>
+					</tr>
+				<?php } ?>
+			</tbody>
+		<?php } ?>    
+	</table>
+	<?php if(!$lookuptype->updatesAllowed()){ ?>
+		<div class="alert alert-info" style="margin:10px;">Updates to this variable are currently disabled. <br />Contact Super Admin</div>
+	<?php } ?>
     </div>
 </div>
 <?php

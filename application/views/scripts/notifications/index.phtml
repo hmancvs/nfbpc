@@ -1,0 +1,464 @@
+<?php
+	include APPLICATION_PATH.'/includes/header.php';
+	
+	$user = new Member();
+	$user->populate($userid);
+	
+	$message = new Message();
+	
+	$posturl = $this->baseUrl("notifications/processnotification");
+	$type = $request->type;
+	$ismail = true; $issms = false;
+	if(isEmptyString($type)){
+		$type = 1;
+	}
+	if($type == 2){
+		$issms = true; $ismail = false;
+	}
+	
+	if($ismail){
+		$title = "Compose Message";
+		$button_title = "Send Message";
+		$emailmembers = getMembersWithEmail();
+		$emailusers = getMembersWithEmail(true);
+	}
+	if($issms){
+		$title = "Compose SMS";
+		$button_title = "Send SMS";
+		$phonemembers = getMembersWithPhone();
+		$phoneusers = getMembersWithPhone(true);
+	}
+	
+	$subject = ''; $message = '';
+	if(!isEmptyString($session->getVar(ERROR_MESSAGE))){ 
+		$formvalues = $session->getVar(FORM_VALUES);		
+		$subject = isArrayKeyAnEmptyString('subject', $formvalues) ? '' : $formvalues['subject'];
+		$message = isArrayKeyAnEmptyString('message', $formvalues) ? '' : $formvalues['message'];
+	}
+	
+	$description = '';	
+	$icon = 'glyphicon glyphicon-envelope';
+	$this->headTitle($title.$browserappend);
+?>
+<script>
+$(document).ready(function() {
+	$('.titlebreadcrumb').html('<?php echo $homedir.'Messaging / Compose'; ?>');
+	$('.titlelabel').html('<?php echo $title; ?>');
+	$('.desclabel').html('<?php echo $description; ?>');
+	$('.pageicon').html('<span class="<?php echo $icon; ?>"></span>');
+	
+	$("#indexform").validate({		
+		// define the validation rules one field at a time
+		rules: {
+			subject: "required",
+			contents: "required",
+			memberids: "required"
+		}, 
+		// the messages for each of the fields being validated
+		messages: {				
+			subject: "<?php echo $this->translate("message_subject_error"); ?>",
+			contents: "<?php echo $this->translate("message_contents_error"); ?>",
+			memberids: "Atleast one receipient required"
+		},
+		// custom error positions
+		errorPlacement: function(error, element) {
+			switch(element.attr("name")){					
+				default:
+					if(element.hasClass("useid_error")){
+						error.appendTo("#"+element.attr("id")+"_error");
+					} else {
+						error.appendTo("#"+element.attr("name")+"_error");
+					}
+					break;
+			}			
+		},
+		ignore: ":hidden:not(select)"
+	});
+	
+	<?php if($issms){ ?>
+		var characters = 159;
+		$("#balance").append(characters);
+		$("#contents").keyup(function(){
+			if($(this).val().length > characters){
+				$(this).val($(this).val().substr(0, characters));
+			}
+			var remaining = characters -  $(this).val().length;
+			$("#balance").html(remaining);
+			if(remaining <= 10){
+				$("#balance").css("color","red");
+			} else {
+				$("#balance").css("color","black");
+			}
+		});
+	<?php } ?>
+	$("#contents").trigger("keyup");
+	
+	multipleDisableContainerByID('selectuser_list, allmembers_list, allusers_list');
+	enableContainerByID('selectmember_list');
+	$('#selectmember').click(function(){
+		enableContainerByID('selectmember_list');
+		multipleDisableContainerByID('selectuser_list, allmembers_list, allusers_list');
+	});
+	$('#selectuser').click(function(){
+		enableContainerByID('selectuser_list');
+		multipleDisableContainerByID('selectmember_list, allmembers_list, allusers_list');
+	});
+	$('#allmembers').click(function(){
+		enableContainerByID('allmembers_list');
+		multipleDisableContainerByID('selectmember_list, selectuser_list, allusers_list');
+	});
+	$('#allusers').click(function(){
+		enableContainerByID('allusers_list');
+		multipleDisableContainerByID('selectmember_list, selectuser_list, allmembers_list');
+	});
+	
+	$('.groupmembers').change(function(){
+		var value = $(this).val();
+		var activefilters = ''; var chosenstr = '';
+		$(".groupmembers").each(function(){
+			var value_nest = $(this).val();
+			var id = $(this).attr('id');
+			var text = $('#'+id+' option:selected').text();
+			// alert(text);
+			if(!isEmptyString(value_nest)){
+				activefilters += value_nest;
+				chosenstr += text+', ';
+			}
+		});
+		
+		// alert(chosenstr);
+		if(isEmptyString(trim(activefilters))){
+			enableContainerByID('memberselection');
+			$("#selected_text").hide();
+		} else {
+			disableContainerByID('memberselection');
+			$("#selected_text").html('All NFBPC members with category(s) <b>'+chosenstr+'</b> will be notified').show();
+		}
+	});
+	$(".groupmembers").trigger('change');
+	
+	$("#send").click(function(e){
+		e.preventDefault();
+		if($("#indexform").valid() == true) {
+			$.blockUI({ message: '<?php echo $blockcontent; ?>'}); 
+			//$("#indexform").submit();
+			var posturl = $("#indexform").attr('action');
+			$.post(  
+				posturl,  
+				$("#indexform").serialize(),  
+				function(data){
+					// alert(data); return false;
+					data = jQuery.parseJSON(data);
+					// alert(data.result);
+					if(data.result == 'success' || data.result == 'fail'){
+						window.location.href = '<?php echo $this->viewurl; ?>';
+						// $.unblockUI();
+					}
+				}  
+			); // close the $.post					
+		}
+	});
+});
+</script>
+<div class="row-fluid margin0 index">
+    <form id="indexform" class="form-horizontal row-border" action="<?php echo $posturl; ?>" method="post">
+        <div class="col-md-12 padding0">
+            <div class="headerbox">
+                <table class="table border0 nohover margin0">                       
+                    <tr>		                    
+                        <td class="padding2">
+                            
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        <?php if ($sessionhaserror) { ?>
+            <div class="alert alert-danger"><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
+        <?php } ?>
+        <?php if (!isEmptyString($session->getVar(SUCCESS_MESSAGE))) { ?>
+            <div class="alert alert-success alert-dismissable"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button> <?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
+        <?php } ?>
+        <div class="contentcontainer clearfix">
+        	<div class="row-fluid marginleft5">
+            	<div class="col-md-12">
+                    <fieldset class="fieldsetcontainer">
+                        <legend><?php // echo $title; ?></legend>
+                        <div class="panel-body well-sm">
+							<div class="row-fluid marginleft5">
+                                <div class="col-md-12 paddingleft10">
+                                    <?php if($ismail && isPublicUser()){ ?>
+                                        <div class="form-group">
+                                            <label class="col-md-2 control-label">Sender Email: <?php echo $this->translate("required_field_marker"); ?></label>
+                                            <div class="col-md-8">
+                                                <div class="divider5"></div>
+                                                <input type="text" id="senderemail" name="senderemail" class="form-control halfwidth" value="<?php echo $user->getEmail(); ?>" />
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="col-md-2 control-label">Sender Name: <?php echo $this->translate("required_field_marker"); ?></label>
+                                            <div class="col-md-8">
+                                                <div class="divider5"></div>
+                                                <input type="text" id="sendername" name="sendername" class="form-control halfwidth" value="<?php echo $user->getName(); ?>" />
+                                            </div>
+                                        </div>
+                                    <?php } else { ?>
+                                    	<input type="hidden" id="senderemail" name="senderemail" value="<?php echo $user->getEmail(); ?>" />
+                                        <input type="hidden" id="sendername" name="sendername" value="<?php echo $user->getName(); ?>" />
+                                    <?php } ?>
+                                    <?php if(isLoggedIn()){ ?>
+                                        <div class="form-group">
+                                            <label class="col-md-2 control-label">Recipient(s): <?php echo $this->translate("required_field_marker"); ?></label>
+                                            <div class="col-md-8">
+                                                <div class="blocked" style="margin-left:0;">
+                                                    <label class="radio radio-inline"><input type="radio" class="" name="selecttype" id="selectmember" value="1" checked="checked" /> Select Member(s)</label>
+                                                    <label class="radio radio-inline"><input type="radio" class="" name="selecttype" id="selectuser" value="2" /> Select User(s</label>
+                                                    <label class="radio radio-inline"><input type="radio" class="" name="selecttype" id="allmembers" value="3" /> All Members</label>
+                                                    <label class="radio radio-inline"><input type="radio" class="" name="selecttype" id="allusers" value="4" /> All Users</label>
+                                                </div>
+                                                <div class="divider15"></div>
+                                                <div id="selectmember_list">
+                                                    <?php  ob_start(); ?>
+                                                    <ul class="listfilter blocked">
+                                                        <li>
+                                                            <?php
+                                                                $values = getCommittees();
+                                                                $dropdown = new Zend_Form_Element_Select('committeeid',
+                                                                                    array(
+                                                                                        'multiOptions' => array_merge_maintain_keys(array('' => 'All Committees'), $values),
+                                                                                        'view' => new Zend_View(),
+                                                                                        'decorators' => array('ViewHelper'),
+                                                                                        'class' => array("groupmembers", "form-control", 'chosen-select'),
+                                                                                        'style' => 'width:200px;'
+                                                                                    )
+                                                                );  
+                                                                $dropdown->setValue($request->getParam('committeeid')); 
+                                                                echo $dropdown->render();
+                                                            ?>    
+                                                        </li>
+                                                        <li>
+                                                            <?php
+                                                                $values = getPositions();
+                                                                $dropdown = new Zend_Form_Element_Select('positionid',
+                                                                                    array(
+                                                                                        'multiOptions' => array_merge_maintain_keys(array('' => 'All Positions'), $values),
+                                                                                        'view' => new Zend_View(),
+                                                                                        'decorators' => array('ViewHelper'),
+                                                                                        'class' => array("groupmembers", "form-control", 'chosen-select'),
+                                                                                        'style' => 'width:200px;'
+                                                                                    )
+                                                                );  
+                                                                $dropdown->setValue($request->getParam('positionid')); 
+                                                                echo $dropdown->render();
+                                                            ?>    
+                                                        </li>
+                                                        <li>
+                                                            <?php
+                                                                $churches = getChurches();
+                                                                $dropdown = new Zend_Form_Element_Select('organisationid',
+                                                                                    array(
+                                                                                        'multiOptions' => array_merge_maintain_keys(array('' => 'All Churches'), $churches),
+                                                                                        'view' => new Zend_View(),
+                                                                                        'decorators' => array('ViewHelper'),
+                                                                                        'class' => array("groupmembers", "form-control", 'chosen-select'),
+                                                                                        'style' => 'width:200px;'
+                                                                                    )
+                                                                );  
+                                                                $dropdown->setValue($request->getParam('organisationid')); 
+                                                                echo $dropdown->render();
+                                                            ?>                    
+                                                        </li>
+                                                    </ul>
+                                                    <ul class="listfilter blocked">
+                                                    	<li>
+                                                            <?php
+                                                                $regions = getNFBPCRegions();
+                                                                $dropdown = new Zend_Form_Element_Select('regionid',
+                                                                                    array(
+                                                                                        'multiOptions' => array_merge_maintain_keys(array('' => 'All Regions'), $regions),								
+                                                                                        'view' => new Zend_View(),
+                                                                                        'decorators' => array('ViewHelper'),
+                                                                                        'class' => array("groupmembers", "form-control", 'chosen-select', 'width150')
+                                                                                    )
+                                                                                );
+                                                                $dropdown->setValue($request->getParam('regionid')); 
+                                                                echo $dropdown->render();
+                                                            ?> 
+                                                        </li>
+                                                        <li>
+                                                            <?php
+                                                                $provinces = getProvinces($request->getParam('regionid'));
+                                                                $dropdown = new Zend_Form_Element_Select('provinceid',
+                                                                                    array(
+                                                                                        'multiOptions' => array_merge_maintain_keys(array('' => 'All Provinces'), $provinces),								
+                                                                                        'view' => new Zend_View(),
+                                                                                        'decorators' => array('ViewHelper'),
+                                                                                        'class' => array("groupmembers", "form-control", 'chosen-select', 'width150')
+                                                                                    )
+                                                                                );
+                                                                $dropdown->setValue($request->getParam('provinceid')); 
+                                                                echo $dropdown->render();
+                                                            ?> 
+                                                        </li>
+                                                        <li>
+                                                            <?php
+                                                                $districts = getDistricts($request->getParam('regionid'));
+                                                                $dropdown = new Zend_Form_Element_Select('districtid',
+                                                                                    array(
+                                                                                        'multiOptions' => array_merge_maintain_keys(array('' => 'All Districts'), $districts),								
+                                                                                        'view' => new Zend_View(),
+                                                                                        'decorators' => array('ViewHelper'),
+                                                                                        'class' => array("groupmembers", "form-control", 'chosen-select', 'width150'),
+                                                                                        'style' => 'width:150px;'
+                                                                                    )
+                                                                                );
+                                                                $dropdown->setValue($request->getParam('districtid')); 
+                                                                echo $dropdown->render();
+                                                            ?> 
+                                                        </li>
+                                                   	</ul>
+                                                    <?php $html_select = ob_get_clean(); ?>
+													<?php if($ismail){ ?>
+                                                    	<?php echo $html_select; ?>
+                                                        <div id="memberselection">
+															<?php
+                                                                  $listdropdown = new Zend_Form_Element_Multiselect('memberids',
+                                                                          array(
+                                                                                  'multiOptions' => $emailmembers,
+                                                                                  'view' => new Zend_View(),
+                                                                                  'decorators' => array(array('ViewHelper')),
+                                                                                  'class' => array('chosen-select','multipleselect','col-md-6'),
+                                                                                  'style' => 'width:100%;'
+                                                                          )
+                                                                  );
+                                                                  
+                                                                  $listdropdown->setValue('');
+                                                                  $listdropdown->setAttrib("data-placeholder", "Start typing member(s) in category");
+                                                                  echo $listdropdown->render();
+                                                              ?>
+                                                         </div>
+                                                         <div class="divider5"></div>
+                                                         <div class="blocked" id="selected_text"></div>
+                                                      <?php } ?>
+                                                      <?php if($issms){ ?>
+                                                          	<?php echo $html_select; ?>
+                                                            <div id="memberselection">
+                                                                <?php
+                                                                  $listdropdown = new Zend_Form_Element_Multiselect('memberids',
+                                                                          array(
+                                                                                  'multiOptions' => $phonemembers,
+                                                                                  'view' => new Zend_View(),
+                                                                                  'decorators' => array(array('ViewHelper')),
+                                                                                  'class' => array('chosen-select','multipleselect','col-md-6'),
+                                                                                  'style' => 'width:100%;'
+                                                                          )
+                                                                  );
+                                                                  
+                                                                  $listdropdown->setValue('');
+                                                                  $listdropdown->setAttrib("data-placeholder", "Start typing member(s) in category");
+                                                                  echo $listdropdown->render();
+                                                                ?>
+                                                            </div>
+                                                            <div class="divider5"></div>
+                                                            <div class="blocked" id="selected_text"></div>
+                                                      <?php } ?>
+                                                </div>
+                                                <div id="selectuser_list">
+                                                    <?php if($ismail){ ?>
+                                                        <?php
+                                                              $listdropdown = new Zend_Form_Element_Multiselect('userids',
+                                                                      array(
+                                                                              'multiOptions' => $emailusers,
+                                                                              'view' => new Zend_View(),
+                                                                              'decorators' => array(array('ViewHelper')),
+                                                                              'class' => array('chosen-select','multipleselect','col-md-6'),
+                                                                              'style' => 'width:100%;'
+                                                                      )
+                                                              );
+                                                              
+                                                              $listdropdown->setValue('');
+                                                              $listdropdown->setAttrib("data-placeholder", "Start typing user(s) in category");
+                                                              echo $listdropdown->render();
+                                                          ?>
+                                                      <?php } ?>
+                                                      <?php if($issms){ ?>
+                                                          <?php
+                                                              $listdropdown = new Zend_Form_Element_Multiselect('userids',
+                                                                      array(
+                                                                              'multiOptions' => $phoneusers,
+                                                                              'view' => new Zend_View(),
+                                                                              'decorators' => array(array('ViewHelper')),
+                                                                              'class' => array('chosen-select','multipleselect','col-md-6'),
+                                                                              'style' => 'width:100%;'
+                                                                      )
+                                                              );
+                                                              
+                                                              $listdropdown->setValue('');
+                                                              $listdropdown->setAttrib("data-placeholder", "Start typing user(s) in category");
+                                                              echo $listdropdown->render();
+                                                          ?>
+                                                      <?php } ?>
+                                                </div>
+                                                <div id="allmembers_list" class="bolded">
+                                                    All NFBPC members with <?php echo $issms === true ? 'Phone' : 'Email'; ?> (<?php echo $issms == true ? count($phonemembers) : count($emailmembers); ?>) will be notified 
+                                                </div>
+                                                <div id="allusers_list" class="bolded">
+                                                    All NFBPC Users with <?php echo $issms === true ? 'Phone' : 'Email'; ?> (<?php echo $issms == true ? count($phoneusers) : count($emailusers); ?>) will be notified
+                                                </div>
+                                            </div>
+                                        </div>
+                                    <?php } ?>
+                                    <?php if($ismail){ ?>
+                                        <div class="form-group">
+                                            <label class="col-md-2 control-label"><?php echo $this->translate("message_subject_label"); ?>: <?php echo $this->translate("required_field_marker"); ?></label>
+                                            <div class="col-md-8">
+                                                <input type="text" name="subject" id="subject" class="form-control" value="<?php echo $subject; ?>" />
+                                                <input type="hidden" name="subject_prefill" id="" value="<?php echo $subject; ?>" />
+                                                <div id="subject_error"></div>
+                                            </div>
+                                        </div>
+                                    <?php } ?>
+                                    <div class="form-group">
+                                        <label class="col-md-2 control-label"><?php echo $this->translate("message_contents_label"); ?>: <?php echo $this->translate("required_field_marker"); ?></label>
+                                        <div class="col-md-8">
+                                        	<?php if($ismail){ ?>
+                                                <textarea class="expanding form-control elastic" name="contents" id="contents" style="min-height:240px;" placeholder="Type message here"><?php echo $message; ?></textarea>
+                                            <?php } ?>
+                                            <?php if($issms){ ?>
+                                            	<textarea class="expanding form-control elastic" name="contents" id="contents" style="min-height:150px; width:300px;" placeholder="Type message here. Maximum 159 Characters"><?php echo $message; ?></textarea>
+                                                <input type="text" style="display:none;" id="spamcheck" name="spamcheck" value="" />
+                                                <span class="blocked">Chars Left: &nbsp;<label id="balance"></label></span>
+                                            <?php } ?>
+                                            <div id="contents_error" class="clearfix blocked"></div>
+                                        </div>
+                                        
+                                    </div>
+                               	</div>
+                        	</div>
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <div class="col-md-offset-2">
+                                        <a class="btn button-previous" href="<?php echo $this->baseUrl('notifications/list'); ?>"><i class="icon-remove"></i> Back to Inbox</a>
+                                        <button type="submit" class="btn btn-success button-submit save" name="save" id="send"><i class="glyphicon glyphicon-ok"></i> <?php echo $button_title; ?></button>
+                                        <input type="hidden" id="senderid" name="senderid" value="<?php echo $user->getID(); ?>" />
+                                        <input type="hidden" id="type" name="type" value="<?php echo $type; ?>" />
+                                        <input type="hidden" id="successurl" name="successurl" value="<?php echo encode($this->viewurl); ?>" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group" style="padding:20px;">
+                            <div class="col-md-12 padding0">
+                            	<?php echo $session->getVar('sentlist'); ?>
+                          	</div>
+                       	</div>
+                    </fieldset>
+                </div>
+            </div>
+   		</div>
+ 	</form>
+</div>
+<?php
+	$session->setVar('sentlist', '');
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

@@ -1,0 +1,138 @@
+<?php
+	require_once APPLICATION_PATH.'/includes/header.php';
+	
+	$id = '';
+	$profileid = $request->id;
+	$member = new Member();
+	$member->populate($profileid);
+	$title = $member->getName();
+	// debugMessage($member->toArray());
+?>
+<?php require APPLICATION_PATH."/views/scripts/index/publictop.phtml"; ?>
+<div class="row">
+	<div class="row xk2catstyles itemView" id="k2Container">
+		<h3 class="publiclefttitle">Leadership</h3>
+		<div class="large-3 columns xleftside">
+			<?php require APPLICATION_PATH."/views/scripts/index/publicleftcolumn.phtml"; ?>
+		</div>
+		<div class="large-9 columns xmainside" style="margin-top:-55px;">
+			<div class="itemHeader">
+				<h2 class="itemTitle"><?php echo $member->getName(); ?></h2>
+			</div>
+			<div class="itemBody">
+				<div style="float:left; width:30%; margin-top:15px;">
+					<img id="profileimage" class="imagecontainer" src="<?php echo $member->getMediumPicturePath(); ?>" style="width:250px; height:auto;" />
+					
+					<strong style="margin-top:35px; display:block;">Location </strong>
+					<table class="table locationlist" style="width:110%; border:none; margin-left:-8px; margin-top:10px;">
+						<tr>
+							<td>Region: <span><?php echo isEmptyString($member->getRegionID()) ? '--' : $member->getRegion()->getName(); ?></span></td>
+						</tr>
+						<tr>
+							<td>Province: <span><?php echo isEmptyString($member->getProvinceID()) ? '--' : $member->getProvince()->getName(); ?></span></td>
+						</tr>
+						<tr>
+							<td>District: <span><?php echo isEmptyString($member->getDistrictID()) ? '--' : $member->getDistrict()->getName(); ?></span></td>
+						</tr>
+						<tr>
+							<td>County: <span><?php echo isEmptyString($member->getCountyID()) ? '--' : $member->getCounty()->getName(); ?></span></td>
+						</tr>
+						<tr>
+							<td>Sub-county: <span><?php echo isEmptyString($member->getSubcountyID()) ? '--' : $member->getSubcounty()->getName(); ?></span></td>
+						</tr>	
+						<tr>
+							<td>Parish: <span><?php echo isEmptyString($member->getParishID()) ? '--' : $member->getParish()->getName(); ?></span></td>
+						</tr>
+						<tr>
+							<td>Village: <span><?php echo isEmptyString($member->getVillageID()) ? '--' : $member->getVillage()->getName(); ?></span></td>
+						</tr>
+					</table>
+				</div>
+				<div style="float:right; width:65%; margin-top:15px;">
+					<strong>Leadership Role(s)</strong>
+					<p style="margin-bottom:20px;">
+						<?php 
+							$roles = $member->getAppointments();
+							$totalroles = $roles->count();
+						?>
+						<?php if ($totalroles == 0) { ?>
+							<span style="font-size:12px;">None</span>
+						<?php } else { ?>
+							<?php
+								$i = 1;
+								foreach($roles as $role){
+									$locationtext = ''; $departtext = '';
+									if(!isEmptyString($role->getDepartmentID()) && !in_array($role->getDepartmentID(), array(12,13,14,15,16))){
+										$departtext = ' - <span style="font-weight:normal;">'.$role->getDepartment()->getName().'</span>';
+									}
+									if(!isEmptyString($role->getLocationID())){
+										$locationtext = ' <br> <span style="font-weight:normal;">'.$role->getTheLocationName().' '.$role->getLocationType().'</span>';
+									}
+							?>
+								<p style="margin-bottom:0;">&bull; <?php echo $role->getPosition()->getName().$departtext.' <br>('.$role->getCommittee()->getName().') '.$locationtext; ?></p>
+							<?php } ?>
+						<?php } ?>
+					</p>
+					<strong>Church</strong>
+					<p style="min-height:20px; margin-top:10px; margin-bottom:20px;">
+						<?php if(!isEmptyString($member->getOrganisationID())){ ?>
+							<a href="<?php echo $this->baseUrl('index/church/id/'.$member->getOrganisationID()); ?>"><?php echo $member->getOrganisation()->getName(); ?></a>
+						<?php } else { ?>
+							--
+						<?php } ?>
+					</p>
+					<strong>Biography</strong>
+					<p style="min-height:100px; margin-top:10px; margin-bottom:20px;"><?php echo isEmptyString($member->getBio()) ? '--' : nl2br($member->getBio()); ?></p>
+					<?php if (!isEmptyString($session->getVar(SUCCESS_MESSAGE))) { ?>
+						<div class="alert alert-success"><?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
+					<?php } ?>
+					<?php if (!isEmptyString($session->getVar(ERROR_MESSAGE))) { ?>
+						<div class="alert alert-danger"><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
+					<?php } ?>
+					<strong>Contact <?php echo $member->getName(); ?></strong>
+					
+					<form id="indexform" class="form-horizontal" method="post" action="<?php echo $this->baseUrl('index/processcontact/id/'.$member->getID()); ?>">
+						<table class="table locationlist" style="width:110%; border:none; margin-left:-10px; margin-top:20px;">
+							<tr>
+								<td style="width:25%; vertical-align:top;">Your Name: <?php echo $this->translate("global_required_field_marker"); ?></td>
+								<td>
+									<input type="text" id="sendername" name="sendername" class="form-control" value="" style="width:100%; margin:0;" />
+									<div id="sendername_error"></div>
+								</td>
+							</tr>
+							<tr>
+								<td style="vertical-align:top;">Your Email: <?php echo $this->translate("global_required_field_marker"); ?></td>
+								<td>
+									<input type="text" id="senderemail" name="senderemail" class="form-control" value="" style="width:100%; margin:0;" />
+									<div id="senderemail_error"></div>
+								</td>
+							</tr>
+							<tr>
+								<td style="vertical-align:top;">Subject: <?php echo $this->translate("global_required_field_marker"); ?></td>
+								<td>
+									<input type="text" id="subject" name="subject" class="form-control" value="" style="width:100%; margin:0;" />
+									<div id="subject_error"></div>
+								</td>
+							</tr>
+							<tr>
+								<td style="vertical-align:top;">Your Message: <?php echo $this->translate("global_required_field_marker"); ?></td>
+								<td>
+									<textarea class="expanding form-control elastic" name="contents" id="contents" style="min-height:240px; width:100%; margin:0;" placeholder="Type message here"></textarea>
+									<div id="contents_error"></div>
+									<p></p>
+									<button type="submit" class="btn btn-success button-submit save" name="save" id="send" style="padding:8px 15px;"><i class="glyphicon glyphicon-ok"></i> Send Message</button>
+									<input type="hidden" id="successurl" name="successurl" value="<?php echo encode($this->viewurl); ?>" />
+								</td>
+							</tr>
+							
+						</table>
+					</form>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+<?php require APPLICATION_PATH."/views/scripts/index/publicbottom.phtml"; ?>
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

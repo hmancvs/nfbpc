@@ -12,11 +12,11 @@ class MemberController extends SecureController {
 	public function getActionforACL() {
 	 	$action = strtolower($this->getRequest()->getActionName()); 
 	 	if($action == "picture" || $action == "processpicture" || $action == "croppicture" || 
-	 		$action == "uploadpicture" 
+	 		$action == "uploadpicture" || $action == "updatebio"
 		){
 	 		return ACTION_EDIT;
 	 	}
-	 	if($action = "search"){
+	 	if($action = "search" || $action = "populatemember"){
 	 		return ACTION_VIEW;
 	 	}
 		return parent::getActionforACL();
@@ -243,7 +243,7 @@ class MemberController extends SecureController {
     		}
     	}
     	$session->setVar(SUCCESS_MESSAGE, "Successfully updated profile picture");
-    		$this->_helper->redirector->gotoUrl($this->view->baseUrl('member/view/id/'.encode($member->getID())));
+    	$this->_helper->redirector->gotoUrl($this->view->baseUrl('member/view/id/'.encode($member->getID())));
     }
     
     function uploadpictureAction(){
@@ -305,10 +305,10 @@ class MemberController extends SecureController {
 	    		unlink($UploadDirectory.'base_'.$Random_Number.'.jpg');
 	    		$session->setVar(SUCCESS_MESSAGE, "Successfully uploaded! Please resize/crop image to complete.");
 	    
-	    				$member = new Member();
-	    				$member->populate($formvalues['userid']);
-	    				$member->setProfilePhoto($Random_Number.'.jpg');
-	    				$member->save();
+    			$member = new Member();
+    			$member->populate($formvalues['userid']);
+    			$member->setProfilePhoto($Random_Number.'.jpg');
+    			$member->save();
 	    
 	    		// check if user already has profile picture and archive it
 	    		$ftimestamp = current(explode('.', $member->getProfilePhoto()));
@@ -329,7 +329,25 @@ class MemberController extends SecureController {
 		    			rename($afile, $archivefolder.DIRECTORY_SEPARATOR.$afile_filename);
 		    		}
 	    		}
-    
+    			
+	    		$url = $this->view->serverUrl($this->view->baseUrl('member/view/id/'.encode($member->getID())));
+	    		$usecase = '2.4';
+	    		$module = '2';
+	    		$type = MEMBER_UPLOADPHOTO;
+	    		$details = "New Profile Photo uploaded for <a href='".$url."' class='blockanchor'>".$member->getName()."</a>";
+	    		 
+	    		$browser = new Browser();
+	    		$audit_values = $session->getVar('browseraudit');
+	    		$audit_values['module'] = $module;
+	    		$audit_values['usecase'] = $usecase;
+	    		$audit_values['transactiontype'] = $type;
+	    		$audit_values['userid'] = $session->getVar('userid');
+	    		$audit_values['url'] = $url;
+	    		$audit_values['transactiondetails'] = $details;
+	    		$audit_values['status'] = "Y";
+	    		// debugMessage($audit_values);
+	    		$this->notify(new sfEvent($this, $type, $audit_values));
+	    		
 	    		// die('File '.$NewFileName.' Uploaded.');
 	    		$result = array('oldfilename' => $File_Name, 'newfilename'=>$NewFileName, 'msg'=>'File '.$File_Name.' successfully uploaded', 'result'=>1);
     			// json_decode($result);
@@ -348,19 +366,76 @@ class MemberController extends SecureController {
     	$this->_helper->layout->disableLayout();
     	$this->_helper->viewRenderer->setNoRender(TRUE);
     
-    	$session = SessionWrapper::getInstance();
+    	$conn = Doctrine_Manager::connection();
+		$session = SessionWrapper::getInstance();
     	$config = Zend_Registry::get("config");
     	$this->_translate = Zend_Registry::get("translate");
     
     	$formvalues = $this->_getAllParams();
-    	/* debugMessage($formvalues);
-    	exit(); */
-    	$data = array(
-    		array('value'=>'jQuery','label'=>'jQuery','desc'=>'the write less, do more, JavaScript library','icon'=>''),
-    		array('value'=>'jquery-ui','label'=>'jQuery UI','desc'=>'the official user interface library for jQuery','icon'=>'jqueryui_32x32.png'),
-    		array('value'=>'sizzlejs','label'=>'Sizzle JS','desc'=>'a pure-JavaScript CSS selector engine','icon'=>'sizzlejs_32x32.png')
-    				
-    	);
+    	// debugMessage($formvalues);
+    	//exit();
+    	
+    	$q = $formvalues['term'];
+    	$query = "SELECT l.id, l.locationtype, l.regionid, l.provinceid, l.districtid, l.countyid, l.subcountyid, l.parishid,
+    	r.name as region, p.name as province, d.name as district, c.name as county, s.name as subcounty, ps.name as parish, concat(l.name,' <br> {',d.name, '-District, ', c.name, '-County, ', s.name, '-Subcounty, ', ps.name, '-Parish', '}') as name 
+    	FROM location as l
+		left join location d on (l.districtid = d.id and d.locationtype = 2)
+		left join region r on (d.regionid = r.id) 
+		left join province p on (d.provinceid = p.id) 
+		left join location c on (l.countyid = c.id and c.locationtype = 3)
+		left join location s on (l.subcountyid = s.id and s.locationtype = 4)
+		left join location ps on (l.parishid = ps.id and ps.locationtype = 5)
+    	WHERE l.name like '".$q."%' AND l.locationtype = 6
+    	GROUP BY l.id order by l.name asc ";
+    	// debugMessage($query);
+    	$data = $conn->fetchAll($query);
+    	$count_results = count($data);
+    	// debugMessage($result);
+    	
+    	//echo json_encode($data);
     	echo json_encode($data);
+    }
+    
+    function populatememberAction(){
+    	$this->_helper->layout->disableLayout();
+    	$this->_helper->viewRenderer->setNoRender(TRUE);
+    
+    	// debugMessage($this->_getAllParams());
+    	$member = new Member();
+    	$member->populate($this->_getParam('memberid'));
+    
+    	$resultarray = array(
+    			'id' => $member->getID(),
+    			'email' => $member->getEmail()
+    	);
+    	echo json_encode($resultarray);
+    }
+    
+    public function updatebioAction() {
+    	$this->_helper->layout->disableLayout();
+    	$this->_helper->viewRenderer->setNoRender(TRUE);
+    
+    	$session = SessionWrapper::getInstance();
+    	$config = Zend_Registry::get("config");
+    	$this->_translate = Zend_Registry::get("translate");
+    	$formvalues = $this->_getAllParams();
+    	$id =  decode($formvalues['id']);
+    	 
+    	// debugMessage($formvalues);
+    	$member = new Member();
+    	$member->populate($id);
+    	 
+    	$member->setBio($formvalues['bio']);
+    	/* debugMessage($member->toArray());
+    	debugMessage('error '.$member->getErrorStackAsString()); exit(); */
+    	 
+    	try {
+    		$member->save();
+    		$session->setVar(SUCCESS_MESSAGE, $this->_translate->translate($this->_getParam(SUCCESS_MESSAGE)));
+    		$this->_helper->redirector->gotoUrl(decode($this->_getParam(URL_SUCCESS)));
+    	} catch (Exception $e) {
+    		$session->setVar(ERROR_MESSAGE, $e->getMessage());
+    		$this->_helper->redirector->gotoUrl(decode($this->_getParam(URL_FAILURE)));
+    	}
     }
 }

@@ -1,0 +1,160 @@
+<script>
+$(document).ready(function() {
+	$("#indexform").validate({		
+		// define the validation rules one field at a time
+		rules: {
+			subject: "required",
+			contents: "required"
+		}, 
+		// the messages for each of the fields being validated
+		messages: {				
+			subject: "<?php echo $this->translate("message_subject_error"); ?>",
+			contents: "<?php echo $this->translate("message_contents_error"); ?>"
+		},
+		// custom error positions
+		errorPlacement: function(error, element) {
+			switch(element.attr("name")){					
+				default:
+					if(element.hasClass("useid_error")){
+						error.appendTo("#"+element.attr("id")+"_error");
+					} else {
+						error.appendTo("#"+element.attr("name")+"_error");
+					}
+					break;
+			}			
+		},
+		ignore: ":hidden:not(select)"
+	});
+	
+	<?php if($issms){ ?>
+		var characters = 159;
+		$("#balance").append(characters);
+		$("#contents").keyup(function(){
+			if($(this).val().length > characters){
+				$(this).val($(this).val().substr(0, characters));
+			}
+			var remaining = characters -  $(this).val().length;
+			$("#balance").html(remaining);
+			if(remaining <= 10){
+				$("#balance").css("color","red");
+			} else {
+				$("#balance").css("color","black");
+			}
+		});
+	<?php } ?>
+	$("#contents").trigger("keyup");
+	
+	$(".typetrigger").click(function(){
+		var currenttype = '<?php echo $type; ?>';
+		var newtype = $(this).val();
+		// alert(currenttype+' - '+newtype);
+		if(currenttype != newtype){
+			window.location.href = $(this).attr('gotourl');
+			$.blockUI({ message: '<?php echo $blockcontent; ?>'}); 
+			return true;
+		}
+	});
+	
+	$("#send").click(function(e){
+		e.preventDefault();
+		if($("#indexform").valid() == true) {
+			$.blockUI({ message: '<?php echo $blockcontent; ?>'}); 
+			//$("#indexform").submit();
+			var posturl = $("#indexform").attr('action');
+			$.post(  
+				posturl,  
+				$("#indexform").serialize(),  
+				function(data){
+					// alert(data); return false;
+					data = jQuery.parseJSON(data);
+					// alert(data.result);
+					if(data.result == 'success' || data.result == 'fail'){
+						window.location.href = '<?php echo $this->viewurl; ?>';
+						// $.unblockUI();
+					}
+				}  
+			); // close the $.post					
+		}
+	});
+});
+</script>
+<div class="row-fluid margin0">
+<div class="col-md-12">
+	<fieldset class="fieldsetcontainer" style="margin-bottom:0;">
+		<legend>Contact <?php echo $member->getName(); ?></legend>
+		<div class="panel-body well-sm minheight400">
+			<div class="divider20"></div>
+			<div class="row-fluid marginleft5">
+				<div class="col-md-12 paddingleft10">
+					<div class="form-group">
+						<label class="col-md-2 control-label">Method: </label>
+						<div class="col-md-8">
+							<label class="radio radio-inline"><input type="radio" name="type" id="type_1" class="typetrigger <?php echo $type == 1 ? 1 : 0; ?>" value="1" gotourl="<?php echo $this->baseUrl($controller.'/view/id/'.encode($member->getID()).'/tab/contact/type/1'); ?>" /> E-Mail &nbsp;</label>
+							<?php if($acl->checkPermission('SMS', ACTION_CREATE)){ ?>
+								<label class="radio radio-inline"><input type="radio" name="type" id="type_2" class="typetrigger <?php echo $type == 2 ? 1 : 0; ?>" value="2" gotourl="<?php echo $this->baseUrl($controller.'/view/id/'.encode($member->getID()).'/tab/contact/type/2'); ?>" /> SMS</label>
+							<?php } ?>
+							<div id="type_error"></div>
+						</div>
+					</div>
+					<div class="divider5"></div>
+					<?php if($ismail && isPublicUser()){ ?>
+						<div class="form-group">
+							<label class="col-md-2 control-label">Sender Email: <?php echo $this->translate("required_field_marker"); ?></label>
+							<div class="col-md-8">
+								<div class="divider5"></div>
+								<input type="text" id="senderemail" name="senderemail" class="form-control halfwidth" value="<?php echo $user->getEmail(); ?>" />
+							</div>
+						</div>
+						<div class="form-group">
+							<label class="col-md-2 control-label">Sender Name: <?php echo $this->translate("required_field_marker"); ?></label>
+							<div class="col-md-8">
+								<div class="divider5"></div>
+								<input type="text" id="sendername" name="sendername" class="form-control halfwidth" value="<?php echo $user->getName(); ?>" />
+							</div>
+						</div>
+					<?php } else { ?>
+						<input type="hidden" id="senderemail" name="senderemail" value="<?php echo $user->getEmail(); ?>" />
+						<input type="hidden" id="sendername" name="sendername" value="<?php echo $user->getFirstName(); ?>" />
+					<?php } ?>
+					<input type="hidden" id="memberid" name="memberid" value="<?php echo $member->getID(); ?>" />
+					<?php if($ismail){ ?>
+						<div class="form-group">
+							<label class="col-md-2 control-label"><?php echo $this->translate("message_subject_label"); ?>: <?php echo $this->translate("required_field_marker"); ?></label>
+							<div class="col-md-8">
+								<input type="text" name="subject" id="subject" class="form-control" value="<?php echo $subject; ?>" />
+								<input type="hidden" name="subject_prefill" id="" value="<?php echo $subject; ?>" />
+								<div id="subject_error"></div>
+							</div>
+						</div>
+					<?php } ?>
+					<div class="form-group">
+						<label class="col-md-2 control-label"><?php echo $this->translate("message_contents_label"); ?>: <?php echo $this->translate("required_field_marker"); ?></label>
+						<div class="col-md-8">
+							<?php if($ismail){ ?>
+								<textarea class="expanding form-control elastic" name="contents" id="contents" style="min-height:240px;" placeholder="Type message here"><?php echo $message; ?></textarea>
+							<?php } ?>
+							<?php if($issms){ ?>
+								<textarea class="expanding form-control elastic" name="contents" id="contents" style="min-height:150px; width:300px;" placeholder="Type message here. Maximum 159 Characters"><?php echo $message; ?></textarea>
+								<input type="text" style="display:none;" id="spamcheck" name="spamcheck" value="" />
+								<span class="blocked">Chars Left: &nbsp;<label id="balance"></label></span>
+							<?php } ?>
+							<div id="contents_error" class="clearfix blocked"></div>
+						</div>
+						
+					</div>
+				</div>
+			</div>
+			<div class="row">
+				<div class="col-md-12">
+					<div class="col-md-2"></div>
+					<div class="col-md-8">
+						<button type="submit" class="btn btn-success button-submit save" name="save" id="send"><i class="glyphicon glyphicon-ok"></i> Send Message</button>
+						<input type="hidden" id="senderid" name="senderid" value="<?php echo $user->getID(); ?>" />
+						<input type="hidden" id="successurl" name="successurl" value="<?php echo encode($this->viewurl); ?>" />
+					</div>
+				</div>
+			</div>
+		</div>
+	</fieldset>
+</div>
+</div>

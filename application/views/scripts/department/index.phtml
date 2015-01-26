@@ -21,7 +21,7 @@
 	
 	#in case of errors in session, populate the fields from session
 	if(!isEmptyString($session->getVar(ERROR_MESSAGE))){ 
-		$payment->processPost($session->getVar(FORM_VALUES));	
+		$department->processPost($session->getVar(FORM_VALUES));	
 	}
 	
 	$this->headTitle($title.$browserappend);
@@ -106,6 +106,12 @@ $(document).ready(function() {
                                             <label class="col-sm-2 control-label"><?php echo $this->translate("global_abbr_label"); ?>:</label>
                                             <div class="col-sm-10">
                                                 <input type="text" class="form-control input-sm width100" id="abbr" name="abbr" value="<?php echo $department->getAbbr(); ?>" />
+                                            </div>
+                                        </div>
+										<div class="form-group">
+                                            <label class="col-sm-2 control-label">Default Email:</label>
+                                            <div class="col-sm-10">
+                                                <input type="text" class="form-control input-sm" id="defaultemail" name="defaultemail" value="<?php echo $department->getDefaultEmail(); ?>" />
                                             </div>
                                         </div>
                                     </div>

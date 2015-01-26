@@ -1,0 +1,232 @@
+<div class="row-fluid margin0">
+                                    <div class="col-md-12">
+                                        <fieldset class="fieldsetcontainer" style="margin-bottom:0;">
+                                            <legend><?php echo $title; ?></legend>
+                                            <div class="panel-body well-sm minheight400">
+                                                <div class="row leftalignlabel">
+                                                    <div class="col-md-3">
+                                                        <div class="widget-header" style="margin-left:15px;">
+                                                            <div class="divider20"></div>
+                                                            <b><i class="icon-reorder"></i> Current Photo</b>
+                                                            <div id="profileinfo" style="margin-top:10px;">
+                                                                <img id="profileimage" class="imagecontainer" src="<?php echo $organisation->getMediumPicturePath(); ?>" style="width:100%; height:auto;" />
+                                                                <input type="hidden" class="successurl" id="<?php echo URL_SUCCESS; ?>" name="<?php echo URL_SUCCESS; ?>" value="<?php echo $successurl; ?>" />
+                        										<input type="hidden" class="failureurl" id="<?php echo URL_FAILURE; ?>" name="<?php echo URL_FAILURE; ?>" value="<?php echo $failureurl; ?>" />
+                                                            </div>
+                                                            <?php if(!isEmptyString($request->crop)){ ?>
+                                                                <div class="divider10"></div>
+                                                                <a href="<?php echo $this->baseUrl('organisation/view/tab/picture/id/'.encode($organisation->getID())); ?>" class="btn btn-primary btn-xs blockanchor">Upload New</a>
+                                                            <?php } ?>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-9">
+                                                        <?php if(isEmptyString($request->crop)){ ?>
+                                                            <script>
+                                                            $(document).ready(function(){
+                                                                $("#indexform").validate({		
+                                                                    // define the validation rules one field at a time
+                                                                    rules: {
+                                                                        FileInput: "required"
+                                                                    }, 
+                                                                    // the messages for each of the fields being validated
+                                                                    messages: {		
+                                                                        FileInput: "Please browse an Image File"
+                                                                    },
+                                                                    // custom error positions
+                                                                    errorPlacement: function(error, element) {
+                                                                        switch(element.attr("name")){					
+                                                                            default:
+                                                                                if(element.hasClass("useid_error")){
+                                                                                    error.appendTo("#"+element.attr("id")+"_error");
+                                                                                } else {
+                                                                                    error.appendTo("#"+element.attr("name")+"_error");
+                                                                                }
+                                                                                break;
+                                                                        }			
+                                                                    },
+                                                                    ignore: ":hidden:not(select)"
+                                                                });
+                                                                
+                                                                
+																<?php if(false){ ?>
+																var options = { 
+                                                                    target:   '#output',   // target element(s) to be updated with server response 
+                                                                    beforeSubmit:  beforeSubmit,  // pre-submit callback 
+                                                                    success:       afterSuccess,  // post-submit callback 
+                                                                    uploadProgress: OnProgress, //upload progress callback 
+                                                                    resetForm: true        // reset the form after successful submit 
+                                                                }; 
+                                                                    
+                                                                 $("#FileInput").change(function(){
+                                                                    var filename = $(this).val(); // alert('file is '+filename);								
+                                                                    $("#filenamedisplay").html(filename);
+                                                                    // upload the file to the server
+                                                                    // $("#indexform").ajaxSubmit(options);  			
+                                                                });  
+                                                                
+                                                                $('#filenamedisplay').click(function(){
+                                                                    $("#FileInput").trigger('click');
+                                                                });
+                                                                
+                                                                $('#submit-btn').click(function(){
+                                                                    $("#indexform").ajaxSubmit(options);
+                                                                });
+                                                                
+                                                                $('#re-upload').click(function(){
+                                                                    $("#aftersave").hide().addClass('hidden');
+                                                                    $("#beforesave").show().removeClass('hidden');
+                                                                    $("#filename, #FileInput, #attachment, #attachment_display").val('');
+                                                                    $("#uploadresult").html('');
+                                                                });
+                                                                
+                                                                //function after succesful file upload (when server response)
+                                                                function afterSuccess() {
+                                                                    $('#submit-btn').show(); //hide submit button
+                                                                    $('#loading-img').hide(); //hide submit button
+                                                                    $('#progressbox').delay(400).fadeOut(); //hide progress bar
+                                                                    $("#filenamedisplay").html('');
+                                                                    
+                                                                    var data = $.parseJSON($("#output").html());
+                                                                    if(data.result == 1){
+                                                                        $("#output, #FileInput_error, #filename_error ").hide();	
+                                                                        // $('#uploadresult').html('<div class="divider5"></div><span class="alert alert-success">Uploaded. Save changes to continue</span>').removeClass('hidden');
+                                                                        $('#uploadresult').html('<div class="divider5"></div><span class="alert alert-success">Uploaded. Please wait while we optimise...</span>').removeClass('hidden');
+                                                                        $("#filename").val(data.newfilename);
+                                                                        $("#attachment").val(data.oldfilename);
+                                                                        $("#attachment_display, #aftersave").show().removeClass('hidden');
+                                                                        $("#attachment_display").html(data.oldfilename);
+                                                                        $("#beforesave").hide().addClass('hidden');
+                                                                        // $("#savecontinue").show().removeClass('hidden');
+                                                                        // redirect to the crop page
+                                                                        var url = '<?php echo $this->baseUrl('organisation/index/id/'.encode($organisation->getID()).'/tab/picture/crop/1'); ?>';
+                                                                        window.location.href = url;
+                                                                        var uiblockcontent = '<h4><img src="<?php echo $this->baseUrl('images/loader.gif'); ?>" /> Please wait...</h4>';
+                                                                        $.blockUI({ message: uiblockcontent}); 
+                                                                    }
+                                                                }
+                                                                
+                                                                //function to check file size before uploading.
+                                                                function beforeSubmit(){
+                                                                    //check whether browser fully supports all File API
+                                                                   if (window.File && window.FileReader && window.FileList && window.Blob){
+                                                                        if(!$('#FileInput').val()) {
+                                                                            $("#output").html("<span class='alert alert-danger'>Error: Please select a File to Upload.</span>");
+                                                                            return false
+                                                                        }
+                                                                        $('#submit-btn').hide(); //hide submit button
+                                                                        $('#loading-img').show(); //hide submit button
+                                                                        $("#output").html("");  
+                                                                        
+                                                                    } else {
+                                                                        //Output error to older unsupported browsers that doesn't support HTML5 File API
+                                                                        $("#output").html("Please upgrade your browser. File upload not supported at this time.");
+                                                                        return false;
+                                                                    }
+                                                                }
+                                                                
+                                                                //progress bar function
+                                                                function OnProgress(event, position, total, percentComplete){
+                                                                    //Progress bar
+                                                                    $('#progressbox').show();
+                                                                    $('#progressbar').width(percentComplete + '%') //update progressbar percent complete
+                                                                    $('#statustxt').html(percentComplete + '%'); //update status text
+                                                                    if(percentComplete > 50) {
+                                                                        $('#statustxt').css('color','#000'); //change status text to white after 50%
+                                                                    }
+                                                                }
+                                                                
+																<?php } ?>
+                                                                $(".topactions, .bottomactions, #topactions, #bottomactions").hide();
+                                                            });
+                                                            </script>
+                                                        <div class="divider20"></div>
+                                                        <div class="form-group" style="margin-left:0; padding-left:0; margin-top:30px; margin-right:0;">
+                                                            <div class="form-group" style="margin-left:0; padding-left:0; margin-right:0;">
+                                                                <label class="col-md-12 control-label">Upload an Image (Max size <?php echo formatBytes($config->uploads->photomaximumfilesize); ?>) <?php echo $this->translate("required_field_marker"); ?></label>
+                                                                <div class="divider20"></div>
+                                                                <div>
+                                                                    <div id="beforesave">
+                                                                        <div class="fileinput-holder input-group xcol-md-7" style="padding-left:15px;">
+                                                                            <div id="filenamedisplay" style="cursor: text; text-overflow: ellipsis; " class="fileinput-preview uneditable-input form-control">No file selected...</div>
+                                                                            <div class="input-group-btn floatleft">
+                                                                                <span style="overflow: hidden; position: relative; cursor: pointer; margin:0;" class="fileinput-btn btn btn-default noround">Browse...
+                                                                                    <input type="file" name="FileInput"  id="FileInput" class="form-control inline file" data-style="fileinput" style="position: absolute; top: 0px; right: 0px; margin: 0px; cursor: pointer; font-size: 99px; opacity: 0;" />
+                                                                                    <input type="hidden" id="id" name="id" value="<?php echo encode($organisation->getID()); ?>" />
+                                                                                    <input type="hidden" id="organisationid" name="organisationid" value="<?php echo $organisation->getID(); ?>" />
+                                                                                </span>
+                                                                            </div> &nbsp;
+                                                                            <?php if(false){ ?>
+                                                                            <button type="button" id="submit-btn" class="btn btn-sm btn-success floatright"><i class="glyphicon glyphicon-upload"></i> &nbsp;Upload</button> &nbsp;
+                                                                            <?php } ?>
+                                                                            <button type="submit" id="submit-btn" class="btn btn-sm btn-success floatright"><i class="glyphicon glyphicon-upload"></i> &nbsp;Upload</button> &nbsp;
+                                                                            
+                                                                            <span class="lineblocked floatright" style="margin-right:10px;"><img src="<?php echo $this->baseUrl('images/loader.gif'); ?>" id="loading-img" style="display:none;" /></span>
+                                                                        </div>
+                                                                                                                        
+                                                                    </div>
+                                                                    <div id="aftersave" class="hidden">
+                                                                        <div class="xcol-md-7" style="padding-left:0;"><span id="attachment_display"><?php // echo $organisation->getProfilePhoto(); ?></span> &nbsp;<button type="button" id="re-upload" class="btn btn-xs"><i class="icon-remove-circle"></i> Re-upload</button> </div>
+                                                                    </div>
+                                                                    <div class="divider5"></div>
+                                                                    <div id="progressbox"><div id="progressbar"></div><div id="statustxt">0%</div></div>
+                                                                    <div id="output"></div><div id="uploadresult" class="hidden"></div>
+                                                                    <div id="filename_error"></div><div id="FileInput_error"></div><div id="profileimage_error"></div>
+                                                                </div>
+                                                                
+                                                            </div> 
+                                                        </div>
+                                                    <?php } else { ?>
+                                                        <script>
+                                                            $(document).ready(function(){
+                                                                $(".topactions, .bottomactions, #topactions, #bottomactions").hide();
+                                                                
+                                                                $('#photo').imgAreaSelect({ 
+                                                                    // aspectRatio: '47:19', 
+                                                                    handles: 'corners',
+                                                                    minWidth: 300,
+                                                                    maxWidth: 590,
+																	minHeight: 100,
+                                                                    maxHeight: 300,
+                                                                    x1: 0, y1: 0, x2: 300, y2: 120,
+                                                                    /*onSelectChange: preview,*/
+                                                                    onSelectEnd: function (img, selection) {
+                                                                        $('input[name="x1"]').val(selection.x1);
+                                                                        $('input[name="y1"]').val(selection.y1);
+                                                                        $('input[name="x2"]').val(selection.x2);
+                                                                        $('input[name="y2"]').val(selection.y2);
+                                                                        $('input[name="h"]').val(selection.height);
+                                                                        $('input[name="w"]').val(selection.width);            
+                                                                    }
+                                                                });
+                                                            });
+                                                            </script> 
+                                                            <div class="form-group" style="margin-left:30px;">
+                                                                <div class="widget-header">
+                                                                    <h4><i class="icon-reorder"></i> Resize/Crop Photo</h4>
+                                                                </div>
+                                                                <div class="divider10"></div>
+                                                                <label class="blocked notbolded">Drag the handles on the image canvas below to resize and click <b>'Crop Photo'</b> to save changes.</label>
+                                                                <div class="divider10"></div>
+                                                                
+                                                                <button type="submit" class="btn btn-success btn-md button-submit" name="save"><i class="glyphicon glyphicon-ok"></i> <?php echo $button_title; ?></button>
+                                                                <div class="clearfix divider15"></div>
+                                                                <img src="<?php echo $organisation->getLargePicturePath(); ?>" id="photo" />
+                                                                
+                                                                <input type="hidden" name="x1" value="0" />
+                                                                <input type="hidden" name="y1" value="0" />
+                                                                <input type="hidden" name="x2" value="300" />
+                                                                <input type="hidden" name="y2" value="120" />
+                                                                <input type='hidden' name='w' value='300' />
+                                                                <input type='hidden' name='h' value='120' />
+                                                                <input type="hidden" id="id" name="id" value="<?php echo encode($organisation->getID()); ?>" />
+                                                                <div class="clearfix divider15"></div>
+                                                                <button type="submit" class="btn btn-success btn-md button-submit" name="save"><i class="glyphicon glyphicon-ok"></i> <?php echo $button_title; ?></button>
+                                                            </div>
+                                                    <?php } ?>
+                                                    
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </fieldset>
+                                    </div>
+                                </div>

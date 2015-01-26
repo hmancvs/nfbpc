@@ -40,16 +40,32 @@ class SignupController extends IndexController {
 		$user->setPassword(sha1($formvalues['password']));
 		$user->setActivationDate(date('Y-m-d H:i:s'));
 		$user->setActivationKey('');
-		$user->setIsActive(1);
+		$user->setStatus(1);
 		$user->setAgreedToTerms(1);
-		// debugMessage($user->toArray());
+		// debugMessage($user->toArray()); debugMessage("Error > ".$user->getErrorStackAsString()); exit();
 		$user->save();
 		
-		$session->setVar(SUCCESS_MESSAGE, "You can now login using your Username or Password");
+		$url = $this->view->serverUrl($this->view->baseUrl('profile/view/id/'.encode($user->getID())));
+		$usecase = '1.16';
+		$module = '1';
+		$type = USER_ACTIVATE;
+		$details = "User Profile <a href='".$url."' class='blockanchor'>".$user->getName()."</a> activated";
 		
-		// exit();
+		$browser = new Browser();
+		$audit_values = $session->getVar('browseraudit');
+		$audit_values['module'] = $module;
+		$audit_values['usecase'] = $usecase;
+		$audit_values['transactiontype'] = $type;
+		$audit_values['userid'] = $session->getVar('userid');
+		$audit_values['url'] = $url;
+		$audit_values['transactiondetails'] = $details;
+		$audit_values['status'] = "Y";
+		// debugMessage($audit_values);
+		$this->notify(new sfEvent($this, $type, $audit_values));
+		
+		$session->setVar(SUCCESS_MESSAGE, "You can now login using your Username or Password");
 		$this->clearSession();
-		$session->setVar(SUCCESS_MESSAGE, "You can now login using your Username/Email and Password");
+		$session->setVar(SUCCESS_MESSAGE, "You can now login using your Username or Email or Phone and Password");
 		// $loginurl = $this->view->baseUrl("user/checklogin/email/".$user->getEmail().'/password/'.$formvalues['password']);
 		$loginurl = $this->view->baseUrl("user/login");
 		$this->_helper->redirector->gotoUrl($loginurl);
@@ -204,6 +220,24 @@ class SignupController extends IndexController {
 			$user->populate($formvalues['userid']);
 		}
 		if($user->emailExists($email)){
+			echo '1';
+		} else {
+			echo '0';
+		}
+	}
+	
+	function checkphoneAction(){
+		$this->_helper->layout->disableLayout();
+		$this->_helper->viewRenderer->setNoRender(true);
+		 
+		$formvalues = $this->_getAllParams();
+		$phone = trim($formvalues['phone']);
+		// debugMessage($formvalues);
+		$user = new Member();
+		if(!isArrayKeyAnEmptyString('userid', $formvalues)){
+			$user->populate($formvalues['userid']);
+		}
+		if($user->phoneExists($phone)){
 			echo '1';
 		} else {
 			echo '0';

@@ -16,7 +16,7 @@
 <script>
 $(document).ready(function() {
 	$('.titlebreadcrumb').html('<?php echo $homedir.'Departments / '.$department->getName(); ?>');
-	$('.titlelabel').html('<?php echo $title; ?>');
+	$('.titlelabel').html('<?php echo 'Department: '.$title; ?>');
 	$('.desclabel').html('<?php echo $description; ?>');
 	$('.pageicon').html('<span class="glyphicon glyphicon-cog"></span>');
 	
@@ -58,19 +58,12 @@ $(document).ready(function() {
         	<div class="row-fluid margin0">
             	<div class="col-md-12">
                     <fieldset class="fieldsetcontainer">
-                        <legend><?php echo $title; ?></legend>
+                        <legend>About</legend>
                         <div class="panel-body well-sm">
                             <div class="row-fluid marginleft5">
                                 <div class="col-md-12 paddingleft10">
                                     <div class="form-group">
-                                        <label class="col-md-2 control-label"><?php echo $this->translate('global_name_label'); ?>:</label>
-                                        <div class="col-md-10">
-                                            <p class="form-control-static nullifempty view"><?php echo $department->getName(); ?></p>
-                                        </div>
-                                    </div>
-                                    <div class="form-group">
-                                        <label class="col-md-2 control-label"><?php echo $this->translate('global_description_label'); ?>:</label>
-                                        <div class="col-md-10">
+                                        <div class="col-md-12">
                                             <p class="form-control-static nullifempty view"><?php echo nl2br($department->getDescription()); ?></p>
                                         </div>
                                     </div>
@@ -78,6 +71,12 @@ $(document).ready(function() {
                                         <label class="col-md-2 control-label"><?php echo $this->translate('global_abbr_label'); ?>:</label>
                                         <div class="col-md-10">
                                             <p class="form-control-static nullifempty view"><?php echo $department->getAbbr(); ?></p>
+                                        </div>
+                                    </div>
+									<div class="form-group">
+                                        <label class="col-sm-2 control-label">Default Email:</label>
+                                        <div class="col-md-10">
+                                            <p class="form-control-static nullifempty view"><?php echo $department->getDefaultEmail(); ?></p>
                                         </div>
                                     </div>
                                 </div>

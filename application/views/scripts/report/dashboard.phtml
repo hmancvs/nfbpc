@@ -1,0 +1,160 @@
+<?php
+	require_once APPLICATION_PATH.'/includes/header.php';
+
+	$title = "Reports Dashboard"; 
+	$description = "";
+	$this->headTitle($title.$browserappend);
+?>
+<script>
+$(document).ready(function() {
+	// breadcrumb config
+	$('.titlebreadcrumb').html('<?php echo $homedir.$title; ?>');
+	$('.titlelabel').html('<?php echo $title; ?>');
+	$('.desclabel').html('<?php echo $description; ?>');
+	$('.pageicon').html('<span class="glyphicon glyphglyphicon glyphicon-signal"></span>');
+	
+}); 
+</script>
+<div class="row-fluid margin0 view">
+    <div class="col-md-12 padding0">
+    	<div class="headerbox">
+            <table class="table border0 nohover margin0">                       
+                <tr>		                    
+                    <td class="padding2">
+                    	
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    <?php if($sessionhaserror) { ?>
+        <div class="alert alert-danger"><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
+    <?php } ?>
+    <?php if (!isEmptyString($session->getVar(SUCCESS_MESSAGE))) { ?>
+        <div class="alert alert-success alert-dismissable"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button> <?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
+    <?php } ?>
+    <div class="contentcontainer clearfix">
+    	<div class="row-fluid">
+            <div id="dashboard-left" class="col-md-12 padding0 dashboard">
+                <div class="row row-bg margin0 padding0">
+                    <div class="divider10"></div>
+                    <?php if($acl->checkPermission('Member Statistics Report', ACTION_VIEW)) { ?>	
+                        <div class="col-sm-4 col-md-4">
+                            <div class="statbox widget box box-shadow">
+                                <div class="widget-content">
+                                    <a href="<?php echo $this->baseUrl('report/memberstats'); ?>" class="nodecoration clearfix blockanchor">
+                                        <div class="visual cyan"><i class="icon-large icon-signal white" style="font-size:24px;"></i></div>
+                                        <div class="title">Member Statistics</span></div>
+                                        <div class="value"></div>
+                                    </a>
+                                    <a href="<?php echo $this->baseUrl('report/memberstats'); ?>" class="more">View Report <i class="pull-right glyphicon glyphicon-angle-right"></i></a>
+                                </div>
+                            </div>
+                        </div>
+                    <?php } ?>
+                    <?php if($acl->checkPermission('Member Registration Trends Report', ACTION_VIEW)) { ?>
+                        <div class="col-sm-4 col-md-4">
+                            <div class="statbox widget box box-shadow">
+                                <div class="widget-content">
+                                    <a href="<?php echo $this->baseUrl('report/membertrend'); ?>" class="nodecoration clearfix blockanchor">
+                                        <div class="visual red"><i class="icon-large icon-signal white" style="font-size:24px;"></i></div>
+                                        <div class="title">Member Registration Trend</span></div>
+                                        <div class="value"></div>
+                                    </a>
+                                    <a href="<?php echo $this->baseUrl('report/membertrend'); ?>" class="more">View Report <i class="pull-right glyphicon glyphicon-angle-right"></i></a>
+                                </div>
+                            </div>
+                        </div>
+                    <?php } ?>
+                    <?php if($acl->checkPermission('Members by Location Report', ACTION_VIEW)) { ?>
+                        <div class="col-sm-4 col-md-4">
+                            <div class="statbox widget box box-shadow">
+                                <div class="widget-content">
+                                    <a href="<?php echo $this->baseUrl('report/memberlocation'); ?>" class="nodecoration clearfix">
+                                        <div class="visual blue"><i class="icon-large icon-signal white" style="font-size:24px;"></i></div>
+                                        <div class="title">Members by Location</div>
+                                        <div class="value"></div>
+                                    </a>
+                                    <a href="<?php echo $this->baseUrl('report/memberlocation'); ?>" class="more">View Report <i class="pull-right glyphicon glyphicon-angle-right"></i></a>
+                                </div>
+                            </div>
+                        </div>
+                    <?php } ?>
+                    <?php if($acl->checkPermission('Church Statistics Report', ACTION_VIEW)) { ?>
+                        <div class="col-sm-4 col-md-4">
+                            <div class="statbox widget box box-shadow">
+                                <div class="widget-content">
+                                    <a href="<?php echo $this->baseUrl('report/churchstats'); ?>" class="nodecoration clearfix blockanchor">
+                                        <div class="visual cyan"><i class="icon-large icon-signal white" style="font-size:24px;"></i></div>
+                                        <div class="title">Church Statistics</div>
+                                        <div class="value"></div>
+                                    </a>
+                                    <a href="<?php echo $this->baseUrl('report/churchstats'); ?>" class="more">View Report <i class="pull-right glyphicon glyphicon-angle-right"></i></a>
+                                </div>
+                            </div>
+                        </div>
+                    <?php } ?>  
+                    <?php if($acl->checkPermission('Church Registration Trends Report', ACTION_VIEW)) { ?>
+                        <div class="col-sm-4 col-md-4">
+                            <div class="statbox widget box box-shadow">
+                                <div class="widget-content">
+                                    <a href="<?php echo $this->baseUrl('report/churchtrend'); ?>" class="nodecoration clearfix blockanchor">
+                                        <div class="visual red"><i class="icon-large icon-signal white" style="font-size:24px;"></i></div>
+                                        <div class="title">Church Registration Trend</div>
+                                        <div class="value"></div>
+                                    </a>
+                                    <a href="<?php echo $this->baseUrl('report/churchtrend'); ?>" class="more">View Report <i class="pull-right glyphicon glyphicon-angle-right"></i></a>
+                                </div>
+                            </div>
+                        </div>
+                    <?php } ?> 
+                    <?php if($acl->checkPermission('Leadership and Committee Structures Report', ACTION_VIEW)) { ?>
+                        <div class="col-sm-4 col-md-4">
+                            <div class="statbox widget box box-shadow">
+                                <div class="widget-content">
+                                    <a href="<?php echo $this->baseUrl('report/committees'); ?>" class="nodecoration clearfix blockanchor">
+                                        <div class="visual blue"><i class="icon-large icon-signal white" style="font-size:24px;"></i></div>
+                                        <div class="title">Leadership and Committee Reports</div>
+                                        <div class="value"></div>
+                                    </a>
+                                    <a href="<?php echo $this->baseUrl('report/committees'); ?>" class="more">View Report <i class="pull-right glyphicon glyphicon-angle-right"></i></a>
+                                </div>
+                            </div>
+                        </div>
+                    <?php } ?>
+                    <?php if($acl->checkPermission('SMS Outbound Report', ACTION_VIEW)) { ?>
+                        <div class="col-sm-4 col-md-4">
+                            <div class="statbox widget box box-shadow">
+                                <div class="widget-content">
+                                    <a href="<?php echo $this->baseUrl('report/smsoutbound'); ?>" class="nodecoration clearfix blockanchor">
+                                        <div class="visual cyan"><i class="icon-large icon-signal white" style="font-size:24px;"></i></div>
+                                        <div class="title">SMS Outbound Report</div>
+                                        <div class="value"></div>
+                                    </a>
+                                    <a href="<?php echo $this->baseUrl('report/smsoutbound'); ?>" class="more">View Report <i class="pull-right glyphicon glyphicon-angle-right"></i></a>
+                                </div>
+                            </div>
+                        </div>
+                    <?php } ?> 
+                    <?php if($acl->checkPermission('Audit Trail Report', ACTION_VIEW)) { ?>
+                        <div class="col-sm-4 col-md-4">
+                            <div class="statbox widget box box-shadow">
+                                <div class="widget-content">
+                                    <a href="<?php echo $this->baseUrl('report/audittrail'); ?>" class="nodecoration clearfix blockanchor">
+                                        <div class="visual red"><i class="icon-large icon-signal white" style="font-size:24px;"></i></div>
+                                        <div class="title">Transaction AuditTrail</div>
+                                        <div class="value"></div>
+                                    </a>
+                                    <a href="<?php echo $this->baseUrl('report/audittrail'); ?>" class="more">View Report <i class="pull-right glyphicon glyphicon-angle-right"></i></a>
+                                </div>
+                            </div>
+                        </div>
+                    <?php } ?>
+                </div>
+            </div>
+        </div>
+   	</div>
+</div>          
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

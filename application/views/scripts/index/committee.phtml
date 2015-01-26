@@ -1,0 +1,90 @@
+<?php
+	require_once APPLICATION_PATH.'/includes/header.php';
+	
+	$committee = new Committee();
+	
+	if(!isEmptyString($request->name)){
+		$com = new Committee();
+		$committee = $com->populateByAbbr(trim($request->name));
+	}
+	if(!isEmptyString($request->id)){
+		 $committee->populate(trim($request->id));
+	}
+	if(isEmptyString($request->id)){
+		$id = 1;
+		$committee->populate($id);
+	}
+   	$id = $committee->getID();
+	$title = $committee->getName();
+
+?>
+<?php require APPLICATION_PATH."/views/scripts/index/publictop.phtml"; ?>
+<div class="row">
+	<div class="row xk2catstyles itemView" id="k2Container">
+		<h3 class="publiclefttitle">Leadership</h3>
+		<div class="large-3 columns xleftside">
+			<?php require APPLICATION_PATH."/views/scripts/index/publicleftcolumn.phtml"; ?>
+		</div>
+		<div class="large-9 columns xmainside" style="margin-top:-55px;">
+			<div class="itemHeader">
+				<h2 class="itemTitle"><?php echo $committee->getName(); ?></h2>
+			</div>
+			<div class="itemBody">
+				<div class="itemFullText">
+					<p><?php echo isEmptyString($committee->getDescription()) ? 'Description' : nl2br($committee->getDescription()); ?></p>
+				</div>
+				<div class="clr"></div>
+				<div class="itemHeader">
+					<h2 class="itemTitle" style="font-size:26px !important;">Committee Members <?php echo $locationname; ?></h2>
+				</div>
+				<div class="clr"></div>
+				<?php 
+					$roles = $committee->getAppointments($locationid);
+					$totalroles = $roles->count();
+					// debugMessage($roles->toArray());
+				?>
+				<?php if ($totalroles == 0) { ?>
+					<div style="clear:both; margin-top:50px;" class="alert alert-warning margin5">There are currently no members on this Committee</div>
+				<?php } else { ?>
+					<div class="itemList">
+						
+						<?php
+							$i = 1;
+							foreach($roles as $role){
+								$locationtext = ''; $departtext = '';
+								if(!isEmptyString($role->getDepartmentID()) && !in_array($role->getDepartmentID(), array(12,13,14,15,16))){
+									$departtext = ' - <span style="font-weight:normal;">'.$role->getDepartment()->getName().'</span>';
+								}
+								if(!isEmptyString($role->getLocationID())){
+									$locationtext = ' <br> <span style="font-weight:normal;">'.$role->getTheLocationName().' '.$role->getLocationType().'</span>';
+								}
+								$viewurl = $this->baseUrl('index/profile/id/'.$role->getMemberID());
+						?>
+							<div style="width:32%; height:295px; display: inline-block;" class="itemContainer">
+								<div class="catItemView groupPrimary">
+									<div class="catItemHeader">
+										<h3 class="catItemTitle"><a style="font-size:16px !important; display:block;" href="<?php echo $viewurl; ?>"><?php echo $role->getMember()->getName(); ?></a></h3>
+									</div>
+									<div class="catItemBody">
+										<div class="catItemImageBlock" style="padding-left: 0; padding-top: 0; margin-bottom:0;">
+											<span class="catItemImage" style="text-align: left;"><a href="<?php echo $viewurl; ?>" class="blockanchor"><img class="imagecontainer" style="min-width:180px; min-height:180px; max-width:180px; max-height:180px;" src="<?php echo getImagePath($role->getMemberID(), $role->getMember()->getProfilePhoto(), $role->getMember()->getGender()); ?>" /></a></span>
+											<div class="clr"></div>
+											<span class="bolded" style="font-size:15px; text-align:center; display:inline-block; width:80%;"><?php echo $role->getPosition()->getName().$departtext.$locationtext; ?></span>
+										</div>
+									</div>
+								</div>
+							</div>
+						<?php } ?>
+						</div>
+					</div>
+					<div class="clr"></div>
+				<?php } ?>
+				<div class="clr"></div>
+			</div>
+		</div>
+	</div>
+</div>
+<?php require APPLICATION_PATH."/views/scripts/index/publicbottom.phtml"; ?>
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>
