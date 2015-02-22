@@ -35,6 +35,7 @@ class Organisation extends BaseEntity  {
 		$this->hasColumn('leadname', 'string', 50);
 		$this->hasColumn('leadrole', 'string', 50);
 		$this->hasColumn('regdate','date', null);
+		$this->hasColumn('membercount', 'string', 50);
 	}
 	
 	/* protected $preupdatedata;

@@ -1,0 +1,363 @@
+<?php
+	include APPLICATION_PATH.'/includes/header.php';
+	
+	$user->populate($userid); 
+	$member = new Member();
+	
+	$button_title = 'Upload File';
+	$posturl = $this->baseUrl("member/processbulkupload"); 
+	$successmessage = "Successfully uploaded";
+	$failureurl =  encode($this->viewurl);
+	$successurl = encode($this->baseUrl('member/list'));
+		
+	$navtitle = "Upload Members";
+	$title = "Bulk Upload";
+	$listitems = "Members";
+	$description = "Upload multiple members from a csv file.";
+	$icon = 'icon-large icon-group';
+	$this->headTitle($title.$browserappend);
+?>
+<script>
+$(document).ready(function() {
+	$('.titlebreadcrumb').html('<?php echo $homedir.$listitems.' / '.$navtitle; ?>');
+	$('.titlelabel').html('<?php echo $title; ?>');
+	$('.desclabel').html('<?php echo $description; ?>');
+	$('.pageicon').html('<span class="icon-large <?php echo $icon; ?>"></span>');
+	
+	$("#indexform").validate({		
+		// define the validation rules one field at a time
+		rules: {
+			filename: "required"
+		}, 
+		// the messages for each of the fields being validated
+		messages: {		
+			filename: "Please browse a csv file to upload"
+		},
+		// custom error positions
+		errorPlacement: function(error, element) {
+			switch(element.attr("name")){					
+				default:
+					if(element.hasClass("useid_error")){
+						error.appendTo("#"+element.attr("id")+"_error");
+					} else {
+						error.appendTo("#"+element.attr("name")+"_error");
+					}
+					break;
+			}			
+		},
+		ignore: ":hidden:not(select)"
+	});
+	
+	var regionid = '<?php echo $member->getRegionID(); ?>';
+	var provinceid = '<?php echo $member->getProvinceID(); ?>';
+	var districtid = '<?php echo $member->getDistrictID(); ?>';
+	var countyid = '<?php echo $member->getCountyID(); ?>';
+	var subcountyid = '<?php echo $member->getSubCountyID(); ?>';
+	var parishid = '<?php echo $member->getParishID(); ?>';
+	var villageid = '<?php echo $member->getVillageID(); ?>';
+	
+	// update locations when page first loads
+	regionTrigger(provinceid, districtid);
+	provinceTrigger(districtid);
+	districtTrigger(countyid);
+	countyTrigger(subcountyid);
+	subCountyTrigger(parishid);
+	parishTrigger(villageid);
+	
+	// update dropdowns when locations change
+	$('#regionid').change(function() {
+		regionTrigger(provinceid, districtid);
+	});
+	$('#provinceid').change(function() {
+		provinceTrigger(districtid);
+	});
+	$('#districtid').change(function() {
+		districtTrigger(countyid);
+	});
+	$('#countyid').change(function() {
+		countyTrigger(subcountyid);
+	});
+	$('#subcountyid').change(function() {
+		subCountyTrigger(parishid);
+	});
+	$('#parishid').change(function() {
+		parishTrigger(villageid);
+	});
+	
+	function regionTrigger(provinceid, districtid){
+		autoPopulateSelectChain('regionid', 'provinceid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/region_provinces/regionid/'); ?>', provinceid);
+		autoPopulateSelectChain('regionid', 'districtid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/region_districts/regionid/'); ?>', districtid);
+	}
+	
+	function provinceTrigger(districtid){
+		autoPopulateSelectChain('provinceid', 'districtid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/province_districts/provinceid/'); ?>', districtid);
+	}
+	function districtTrigger(countyid){
+		autoPopulateSelectChain('districtid', 'countyid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/district_counties/districtid/'); ?>', countyid);
+	}
+	
+	function countyTrigger(subcountyid){
+		autoPopulateSelectChain('countyid', 'subcountyid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/county_subcounties/countyid/'); ?>', subcountyid);
+	}
+	
+	function subCountyTrigger(parishid){
+		autoPopulateSelectChain('subcountyid', 'parishid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/subcounty_parishes/subcountyid/'); ?>', parishid);
+	}
+	
+	function parishTrigger(villageid){
+		autoPopulateSelectChain('parishid', 'villageid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/parish_villages/parishid/'); ?>', villageid);
+	}
+	
+	// add filename of selected file in background of input to indicate that a file has been selected.
+	$("#filename").change(function(){
+		if(!isEmptyString($(this).val())){
+			$(".fileinput-preview").html($(this).val());
+		}
+	});
+});
+</script>
+<form class="form-horizontal" action="<?php echo $posturl; ?>" id="indexform" method="post" enctype="multipart/form-data">
+<div class="row-fluid margin0 view">
+    <div class="col-md-12 padding0">
+    	<div class="headerbox">
+            <table class="table border0 nohover margin0">                       
+                <tr>		                    
+                    <td class="padding2">
+                        
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    <?php if ($sessionhaserror) { ?>
+    	<div class="alert alert-danger fade in"><i class="icon-remove close" data-dismiss="alert"></i><?php echo $session->getVar(ERROR_MESSAGE); ?></div>
+	<?php } ?>
+    <?php if (!isEmptyString($session->getVar(SUCCESS_MESSAGE))) { ?>
+        <div class="alert alert-success fade in"><i class="icon-remove close" data-dismiss="alert"></i><?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
+    <?php } ?>
+    <div class="contentcontainer clearfix padding10">
+        <div class="row-fluid margin0 newuserdetails">
+            <div class="col-md-12">
+                <fieldset class="fieldsetcontainer" style="margin-bottom:0; min-height:150px;">
+                    <legend>Browse File</legend>
+                    <div class="panel-body well-sm">
+                        <div class="row-fluid" style="margin-left:20px;">
+                            <div class="col-md-8 paddingleft10">
+                                <div class="form-group">
+                                    <div class="divider30"></div>
+                                    <label class="blocked small">Upload a csv file. (Max size <?php echo formatBytes($config->uploads->docmaximumfilesize); ?>)</label>
+                                    <div class="width200">
+                                        <div class="fileinput-holder input-group col-md-12 padding0" id="theresume">
+                                            <div id="filenamedisplay" class="fileinput-preview uneditable-input form-control">No file selected..</div>
+                                            <div class="input-group-btn">
+                                                <span class="fileinput-btn btn btn-default">Browse
+                                                    <input type="file" name="filename" id="filename" class="form-control file input-sm inline" data-style="fileinput" />
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="filename_error"></div>
+                                </div>
+                          	</div>
+                            
+                    	</div>
+                    </div>
+               	</fieldset>
+         	</div>
+       	</div>
+        <div class="row-fluid margin0 newuserdetails">
+            <div class="col-md-12">
+                <fieldset class="fieldsetcontainer" style="margin-bottom:0; min-height:150px;">
+                    <legend>Group Upload By Location</legend>
+                    <div class="panel-body well-sm">
+                        <div class="row-fluid" style="margin-left:10px;">
+                            <div class="col-md-6 paddingleft10">
+                            	<div class="form-group clearfix">
+                                    <label class="col-md-4 control-label"><?php echo $this->translate("global_region_label"); ?>:</label>
+                                    <div class="col-md-8">
+                                        <?php
+                                              $values = getNFBPCRegions();
+                                              $dropdown = new Zend_Form_Element_Select('regionid',
+                                                      array(
+                                                            'multiOptions' => array_merge_maintain_keys(array('' => '<Select one>'), $values),
+                                                            'view' => new Zend_View(),
+                                                            'decorators' => array(array('ViewHelper')),
+                                                            'class' => array('form-control','input-sm')
+                                                      )
+                                              );
+                                              
+                                              $dropdown->setValue('');
+                                              echo $dropdown->render();
+                                          ?><div id="regionid_error"></div>
+                                    </div>
+                                </div>
+                                <div class="form-group clearfix">
+                                    <label class="col-md-4 control-label"><?php echo $this->translate("global_province_label"); ?>:'</label>
+                                    <div class="col-md-8">
+                                        <?php
+                                              $values = getProvinces();
+                                              $dropdown = new Zend_Form_Element_Select('provinceid',
+                                                      array(
+                                                            'multiOptions' => array_merge_maintain_keys(array('' => '<Select one>'), $values),
+                                                            'view' => new Zend_View(),
+                                                            'decorators' => array(array('ViewHelper')),
+                                                            'class' => array('form-control','input-sm')
+                                                      )
+                                              );
+                                              
+                                              $dropdown->setValue('');
+                                              echo $dropdown->render();
+                                          ?><div id="provinceid_error"></div>
+                                    </div>
+                                </div>
+                                <div class="form-group clearfix">
+                                    <label class="col-md-4 control-label"><?php echo $this->translate("global_district_label"); ?>:</label>
+                                    <div class="col-md-8">
+                                        <?php
+                                              $values = getDistricts();
+                                              $dropdown = new Zend_Form_Element_Select('districtid',
+                                                      array(
+                                                            'multiOptions' => array_merge_maintain_keys(array('' => '<Select one>'), $values),
+                                                            'view' => new Zend_View(),
+                                                            'decorators' => array(array('ViewHelper')),
+                                                            'class' => array('form-control','input-sm')
+                                                      )
+                                              );
+                                              
+                                              $dropdown->setValue('');
+                                              echo $dropdown->render();
+                                          ?><div id="districtid_error"></div>
+                                    </div>
+                                </div>
+                                <div class="form-group clearfix">
+                                    <label class="col-md-4 control-label"><?php echo $this->translate("global_county_label"); ?>:</label>
+                                    <div class="col-md-8">
+                                        <?php
+                                              $values = array();
+                                              $dropdown = new Zend_Form_Element_Select('countyid',
+                                                      array(
+                                                            'multiOptions' => array_merge_maintain_keys(array('' => '<Select district first>'), $values),
+                                                            'view' => new Zend_View(),
+                                                            'decorators' => array(array('ViewHelper')),
+                                                            'class' => array('form-control','input-sm')
+                                                      )
+                                              );
+                                              
+                                              $dropdown->setValue($member->getCountyID());
+                                              echo $dropdown->render();
+                                          ?><div id="countyid_error"></div>
+                                    </div>
+                                </div>
+                                <div class="form-group clearfix">
+                                    <label class="col-md-4 control-label"><?php echo $this->translate("global_subcounty_label"); ?>:</label>
+                                    <div class="col-md-8">
+                                        <?php
+                                              $values = array();
+                                              $dropdown = new Zend_Form_Element_Select('subcountyid',
+                                                      array(
+                                                            'multiOptions' => array_merge_maintain_keys(array('' => '<Select county first>'), $values),
+                                                            'view' => new Zend_View(),
+                                                            'decorators' => array(array('ViewHelper')),
+                                                            'class' => array('form-control','input-sm')
+                                                      )
+                                              );
+                                              
+                                              $dropdown->setValue('');
+                                              echo $dropdown->render();
+                                          ?><div id="subcountyid_error"></div>
+                                    </div>
+                                </div>
+                                <div class="form-group clearfix">
+                                    <label class="col-md-4 control-label"><?php echo $this->translate("global_parish_label"); ?>:</label>
+                                    <div class="col-md-8">
+                                        <?php
+                                              $values = array();
+                                              $dropdown = new Zend_Form_Element_Select('parishid',
+                                                      array(
+                                                            'multiOptions' => array_merge_maintain_keys(array('' => '<Select sub-county first>'), $values),
+                                                            'view' => new Zend_View(),
+                                                            'decorators' => array(array('ViewHelper')),
+                                                            'class' => array('form-control','input-sm')
+                                                      )
+                                              );
+                                              
+                                              $dropdown->setValue('');
+                                              echo $dropdown->render();
+                                          ?><div id="parishid_error"></div>
+                                    </div>
+                                </div>
+                                <div class="form-group clearfix">
+                                    <label class="col-md-4 control-label"><?php echo $this->translate("global_village_label"); ?>:</label>
+                                    <div class="col-md-8 nullifempty">
+                                        <?php
+                                              $values = array();
+                                              $dropdown = new Zend_Form_Element_Select('villageid',
+                                                      array(
+                                                            'multiOptions' => array_merge_maintain_keys(array('' => '<Select parish first>'), $values),
+                                                            'view' => new Zend_View(),
+                                                            'decorators' => array(array('ViewHelper')),
+                                                            'class' => array('form-control','input-sm')
+                                                      )
+                                              );
+                                              
+                                              $dropdown->setValue('');
+                                              echo $dropdown->render();
+                                          ?><div id="villageid_error"></div>
+                                    </div>
+                                </div>
+                            </div>
+                       	</div>
+                  	</div>
+              	</fieldset>
+          	</div>
+     	</div>
+        <div class="row-fluid margin0 newuserdetails">
+            <div class="col-md-12">
+                <fieldset class="fieldsetcontainer" style="margin-bottom:0; min-height:150px;">
+                    <legend>Group Upload By Church</legend>
+                    <div class="panel-body well-sm">
+                        <div class="row-fluid" style="margin-left:10px;">
+                            <div class="col-md-6 paddingleft10">
+                            	<div class="form-group clearfix">
+                                    <label class="col-md-4 control-label">Select Church :</label>
+                                    <div class="col-md-8">
+                                        <?php
+                                              $churches = getChurches();
+                                              $dropdown = new Zend_Form_Element_Select('organisationid',
+                                                      array(
+                                                            'multiOptions' => array_merge_maintain_keys(array('' => '<Select one>'), $churches),
+                                                            'view' => new Zend_View(),
+                                                            'decorators' => array(array('ViewHelper')),
+                                                            'class' => array('form-control','input-sm')
+                                                      )
+                                              );
+                                              
+                                              $dropdown->setValue('');
+                                              echo $dropdown->render();
+                                          ?><div id="organisationid_error"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </fieldset>
+            </div>
+        </div>
+        <div class="divider15"></div>
+        <div class="row margin0">
+            <div class="col-md-12">
+                <div class="formactions" id="topactions" <?php echo isEmptyString($member->getID()) ? 'style="left:50px; position:relative; float:left;"' : ''; ?>>
+                    <a class="btn button-previous cancel" href="<?php echo $this->referer; ?>"><i class="icon-remove"></i> <?php echo $this->translate('global_button_cancel'); ?></a> &nbsp;
+                    <button type="submit" class="btn btn-success button-submit" name="save"><i class="glyphicon glyphicon-ok"></i> <?php echo $button_title; ?></button>
+                    <input type="hidden" class="successurl" id="<?php echo URL_SUCCESS; ?>" name="<?php echo URL_SUCCESS; ?>" value="<?php echo $successurl; ?>" />
+                    <input type="hidden" class="failureurl" id="<?php echo URL_FAILURE; ?>" name="<?php echo URL_FAILURE; ?>" value="<?php echo $failureurl; ?>" />
+                    <input type="hidden" id="<?php echo SUCCESS_MESSAGE; ?>" name="<?php echo SUCCESS_MESSAGE; ?>" value="<?php echo $successmessage; ?>" />
+      			</div>
+            </div>
+        </div>
+    </div>                 
+</div>
+</form> 
+<?php
+	require_once APPLICATION_PATH.'/includes/footer.php';
+?>

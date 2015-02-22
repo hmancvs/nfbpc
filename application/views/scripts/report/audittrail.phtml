@@ -70,7 +70,8 @@
 		$audit = new AuditTrail;
 		$audit->populate($request->id);
 		$subtitle = "Transaction - ".$audit->getTransactionType()." - ".formatDateAndTime($audit->getTransactiondate())." - ".$audit->getUser()->getName();
-		$before = objectToArray(json_decode($audit->getPreJson())); //debugMessage($before);
+		$before = objectToArray(json_decode($audit->getPreJson())); 
+		$idsfordelete = createHTMLCommaListFromArray($before, ","); // debugMessage($idsfordelete); 
 		$after = objectToArray(json_decode($audit->getPostJson())); //debugMessage($after);
 		//$diff = array_diff($after, $before); 
 		if(is_array($before) && is_array($after)){
@@ -259,6 +260,9 @@ $(document).ready(function() {
                                         <?php if($audit->getTransactionType() == 'user.update' || !isEmptyString($audit->getUrl())){ ?>
                                             <a class="btn btn-primary btn-sm" href="<?php echo $audit->getUrl(); ?>" target="_blank">Go to System Entry</a> &nbsp;
                                         <?php } ?>
+                                        <?php if($audit->getUseCase() == '2.5' || !isEmptyString($audit->getPreJson())){ ?>
+                                            <a class="btn btn-danger btn-sm deleteline gonowhere" action="<?php echo $this->baseUrl('index/batchdelete/ids/'.$idsfordelete.'/entityname/Member/successurl/'.encode(stripUrl(str_replace('tab/details/id/'.$request->id,'', $this->viewurl)))); ?>" title="Delete All or Undo Upload" message="Are you sure you want to delete all the members in this Upload?">Undo / Delete All</a> &nbsp;
+                                        <?php } ?>
                                         <a class="btn btn-default btn-sm blockanchor" href="<?php echo stripUrl(str_replace('tab/details/id/'.$request->id,'', $this->viewurl)); ?>">Back</a> 
                                     <?php } ?>
                                 </div>
@@ -313,6 +317,10 @@ $(document).ready(function() {
                                                                     	<div class="divider5"></div>
                                                                     	<a href="<?php echo stripUrl($this->viewurl).'/tab/details/id/'.$line['id']; ?>" class="blocked blockanchor clearfix">Change Log</a>
                                                                     <?php } ?>
+                                                                    <?php if($line['usecase'] == '2.5' && !isEmptyString($line['prejson'])){ ?>
+                                                                    	<div class="divider5"></div>
+                                                                    	<a href="<?php echo stripUrl($this->viewurl).'/tab/details/id/'.$line['id']; ?>" class="blocked blockanchor clearfix">Upload Details</a>
+                                                                    <?php } ?>
                                                                 	</span>
                                                                 </td>
                                                                 <td><span class="nullifempty"><?php echo $line['user']; ?></span></td>
@@ -335,182 +343,211 @@ $(document).ready(function() {
                            	<?php } ?>
                             <?php if($tab == 'details'){ ?>
                             	<div style="width:100%; height:auto; margin-bottom:10px; display:block;">
-                                    <table id="datatable" class="table table-bordered" style="margin:10px 0 10px 10px; width:98%;">
-                                        <thead>
-                                            <tr>
-                                                <td style="width:20%;" class="nowrapping"><label class="control-label">Attribute</label></td>
-                                                <td style="width:40%;" class="nowrapping"><label class="control-label bolded">Pre-Update</label></td>
-                                                <td style="width:40%;" class="nowrapping"><label class="control-label centeralign">Post-Update</label></td>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <?php
-												$labels = getTranslations();
-												
-                                                foreach($audithistory as $key => $value){
-													// debugMessage($value);
-													$dataarray = is_array($value) ? array() : explode('->', $value); // debugMessage($dataarray);
-													if($key == 'country'){
-														$countries = getCountries(); 
-													}
-													if($key == 'regionid'){
-														$regions = getNFBPCRegions();
-                                                    }
-                                                    if($key == 'provinceid'){ 
-                                                        $provinces = getProvinces();
-                                                    }
-                                                    if($key == 'districtid'){
-                                                        $districts = getDistricts();
-                                                    }
-													if($key == 'countyid'){
-                                                        $county_pre = isEmptyString($dataarray[0])? '' : ' - '.getLocationName($dataarray[0], 3);
-														$county_post = isEmptyString($dataarray[1])? '' : ' - '.getLocationName($dataarray[1], 3);
-                                                    }
-													if($key == 'subcountyid'){
-                                                        $subcounty_pre = isEmptyString($dataarray[0])? '' : ' - '.getLocationName($dataarray[0], 4);
-														$subcounty_post = isEmptyString($dataarray[1])? '' : ' - '.getLocationName($dataarray[1], 4);
-                                                    }
-													if($key == 'parishid'){
-                                                        $parish_pre = isEmptyString($dataarray[0])? '' : ' - '.getLocationName($dataarray[0], 5);
-														$parish_post = isEmptyString($dataarray[1])? '' : ' - '.getLocationName($dataarray[1], 5);
-                                                    }
-													if($key == 'villageid'){
-                                                        $village_pre = isEmptyString($dataarray[0])? '' : ' - '.getLocationName($dataarray[0], 6);
-														$village_post = isEmptyString($dataarray[1])? '' : ' - '.getLocationName($dataarray[1], 6);
-                                                    }
-													if($key == 'memberdistrictid'|| $key == 'orgdistrictid'){
-                                                        $nfbpcdistricts = getDistricts('', false);
-                                                    }
-                                                    if($key == 'organisationid'){
-                                                        $churches = getChurches();
-                                                    }
-                                                    if($key == 'maritalstatus'){
-                                                        $maritalstatuses = getAllMaritalStatuses();
-                                                    }
-                                                    if($key == 'salutation'){
-                                                        $salutations = getSalutations();
-                                                    }
-                                                    if($key == 'profession'){
-                                                        $professions = getProfessions();
-                                                    }
-                                                    if($key == 'createdby' || $key == 'lastupdatedby' || $key == 'invitedbyid'){
-                                                        $users = getUsers();
-                                                    }
-                                                    if($key == 'contactrshp'){
-                                                        $rshiptypes = getRelationshipTypes();
-                                                    }
-													// debugMessage($key);
-                                            ?>
+                                	<?php if($audit->getUseCase() == '2.5' && !isEmptyString($audit->getPreJson())){ ?>
+                                    	<table id="datatable" class="table table-bordered" style="margin:10px 0 10px 10px; width:50%;">
+                                            <thead>
                                                 <tr>
-                                                    <td class="nowrapping"><span class="nullifempty"><?php echo isArrayKeyAnEmptyString($key, $labels) ? $key : $labels[$key]; ?></span></td>
-                                                    <td>
-                                                    	<span class="nullifempty">
-															<?php echo isArrayKeyAnEmptyString(0, $dataarray) ? 'NULL' : $dataarray[0]; ?>
-                                                            <?php if($audit->getTransactionType() == 'user.update' || $audit->getTransactionType() == 'member.update' || $audit->getTransactionType() == 'organisation.update'){ ?>
-																<?php if($key == 'country'){ ?>
-                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[0], $countries) ? '' : ' - '.$countries[$dataarray[0]]; ?>
-                                                                <?php } ?>
-																<?php if($key == 'regionid'){ ?>
-                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[0], $regions) ? '' : ' - '.$regions[$dataarray[0]]; ?>
-                                                                <?php } ?>
-																<?php if($key == 'provinceid'){ ?>
-                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[0], $provinces) ? '' : ' - '.$provinces[$dataarray[0]]; ?>
-                                                                <?php } ?>
-                                                                <?php if($key == 'districtid'){ ?>
-                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[0], $districts) ? '' : ' - '.$districts[$dataarray[0]]; ?>
-                                                                <?php } ?>
-                                                                <?php if($key == 'memberdistrictid'|| $key == 'orgdistrictid'){ ?>
-                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[0], $nfbpcdistricts) ? '' : ' - '.$nfbpcdistricts[$dataarray[0]]; ?>
-                                                                <?php } ?>
-                                                                <?php if($key == 'countyid'){ ?>
-                                                                	<?php echo $county_pre; ?>
-                                                                <?php } ?>
-                                                                <?php if($key == 'subcountyid'){ ?>
-                                                                	<?php echo $subcounty_pre; ?>
-                                                                <?php } ?>
-                                                                <?php if($key == 'parishid'){ ?>
-                                                                	<?php echo $parish_pre; ?>
-                                                                <?php } ?>
-                                                                <?php if($key == 'villageid'){ ?>
-                                                                	<?php echo $village_pre; ?>
-                                                                <?php } ?>
-                                                                <?php if($key == 'organisationid'){ ?>
-                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[0], $churches) ? '' : ' - '.$churches[$dataarray[0]]; ?>
-                                                                <?php } ?>
-                                                                <?php if($key == 'maritalstatus'){ ?>
-                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[0], $maritalstatuses) ? '' : ' - '.$maritalstatuses[$dataarray[0]]; ?>
-                                                                <?php } ?>
-                                                                <?php if($key == 'salutation'){ ?>
-                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[0], $salutations) ? '' : ' - '.$salutations[$dataarray[0]]; ?>
-                                                                <?php } ?>
-                                                                <?php if($key == 'profession'){ ?>
-                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[0], $professions) ? '' : ' - '.$professions[$dataarray[0]]; ?>
-                                                                <?php } ?>
-                                                                <?php if($key == 'createdby' || $key == 'lastupdatedby' || $key == 'invitedbyid'){ ?>
-                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[0], $users) ? '' : ' - '.$users[$dataarray[0]]; ?>
-                                                                <?php } ?>
-                                                                <?php if($key == 'contactrshp'){ ?>
-                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[0], $rshiptypes) ? '' : ' - '.$rshiptypes[$dataarray[0]]; ?>
-                                                                <?php } ?>
-                                                            <?php } ?>
-                                                       	</span>
-                                                    </td>
-                                                    <td>
-                                                    	<span class="nullifempty">
-                                                            <?php echo isArrayKeyAnEmptyString(1, $dataarray) ? 'NULL' : $dataarray[1]; ?>
-                                                            <?php if($audit->getTransactionType() == 'user.update' || $audit->getTransactionType() == 'member.update' || $audit->getTransactionType() == 'organisation.update'){ ?>
-                                                            	<?php if($key == 'country'){ ?>
-                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[1], $countries) ? '' : ' - '.$countries[$dataarray[1]]; ?>
-                                                                <?php } ?>
-																<?php if($key == 'regionid'){ ?>
-                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[1], $regions) ? '' : ' - '.$regions[$dataarray[1]]; ?>
-                                                                <?php } ?>
-																<?php if($key == 'provinceid'){ ?>
-                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[1], $provinces) ? '' : ' - '.$provinces[$dataarray[1]]; ?>
-                                                                <?php } ?>
-                                                                <?php if($key == 'districtid'){ ?>
-                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[1], $districts) ? '' : ' - '.$districts[$dataarray[1]]; ?>
-                                                                <?php } ?>
-                                                                <?php if($key == 'memberdistrictid' || $key == 'orgdistrictid'){ ?>
-                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[1], $nfbpcdistricts) ? '' : ' - '.$nfbpcdistricts[$dataarray[1]]; ?>
-                                                                <?php } ?>
-                                                                <?php if($key == 'countyid'){ ?>
-                                                                	<?php echo $county_post; ?>
-                                                                <?php } ?>
-                                                                <?php if($key == 'subcountyid'){ ?>
-                                                                	<?php echo $subcounty_post; ?>
-                                                                <?php } ?>
-                                                                <?php if($key == 'parishid'){ ?>
-                                                                	<?php echo $parish_post; ?>
-                                                                <?php } ?>
-                                                                <?php if($key == 'villageid'){ ?>
-                                                                	<?php echo $village_post; ?>
-                                                                <?php } ?>
-                                                                <?php if($key == 'organisationid'){ ?>
-                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[1], $churches) ? '' : ' - '.$churches[$dataarray[1]]; ?>
-                                                                <?php } ?>
-                                                                <?php if($key == 'maritalstatus'){ ?>
-                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[1], $maritalstatuses) ? '' : ' - '.$maritalstatuses[$dataarray[1]]; ?>
-                                                                <?php } ?>
-                                                                <?php if($key == 'salutation'){ ?>
-                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[1], $salutations) ? '' : ' - '.$salutations[$dataarray[1]]; ?>
-                                                                <?php } ?>
-                                                                <?php if($key == 'profession'){ ?>
-                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[1], $professions) ? '' : ' - '.$professions[$dataarray[1]]; ?>
-                                                                <?php } ?>
-                                                                <?php if($key == 'createdby' || $key == 'lastupdatedby' || $key == 'invitedbyid'){ ?>
-                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[1], $users) ? '' : ' - '.$users[$dataarray[1]]; ?>
-                                                                <?php } ?>
-                                                                <?php if($key == 'contactrshp'){ ?>
-                                                                	<?php echo isArrayKeyAnEmptyString($dataarray[1], $rshiptypes) ? '' : ' - '.$rshiptypes[$dataarray[1]]; ?>
-                                                                <?php } ?>
-                                                            <?php } ?>
-                                                       	</span>
-                                                    </td>
+                                                    <td style="width:15%;" class="nowrapping"><label class="control-label">ID</label></td>
+                                                    <td style="width:90%;" class="nowrapping"><label class="control-label bolded inline">Name</label></td>
                                                 </tr>
-                                            <?php } ?>
-                                        </tbody>
-                                    </table>
+                                            </thead>
+                                            <tbody>
+                                            	<?php 
+													foreach($before as $profileid){
+														$member = new Member();
+														$member->populate($profileid);
+												?>
+                                                	<tr>
+                                                    	<td><?php echo $profileid; ?></td>
+                                                        <td><?php if(isEmptyString($member->getID())){ ?>
+                                                            	Deleted
+                                                            <?php } else { ?>
+	                                                        	<a href="<?php echo $this->baseUrl('member/view/id/'.encode($profileid)); ?>" target="_blank"><?php echo $member->getName(); ?></a>
+                                                            <?php } ?>
+                                                        </td>
+                                                    </tr>
+                                                <?php } ?>
+                                            </tbody>
+                                      	</table>
+                                    <?php } ?>
+                                    <?php if($audit->getIsUpdate() == 1){ ?>
+                                        <table id="datatable" class="table table-bordered" style="margin:10px 0 10px 10px; width:98%;">
+                                            <thead>
+                                                <tr>
+                                                    <td style="width:20%;" class="nowrapping"><label class="control-label">Attribute</label></td>
+                                                    <td style="width:40%;" class="nowrapping"><label class="control-label bolded">Pre-Update</label></td>
+                                                    <td style="width:40%;" class="nowrapping"><label class="control-label centeralign">Post-Update</label></td>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <?php
+                                                    $labels = getTranslations();
+                                                    
+                                                    foreach($audithistory as $key => $value){
+                                                        // debugMessage($value);
+                                                        $dataarray = is_array($value) ? array() : explode('->', $value); // debugMessage($dataarray);
+                                                        if($key == 'country'){
+                                                            $countries = getCountries(); 
+                                                        }
+                                                        if($key == 'regionid'){
+                                                            $regions = getNFBPCRegions();
+                                                        }
+                                                        if($key == 'provinceid'){ 
+                                                            $provinces = getProvinces();
+                                                        }
+                                                        if($key == 'districtid'){
+                                                            $districts = getDistricts();
+                                                        }
+                                                        if($key == 'countyid'){
+                                                            $county_pre = isEmptyString($dataarray[0])? '' : ' - '.getLocationName($dataarray[0], 3);
+                                                            $county_post = isEmptyString($dataarray[1])? '' : ' - '.getLocationName($dataarray[1], 3);
+                                                        }
+                                                        if($key == 'subcountyid'){
+                                                            $subcounty_pre = isEmptyString($dataarray[0])? '' : ' - '.getLocationName($dataarray[0], 4);
+                                                            $subcounty_post = isEmptyString($dataarray[1])? '' : ' - '.getLocationName($dataarray[1], 4);
+                                                        }
+                                                        if($key == 'parishid'){
+                                                            $parish_pre = isEmptyString($dataarray[0])? '' : ' - '.getLocationName($dataarray[0], 5);
+                                                            $parish_post = isEmptyString($dataarray[1])? '' : ' - '.getLocationName($dataarray[1], 5);
+                                                        }
+                                                        if($key == 'villageid'){
+                                                            $village_pre = isEmptyString($dataarray[0])? '' : ' - '.getLocationName($dataarray[0], 6);
+                                                            $village_post = isEmptyString($dataarray[1])? '' : ' - '.getLocationName($dataarray[1], 6);
+                                                        }
+                                                        if($key == 'memberdistrictid'|| $key == 'orgdistrictid'){
+                                                            $nfbpcdistricts = getDistricts('', false);
+                                                        }
+                                                        if($key == 'organisationid'){
+                                                            $churches = getChurches();
+                                                        }
+                                                        if($key == 'maritalstatus'){
+                                                            $maritalstatuses = getAllMaritalStatuses();
+                                                        }
+                                                        if($key == 'salutation'){
+                                                            $salutations = getSalutations();
+                                                        }
+                                                        if($key == 'profession'){
+                                                            $professions = getProfessions();
+                                                        }
+                                                        if($key == 'createdby' || $key == 'lastupdatedby' || $key == 'invitedbyid'){
+                                                            $users = getUsers();
+                                                        }
+                                                        if($key == 'contactrshp'){
+                                                            $rshiptypes = getRelationshipTypes();
+                                                        }
+                                                        // debugMessage($key);
+                                                ?>
+                                                    <tr>
+                                                        <td class="nowrapping"><span class="nullifempty"><?php echo isArrayKeyAnEmptyString($key, $labels) ? $key : $labels[$key]; ?></span></td>
+                                                        <td>
+                                                            <span class="nullifempty">
+                                                                <?php echo isArrayKeyAnEmptyString(0, $dataarray) ? 'NULL' : $dataarray[0]; ?>
+                                                                <?php if($audit->getTransactionType() == 'user.update' || $audit->getTransactionType() == 'member.update' || $audit->getTransactionType() == 'organisation.update'){ ?>
+                                                                    <?php if($key == 'country'){ ?>
+                                                                        <?php echo isArrayKeyAnEmptyString($dataarray[0], $countries) ? '' : ' - '.$countries[$dataarray[0]]; ?>
+                                                                    <?php } ?>
+                                                                    <?php if($key == 'regionid'){ ?>
+                                                                        <?php echo isArrayKeyAnEmptyString($dataarray[0], $regions) ? '' : ' - '.$regions[$dataarray[0]]; ?>
+                                                                    <?php } ?>
+                                                                    <?php if($key == 'provinceid'){ ?>
+                                                                        <?php echo isArrayKeyAnEmptyString($dataarray[0], $provinces) ? '' : ' - '.$provinces[$dataarray[0]]; ?>
+                                                                    <?php } ?>
+                                                                    <?php if($key == 'districtid'){ ?>
+                                                                        <?php echo isArrayKeyAnEmptyString($dataarray[0], $districts) ? '' : ' - '.$districts[$dataarray[0]]; ?>
+                                                                    <?php } ?>
+                                                                    <?php if($key == 'memberdistrictid'|| $key == 'orgdistrictid'){ ?>
+                                                                        <?php echo isArrayKeyAnEmptyString($dataarray[0], $nfbpcdistricts) ? '' : ' - '.$nfbpcdistricts[$dataarray[0]]; ?>
+                                                                    <?php } ?>
+                                                                    <?php if($key == 'countyid'){ ?>
+                                                                        <?php echo $county_pre; ?>
+                                                                    <?php } ?>
+                                                                    <?php if($key == 'subcountyid'){ ?>
+                                                                        <?php echo $subcounty_pre; ?>
+                                                                    <?php } ?>
+                                                                    <?php if($key == 'parishid'){ ?>
+                                                                        <?php echo $parish_pre; ?>
+                                                                    <?php } ?>
+                                                                    <?php if($key == 'villageid'){ ?>
+                                                                        <?php echo $village_pre; ?>
+                                                                    <?php } ?>
+                                                                    <?php if($key == 'organisationid'){ ?>
+                                                                        <?php echo isArrayKeyAnEmptyString($dataarray[0], $churches) ? '' : ' - '.$churches[$dataarray[0]]; ?>
+                                                                    <?php } ?>
+                                                                    <?php if($key == 'maritalstatus'){ ?>
+                                                                        <?php echo isArrayKeyAnEmptyString($dataarray[0], $maritalstatuses) ? '' : ' - '.$maritalstatuses[$dataarray[0]]; ?>
+                                                                    <?php } ?>
+                                                                    <?php if($key == 'salutation'){ ?>
+                                                                        <?php echo isArrayKeyAnEmptyString($dataarray[0], $salutations) ? '' : ' - '.$salutations[$dataarray[0]]; ?>
+                                                                    <?php } ?>
+                                                                    <?php if($key == 'profession'){ ?>
+                                                                        <?php echo isArrayKeyAnEmptyString($dataarray[0], $professions) ? '' : ' - '.$professions[$dataarray[0]]; ?>
+                                                                    <?php } ?>
+                                                                    <?php if($key == 'createdby' || $key == 'lastupdatedby' || $key == 'invitedbyid'){ ?>
+                                                                        <?php echo isArrayKeyAnEmptyString($dataarray[0], $users) ? '' : ' - '.$users[$dataarray[0]]; ?>
+                                                                    <?php } ?>
+                                                                    <?php if($key == 'contactrshp'){ ?>
+                                                                        <?php echo isArrayKeyAnEmptyString($dataarray[0], $rshiptypes) ? '' : ' - '.$rshiptypes[$dataarray[0]]; ?>
+                                                                    <?php } ?>
+                                                                <?php } ?>
+                                                            </span>
+                                                        </td>
+                                                        <td>
+                                                            <span class="nullifempty">
+                                                                <?php echo isArrayKeyAnEmptyString(1, $dataarray) ? 'NULL' : $dataarray[1]; ?>
+                                                                <?php if($audit->getTransactionType() == 'user.update' || $audit->getTransactionType() == 'member.update' || $audit->getTransactionType() == 'organisation.update'){ ?>
+                                                                    <?php if($key == 'country'){ ?>
+                                                                        <?php echo isArrayKeyAnEmptyString($dataarray[1], $countries) ? '' : ' - '.$countries[$dataarray[1]]; ?>
+                                                                    <?php } ?>
+                                                                    <?php if($key == 'regionid'){ ?>
+                                                                        <?php echo isArrayKeyAnEmptyString($dataarray[1], $regions) ? '' : ' - '.$regions[$dataarray[1]]; ?>
+                                                                    <?php } ?>
+                                                                    <?php if($key == 'provinceid'){ ?>
+                                                                        <?php echo isArrayKeyAnEmptyString($dataarray[1], $provinces) ? '' : ' - '.$provinces[$dataarray[1]]; ?>
+                                                                    <?php } ?>
+                                                                    <?php if($key == 'districtid'){ ?>
+                                                                        <?php echo isArrayKeyAnEmptyString($dataarray[1], $districts) ? '' : ' - '.$districts[$dataarray[1]]; ?>
+                                                                    <?php } ?>
+                                                                    <?php if($key == 'memberdistrictid' || $key == 'orgdistrictid'){ ?>
+                                                                        <?php echo isArrayKeyAnEmptyString($dataarray[1], $nfbpcdistricts) ? '' : ' - '.$nfbpcdistricts[$dataarray[1]]; ?>
+                                                                    <?php } ?>
+                                                                    <?php if($key == 'countyid'){ ?>
+                                                                        <?php echo $county_post; ?>
+                                                                    <?php } ?>
+                                                                    <?php if($key == 'subcountyid'){ ?>
+                                                                        <?php echo $subcounty_post; ?>
+                                                                    <?php } ?>
+                                                                    <?php if($key == 'parishid'){ ?>
+                                                                        <?php echo $parish_post; ?>
+                                                                    <?php } ?>
+                                                                    <?php if($key == 'villageid'){ ?>
+                                                                        <?php echo $village_post; ?>
+                                                                    <?php } ?>
+                                                                    <?php if($key == 'organisationid'){ ?>
+                                                                        <?php echo isArrayKeyAnEmptyString($dataarray[1], $churches) ? '' : ' - '.$churches[$dataarray[1]]; ?>
+                                                                    <?php } ?>
+                                                                    <?php if($key == 'maritalstatus'){ ?>
+                                                                        <?php echo isArrayKeyAnEmptyString($dataarray[1], $maritalstatuses) ? '' : ' - '.$maritalstatuses[$dataarray[1]]; ?>
+                                                                    <?php } ?>
+                                                                    <?php if($key == 'salutation'){ ?>
+                                                                        <?php echo isArrayKeyAnEmptyString($dataarray[1], $salutations) ? '' : ' - '.$salutations[$dataarray[1]]; ?>
+                                                                    <?php } ?>
+                                                                    <?php if($key == 'profession'){ ?>
+                                                                        <?php echo isArrayKeyAnEmptyString($dataarray[1], $professions) ? '' : ' - '.$professions[$dataarray[1]]; ?>
+                                                                    <?php } ?>
+                                                                    <?php if($key == 'createdby' || $key == 'lastupdatedby' || $key == 'invitedbyid'){ ?>
+                                                                        <?php echo isArrayKeyAnEmptyString($dataarray[1], $users) ? '' : ' - '.$users[$dataarray[1]]; ?>
+                                                                    <?php } ?>
+                                                                    <?php if($key == 'contactrshp'){ ?>
+                                                                        <?php echo isArrayKeyAnEmptyString($dataarray[1], $rshiptypes) ? '' : ' - '.$rshiptypes[$dataarray[1]]; ?>
+                                                                    <?php } ?>
+                                                                <?php } ?>
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                <?php } ?>
+                                            </tbody>
+                                        </table>
+                                   	<?php } ?>
                                 </div>
                             <?php } ?>
                         </div>

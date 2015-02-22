@@ -437,6 +437,231 @@ $(document).ready(function() {
 	subCountyTrigger(parishid);
 	parishTrigger(villageid);
 	
+	// auto fill out email field if entering new user and member at same time
+	$('#email').keyup(function() {
+		var email = $(this).val();
+		$("#email_auto").val(email);
+	});
+	$('#email').change(function() {
+		var email = $(this).val();
+		$("#email_auto").val(email);
+	});
+	
+	// var cache = {};
+	$("#villagename").autocomplete({
+		minLength: 3,
+		source: function( request, response ) {
+			$.ajax({
+				url: "<?php echo $this->baseUrl('member/search'); ?>",
+				data: {term: request.term},
+				dataType: "json",
+				success: function( data ) {
+					countdata = Object.keys(data).length
+					if(countdata == 0){
+						$("#village_description").html('No results found');
+					} else {
+						$("#village_description").html('');
+					}
+					response($.map(data, function(obj) {
+						return {
+							label: obj.name,
+							value: obj.id,
+							description: '['+obj.district+' (District), '+obj.subcounty+'(Subcounty), '+obj.parish+' (Parish) ]',
+							regionid: obj.regionid,
+							provinceid: obj.provinceid,
+							districtid: obj.districtid,
+							countyid: obj.countyid,
+							subcountyid: obj.subcountyid,
+							parishid: obj.parishid,
+							villageid: obj.villageid,
+							
+							regionid_name: obj.region,
+							provinceid_name: obj.province,
+							districtid_name: obj.district,
+							countyid_name: obj.county,
+							subcountyid_name: obj.subcounty,
+							parishid_name: obj.parish,
+							villageid_name: obj.name
+						};
+					}));
+				},
+				beforeSend: function () { 
+					$("#villageloader").removeClass('hidden').show();
+				},
+				complete: function () { 
+					$("#villageloader").addClass('hidden').hide(); 
+				}
+			});
+		},
+     	select: function(event, ui ) {
+			
+			$("#villagename").val(ui.item.label);
+			$("#village_description").html(ui.item.description);
+			$("#region_id").val(ui.item.regionid);
+			$("#province_id").val(ui.item.provinceid);
+			$("#district_id").val(ui.item.districtid);
+			$("#county_id").val(ui.item.countyid);
+			$("#subcounty_id").val(ui.item.subcountyid);
+			$("#parish_id").val(ui.item.parishid);
+			$("#village_id").val(ui.item.villageid);
+			
+			$("#regionid_name").val(ui.item.regionid_name);
+			$("#provinceid_name").val(ui.item.provinceid_name);
+			$("#districtid_name").val(ui.item.districtid_name);
+			$("#countyid_name").val(ui.item.countyid_name);
+			$("#subcountyid_name").val(ui.item.subcountyid_name);
+			$("#parishid_name").val(ui.item.parishid_name);
+			$("#villageid_name").val(ui.item.villageid_name);
+			
+			$('#changelocation_village').click();
+			
+			return false;
+      	}
+    }).autocomplete("instance" )._renderItem = function( ul, item ) {
+      return $( "<li>" ).append( '<a>' + item.label + '<br>' + item.description + '</a>').appendTo( ul );
+    };
+	
+	// var cache = {};
+	$("#parishname").autocomplete({
+		minLength: 3,
+		source: function( request, response ) {
+			$.ajax({
+				url: "<?php echo $this->baseUrl('member/searchparish'); ?>",
+				data: {term: request.term},
+				dataType: "json",
+				success: function( data ) {
+					countdata = Object.keys(data).length
+					if(countdata == 0){
+						$("#parish_description").html('No results found');
+					} else {
+						$("#parish_description").html('');
+					}
+					response($.map(data, function(obj) {
+						return {
+							label: obj.name,
+							value: obj.id,
+							description: '['+obj.district+' (District), '+obj.subcounty+'(Subcounty)]',
+							regionid: obj.regionid,
+							provinceid: obj.provinceid,
+							districtid: obj.districtid,
+							countyid: obj.countyid,
+							subcountyid: obj.subcountyid,
+							parishid: obj.parishid,
+							
+							regionid_name: obj.region,
+							provinceid_name: obj.province,
+							districtid_name: obj.district,
+							countyid_name: obj.county,
+							subcountyid_name: obj.subcounty,
+							parishid_name: obj.parish,
+						};
+					}));
+				},
+				beforeSend: function () { 
+					$("#parishloader").removeClass('hidden').show();
+				},
+				complete: function () { 
+					$("#parishloader").addClass('hidden').hide(); 
+				}
+			});
+		},
+     	select: function(event, ui ) {
+			
+			$("#parishname").val(ui.item.label);
+			$("#parish_description").html(ui.item.description);
+			$("#region_id").val(ui.item.regionid);
+			$("#province_id").val(ui.item.provinceid);
+			$("#district_id").val(ui.item.districtid);
+			$("#county_id").val(ui.item.countyid);
+			$("#subcounty_id").val(ui.item.subcountyid);
+			$("#parish_id").val(ui.item.parishid);
+			
+			$("#regionid_name").val(ui.item.regionid_name);
+			$("#provinceid_name").val(ui.item.provinceid_name);
+			$("#districtid_name").val(ui.item.districtid_name);
+			$("#countyid_name").val(ui.item.countyid_name);
+			$("#subcountyid_name").val(ui.item.subcountyid_name);
+			$("#parishid_name").val(ui.item.parishid_name);
+			
+			$('#changelocation_parish').click();
+			
+			return false;
+      	}
+    }).autocomplete("instance" )._renderItem = function( ul, item ) {
+      return $( "<li>" ).append( '<a>' + item.label + '<br>' + item.description + '</a>').appendTo( ul );
+    };
+	
+	$('#changelocation_village').click(function(){ 
+		var regionid = $('#region_id').val();
+		var provinceid = $('#province_id').val();
+		var districtid = $('#district_id').val();
+		var countyid = $('#county_id').val();
+		var subcountyid = $('#subcounty_id').val();
+		var parishid = $('#parish_id').val();
+		var villageid = $('#village_id').val();
+		
+		var regionid_name = $('#regionid_name').val();
+		var provinceid_name = $('#provinceid_name').val();
+		var districtid_name = $('#districtid_name').val();
+		var countyid_name = $('#countyid_name').val();
+		var subcountyid_name = $('#subcountyid_name').val();
+		var parishid_name = $('#parishid_name').val();
+		var villageid_name = $('#villageid_name').val();
+		// check that searched location data exists
+		if(!isEmptyString(villageid)){
+			$('#regionid').val(regionid).change;
+			$('#provinceid').html('').append($("<option></option>").attr("value", provinceid).text(provinceid_name).attr("selected", true));
+			$('#districtid').html('').append($("<option></option>").attr("value", districtid).text(districtid_name).attr("selected", true));
+			$.getJSON('<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/nfbpcdistricts/districtid/'); ?>'+districtid, function (data) {
+				countdata = Object.keys(data).length;// alert(countdata);
+				if(countdata > 0){
+					$.each(data, function(key, value) {
+						$("#districtid").append($("<option></option>").attr("value", key).text(value));
+					});
+				}
+			});
+			$('#countyid').html('').append($("<option></option>").attr("value", countyid).text(countyid_name).attr("selected", true));
+			$('#subcountyid').html('').append($("<option></option>").attr("value", subcountyid).text(subcountyid_name).attr("selected", true));
+			$('#parishid').html('').append($("<option></option>").attr("value", parishid).text(parishid_name).attr("selected", true));
+			$('#villageid').html('').append($("<option></option>").attr("value", villageid).text(villageid_name).attr("selected", true));
+		}
+	});
+	
+	$('#changelocation_parish').click(function(){
+		var regionid = $('#region_id').val();
+		var provinceid = $('#province_id').val();
+		var districtid = $('#district_id').val();
+		var countyid = $('#county_id').val();
+		var subcountyid = $('#subcounty_id').val();
+		var parishid = $('#parish_id').val();
+		
+		var regionid_name = $('#regionid_name').val();
+		var provinceid_name = $('#provinceid_name').val();
+		var districtid_name = $('#districtid_name').val();
+		var countyid_name = $('#countyid_name').val();
+		var subcountyid_name = $('#subcountyid_name').val();
+		var parishid_name = $('#parishid_name').val();
+
+		// check that searched location data exists
+		if(!isEmptyString(parishid)){
+			
+		}
+			$('#regionid').val(regionid).change;
+			$('#provinceid').html('').append($("<option></option>").attr("value", provinceid).text(provinceid_name).attr("selected", true));
+			$('#districtid').html('').append($("<option></option>").attr("value", districtid).text(districtid_name).attr("selected", true));
+			$.getJSON('<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/nfbpcdistricts/districtid/'); ?>'+districtid, function (data) {
+				countdata = Object.keys(data).length;// alert(countdata);
+				if(countdata > 0){
+					$.each(data, function(key, value) {
+						$("#districtid").append($("<option></option>").attr("value", key).text(value));
+					});
+				}
+			});
+			$('#countyid').html('').append($("<option></option>").attr("value", countyid).text(countyid_name).attr("selected", true));
+			$('#subcountyid').html('').append($("<option></option>").attr("value", subcountyid).text(subcountyid_name).attr("selected", true));
+			$('#parishid').html('').append($("<option></option>").attr("value", parishid).text(parishid_name).attr("selected", true)).trigger('change');
+	});
+	
 	// update dropdowns when locations change
 	$('#regionid').change(function() {
 		regionTrigger(provinceid, districtid);
@@ -457,9 +682,9 @@ $(document).ready(function() {
 		parishTrigger(villageid);
 	});
 	
-	function regionTrigger(provinceid, districtid){
+	function regionTrigger(provinceid){
 		autoPopulateSelectChain('regionid', 'provinceid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/region_provinces/regionid/'); ?>', provinceid);
-		autoPopulateSelectChain('regionid', 'districtid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/region_districts/regionid/'); ?>', districtid);
+		// autoPopulateSelectChain('regionid', 'districtid', '<?php // echo $this->baseUrl('index/selectchaincustom/select_chain_type/region_districts/regionid/'); ?>', districtid);
 	}
 	
 	function provinceTrigger(districtid){
@@ -481,52 +706,14 @@ $(document).ready(function() {
 		autoPopulateSelectChain('parishid', 'villageid', '<?php echo $this->baseUrl('index/selectchaincustom/select_chain_type/parish_villages/parishid/'); ?>', villageid);
 	}
 	
-	// auto fill out email field if entering new user and member at same time
-	$('#email').keyup(function() {
-		var email = $(this).val();
-		$("#email_auto").val(email);
-	});
-	$('#email').change(function() {
-		var email = $(this).val();
-		$("#email_auto").val(email);
-	});
-	
- 	<?php // if(false){?>
-	// var cache = {};
-	$("#project").autocomplete({
-		minLength: 3,
-		source: function( request, response ) {
-			$.ajax({
-				url: "<?php echo $this->baseUrl('member/search'); ?>",
-				data: {term: request.term},
-				dataType: "json",
-				success: function( data ) {
-					// alert(data)
-					response($.map(data, function(obj) {
-						return {
-							label: obj.name,
-							value: obj.id,
-							description: obj.description,
-							// description: obj.district+'(district), '+obj.county+'(county), '+obj.subcounty+'(sub-county), '+obj.parish+'(parish)',
-							id: obj.id
-						};
-					}));
-				}
-			});
-		},
-     	select: function(event, ui ) {
-			$("#project" ).val( ui.item.name);
-			$("#project-id" ).val( ui.item.id );
-			$("#project-description").html( ui.item.name );
-	 
-			return false;
-      	}
-    }).autocomplete("instance" )._renderItem = function( ul, item ) {
-      return $( "<li>" )
-        .append( "<a>" + item.label + "<br>" + item.desc + "</a>" )
-        .appendTo( ul );
-    };
-	<?php // } ?>
+	function sleep(milliseconds) {
+		var start = new Date().getTime();
+		for (var i = 0; i < 1e7; i++) {
+			if ((new Date().getTime() - start) > milliseconds){
+				break;
+			}
+		}
+	}
 	
 	$(".triggerprofile").click(function(){
 		var current = $(this).val();
@@ -636,31 +823,36 @@ $(document).ready(function() {
             <div class="col-md-12">
                 <!-- Tabs-->
                 <?php if($tab == 'overview'){ ?>
-                    <div class="formactions" id="topactions" <?php echo isEmptyString($member->getID()) ? 'style="left:50px; position:relative; float:left;"' : ''; ?>>
-                        <a class="btn button-previous cancel" href="<?php echo $this->referer; ?>"><i class="icon-remove"></i> <?php echo $this->translate('global_button_cancel'); ?></a> &nbsp;
-                        <button type="submit" class="btn btn-success button-submit" name="save"><i class="glyphicon glyphicon-ok"></i> <?php echo $button_title; ?></button>
-                        <input type="hidden" name="entityname" value="<?php echo $entityname; ?>" />
-                        <input type="hidden" id="id" name="id" value="<?php echo encode($member->getID()); ?>" />
-                        <input type="hidden" id="status" name="status" value="<?php echo $member->getStatus(); ?>" />
-                        <input type="hidden" class="successurl" id="<?php echo URL_SUCCESS; ?>" name="<?php echo URL_SUCCESS; ?>" value="<?php echo $successurl; ?>" />
-                        <input type="hidden" class="failureurl" id="<?php echo URL_FAILURE; ?>" name="<?php echo URL_FAILURE; ?>" value="<?php echo $failureurl; ?>" />
-                        <input type="hidden" id="<?php echo SUCCESS_MESSAGE; ?>" name="<?php echo SUCCESS_MESSAGE; ?>" value="<?php echo $successmessage; ?>" />
-                        <?php if($gotosuccess){ ?>
-                            <input type="hidden" id="nosuccessid" name="nosuccessid" value="1" />
-                        <?php } ?>
-                        <?php if(!$showregion){ ?>
-                           <input type="hidden" id="regionid_hidden" name="regionid_hidden" value="<?php echo $member->getRegionID(); ?>" />
-                        <?php } ?>
-                        <?php if(!$showprovince){ ?>
-                        	<input type="hidden" id="provinceid_hidden" name="provinceid_hidden" value="<?php echo $member->getProvinceID(); ?>" />
-                        <?php } ?>
-                        <?php if(!$showdistrict){ ?>
-                        	<input type="hidden" id="districtid_hidden" name="districtid_hidden" value="<?php echo $member->getDistrictID(); ?>" />
-                        <?php } ?>
-                        <?php if(!$showsubcounty){ ?>
-                        	<input type="hidden" id="subcountyid_hidden" name="subcountyid_hidden" value="<?php echo $member->getSubcountyID(); ?>" />
-                        <?php } ?>
+                    <div class="formactions" id="topactions" <?php echo isEmptyString($member->getID()) ? 'style="left:100px; position:relative; float:left;"' : ''; ?>>
+                        <a class="btn button-previous cancel" href="<?php echo $this->referer; ?>"><i class="icon-remove"></i> <?php echo $this->translate('global_button_cancel'); ?></a> 
+                        <button type="submit" class="btn btn-sm btn-success button-submit"><i class="glyphicon glyphicon-ok"></i> <?php echo $button_title; ?></button>
+                        &nbsp; &nbsp;
+                        <?php if(isEmptyString($member->getID())){ ?>
+                        	<a href="<?php echo $this->baseUrl('member/bulkupload'); ?>" class="btn btn-sm btn-primary blockanchor" style="float::right;"><i class="glyphicon glyphicon-arrow-right"></i> Bulk Upload</a>
+                      	<?php } ?>
                     </div>
+                    <input type="hidden" name="entityname" value="<?php echo $entityname; ?>" />
+                    <input type="hidden" id="id" name="id" value="<?php echo encode($member->getID()); ?>" />
+                    <input type="hidden" id="status" name="status" value="<?php echo $member->getStatus(); ?>" />
+                    <input type="hidden" class="successurl" id="<?php echo URL_SUCCESS; ?>" name="<?php echo URL_SUCCESS; ?>" value="<?php echo $successurl; ?>" />
+                    <input type="hidden" class="failureurl" id="<?php echo URL_FAILURE; ?>" name="<?php echo URL_FAILURE; ?>" value="<?php echo $failureurl; ?>" />
+                    <input type="hidden" id="<?php echo SUCCESS_MESSAGE; ?>" name="<?php echo SUCCESS_MESSAGE; ?>" value="<?php echo $successmessage; ?>" />
+                    <?php if($gotosuccess){ ?>
+                        <input type="hidden" id="nosuccessid" name="nosuccessid" value="1" />
+                    <?php } ?>
+                    <?php if(!$showregion){ ?>
+                       <input type="hidden" id="regionid_hidden" name="regionid_hidden" value="<?php echo $member->getRegionID(); ?>" />
+                    <?php } ?>
+                    <?php if(!$showprovince){ ?>
+                        <input type="hidden" id="provinceid_hidden" name="provinceid_hidden" value="<?php echo $member->getProvinceID(); ?>" />
+                    <?php } ?>
+                    <?php if(!$showdistrict){ ?>
+                        <input type="hidden" id="districtid_hidden" name="districtid_hidden" value="<?php echo $member->getDistrictID(); ?>" />
+                    <?php } ?>
+                    <?php if(!$showsubcounty){ ?>
+                        <input type="hidden" id="subcountyid_hidden" name="subcountyid_hidden" value="<?php echo $member->getSubcountyID(); ?>" />
+                    <?php } ?>
+                    &nbsp;
 					<div class="divider2"></div>
                 <?php } ?>
                 <div class="tabbable tabbable-custom tabbable-full-width">
@@ -881,7 +1073,7 @@ $(document).ready(function() {
                                                 </fieldset>
                                             </div>
                                         </div>
-                                        <?php if($isuser || $member->hasPendingActivation()){ ?>
+                                        <?php if($isuser || $member->hasPendingActivation() || $acl->checkPermission("User Account", ACTION_CREATE)){ ?>
                                             <div class="row-fluid margin0">
                                                 <div class="col-md-12">
                                                     <fieldset class="fieldsetcontainer" style="margin-bottom:0;">
@@ -1302,10 +1494,10 @@ $(document).ready(function() {
                                             <legend>Location</legend>
                                             <div class="panel-body well-sm">
                                             	<div class="row-fluid marginleft5">
-                                                    <div class="col-md-6">
+                                                    <div class="col-md-12">
                                                         <div class="form-group clearfix">
-                                                            <label class="col-md-4 control-label"><?php echo $this->translate("global_region_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
-                                                            <div class="col-md-8">
+                                                            <label class="col-md-2 control-label"><?php echo $this->translate("global_region_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                                            <div class="col-md-4">
                                                                 <?php
                                                                       $values = getNFBPCRegions();
                                                                       $dropdown = new Zend_Form_Element_Select('regionid',
@@ -1323,8 +1515,8 @@ $(document).ready(function() {
                                                             </div>
                                                         </div>
                                                         <div class="form-group clearfix">
-                                                            <label class="col-md-4 control-label"><?php echo $this->translate("global_province_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
-                                                            <div class="col-md-8">
+                                                            <label class="col-md-2 control-label"><?php echo $this->translate("global_province_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                                            <div class="col-md-4">
                                                                 <?php
                                                                       $values = getProvinces();
                                                                       $dropdown = new Zend_Form_Element_Select('provinceid',
@@ -1342,10 +1534,11 @@ $(document).ready(function() {
                                                             </div>
                                                         </div>
                                                         <div class="form-group clearfix">
-                                                            <label class="col-md-4 control-label"><?php echo $this->translate("global_district_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
-                                                            <div class="col-md-8">
+                                                            <label class="col-md-2 control-label"><?php echo $this->translate("global_district_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                                            <div class="col-md-4">
                                                                 <?php
-                                                                      $values = getDistricts();
+																	 $values = array();
+                                                                     // $values = getDistricts();
                                                                       $dropdown = new Zend_Form_Element_Select('districtid',
                                                                               array(
                                                                                     'multiOptions' => array_merge_maintain_keys(array('' => '<Select one>'), $values),
@@ -1361,8 +1554,8 @@ $(document).ready(function() {
                                                             </div>
                                                         </div>
                                                         <div class="form-group clearfix">
-                                                            <label class="col-md-4 control-label"><?php echo $this->translate("global_county_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
-                                                            <div class="col-md-8">
+                                                            <label class="col-md-2 control-label"><?php echo $this->translate("global_county_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                                            <div class="col-md-4">
                                                                 <?php
                                                                       $values = array();
                                                                       $dropdown = new Zend_Form_Element_Select('countyid',
@@ -1380,8 +1573,8 @@ $(document).ready(function() {
                                                             </div>
                                                         </div>
                                                         <div class="form-group clearfix">
-                                                            <label class="col-md-4 control-label"><?php echo $this->translate("global_subcounty_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
-                                                            <div class="col-md-8">
+                                                            <label class="col-md-2 control-label"><?php echo $this->translate("global_subcounty_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                                            <div class="col-md-4">
                                                                 <?php
                                                                       $values = array();
                                                                       $dropdown = new Zend_Form_Element_Select('subcountyid',
@@ -1399,8 +1592,8 @@ $(document).ready(function() {
                                                             </div>
                                                         </div>
                                                         <div class="form-group clearfix">
-                                                            <label class="col-md-4 control-label"><?php echo $this->translate("global_parish_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
-                                                            <div class="col-md-8">
+                                                            <label class="col-md-2 control-label"><?php echo $this->translate("global_parish_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                                            <div class="col-md-4">
                                                                 <?php
                                                                       $values = array();
                                                                       $dropdown = new Zend_Form_Element_Select('parishid',
@@ -1416,10 +1609,18 @@ $(document).ready(function() {
                                                                       echo $dropdown->render();
                                                                   ?><div id="parishid_error"></div>
                                                             </div>
+                                                            <div class="col-md-6 padding0">
+                                                            	<input type="text" name="parishname" id="parishname" placeholder="Start typing Parish name to Auto-complete" class="form-control input-sm inline floatleft" style="width:85%;" />
+                                                                <img style="margin-left: -30px; margin-top:5px;" class="hidden" id="parishloader" src="<?php echo $this->baseUrl('images/loader.gif'); ?>" />
+                                                                
+                                                                <a id="changelocation_parish" class="btn btn-sm btn-primary btn-success gonowhere lineblocked" style="margin:0; margin-left:2px;">Use</a>
+                                                                <div class="divider5"></div>
+                                                                <p id="parish_description" class="blocked"></p>
+                                                            </div>
                                                         </div>
                                                         <div class="form-group clearfix">
-                                                            <label class="col-md-4 control-label"><?php echo $this->translate("global_village_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
-                                                            <div class="col-md-8 nullifempty">
+                                                            <label class="col-md-2 control-label"><?php echo $this->translate("global_village_label"); ?>: <?php echo $this->translate("global_required_field_marker"); ?></label>
+                                                            <div class="col-md-4 nullifempty">
                                                                 <?php
                                                                       $values = array();
                                                                       $dropdown = new Zend_Form_Element_Select('villageid',
@@ -1435,35 +1636,41 @@ $(document).ready(function() {
                                                                       echo $dropdown->render();
                                                                   ?><div id="villageid_error"></div>
                                                             </div>
+                                                            <div class="col-md-6 padding0">
+                                                            	<input type="text" name="villagename" id="villagename" placeholder="Start typing Village name to Auto-complete" class="form-control input-sm inline floatleft" style="width:85%;" />
+                                                                <img style="margin-left: -30px; margin-top:5px;" class="hidden" id="villageloader" src="<?php echo $this->baseUrl('images/loader.gif'); ?>" />
+                                                                <input type="hidden" id="region_id" name="region_id" value="" />
+                                                                <input type="hidden" id="province_id" name="province_id" value="" />
+                                                                <input type="hidden" id="district_id" name="district_id" value="" />
+                                                                <input type="hidden" id="county_id" name="county_id" value="" />
+                                                                <input type="hidden" id="subcounty_id" name="subcounty_id" value="" />
+                                                                <input type="hidden" id="parish_id" name="parish_id" value="" />
+                                                                <input type="hidden" id="village_id" name="village_id" value="" />
+                                                                
+                                                                <input type="hidden" id="provinceid_name" name="provinceid_name" value="" />
+                                                                <input type="hidden" id="districtid_name" name="districtid_name" value="" />
+                                                                <input type="hidden" id="countyid_name" name="countyid_name" value="" />
+                                                                <input type="hidden" id="subcountyid_name" name="subcountyid_name" value="" />
+                                                                <input type="hidden" id="parishid_name" name="parishid_name" value="" />
+                                                                <input type="hidden" id="villageid_name" name="villageid_name" value="" />
+                                                                <a id="changelocation_village" class="btn btn-sm btn-primary btn-success gonowhere lineblocked" style="margin:0; margin-left:2px;">Use</a>
+                                                                <div class="divider5"></div>
+                                                                <p id="village_description" class="blocked"></p>
+                                                            </div>
                                                         </div>
                                                         <div class="form-group clearfix">
-                                                            <label class="col-md-4 control-label"><?php echo $this->translate("global_address_label"); ?>:</label>
-                                                            <div class="col-md-8">
+                                                            <label class="col-md-2 control-label"><?php echo $this->translate("global_address_label"); ?>:</label>
+                                                            <div class="col-md-4">
                                                                 <textarea name="address1" id="address1" class="form-control expanding"><?php echo $member->getAddress1(); ?></textarea>
                                                             </div>
                                                         </div>
                                                         <div class="form-group clearfix">
-                                                            <label class="col-md-4 control-label"><?php echo $this->translate("global_gps_label"); ?>:</label>
-                                                            <div class="col-md-8">
+                                                            <label class="col-md-2 control-label"><?php echo $this->translate("global_gps_label"); ?>:</label>
+                                                            <div class="col-md-4">
                                                                 <input type="text" name="gpslat" id="gpslat" placeholder="Latitude e.g 0.301254" class="form-control isdecimal inline" value="<?php echo $member->getGpsLat(); ?>" style="margin-bottom:4px;" />
                                                                 <input type="text" name="gpslng" id="gpslng" placeholder="Longitude e.g 30.362152" class="form-control isdecimal inline" value="<?php echo $member->getGpsLng(); ?>" style="margin-bottom:4px;" />
                                                                 <div id="gpslat_error"></div><div id="gpslng_error"></div>
                                                             </div>
-                                                        </div>
-                                                    </div>
-                                                    <div class="col-md-6">
-                                                        <div class="form-group">
-                                                            <!--<label class="col-md-12 control-label" style="padding-top:0;">Search by Village to Auto-complete:</label>
-                                                            <div class="divider5"></div>
-                                                            <div class="col-md-10 paddingright0">
-                                                                <input type="text" name="project" id="project" title="Type name of location to Populate" class="form-control inline" />
-                                                                <input type="hidden" id="project-id">
-																<p id="project-description"></p>
-                                                                
-                                                            </div>
-                                                            <div class="col-md-1 padding0">
-                                                            	<button type="button" name="use" id="use" class="btn btn-sm btn-success inline" style="margin-left:2px;">Use</button>
-                                                            </div>-->
                                                         </div>
                                                     </div>
                                               	</div>

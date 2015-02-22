@@ -66,6 +66,11 @@ class Member extends BaseEntity {
 		$this->hasColumn('profession', 'string', 50);
 		$this->hasColumn('specialisation', 'string', 50);
 		
+		$this->hasColumn('committeeid', 'integer', null, array('default' => NULL));
+		$this->hasColumn('departmentid', 'integer', null, array('default' => NULL));
+		$this->hasColumn('positionid', 'integer', null, array('default' => NULL));
+		$this->hasColumn('isbulkupload', 'integer', null, array('default' => 0));
+		
 		# override the not null and not blank properties for the createdby column in the BaseEntity
 		$this->hasColumn('createdby', 'integer', 11);
 	}
@@ -243,6 +248,13 @@ class Member extends BaseEntity {
 										'foreign' => 'id'
 								)
 						);
+		
+		$this->hasMany('Appointment as appointments',
+								array('local' => 'id',
+										'foreign' => 'memberid'
+								)
+						);
+		
 	}
 	/**
 	 * Custom model validation
@@ -252,12 +264,34 @@ class Member extends BaseEntity {
 		parent::validate();
 		// debugMessage($this->toArray(true));
 		# validate that username is unique
-		if($this->usernameExists()){
-			$this->getErrorStack()->add("username.unique", sprintf($this->translate->_("profile_username_unique_error"), $this->getUsername()));	
+		if(!isEmptyString($this->getUsername())){
+			if($this->usernameExists()){
+				$this->getErrorStack()->add("username.unique", sprintf($this->translate->_("profile_username_unique_error"), $this->getUsername()));	
+			}
 		}
 		# validate that email is unique
-		if($this->emailExists()){
-			$this->getErrorStack()->add("email.unique", sprintf($this->translate->_("profile_phone_unique_error"), $this->getEmail()));
+		if(!isEmptyString($this->getEmail())){
+			if($this->emailExists()){
+				$this->getErrorStack()->add("email.unique", "Email Address '<b>".$this->getEmail()."</b>' already exists for <b>".$this->getName()."</b> ");
+			}
+		}
+		# validate that name exists with same phone
+		if(!isEmptyString($this->getPhone())){
+			if($this->nameExistsWithPhone($this->getFirstName(), $this->getLastName(), $this->getPhone())){
+				$this->getErrorStack()->add("name.unique", "Member (<b>".$this->getName()."</b>) with Phone [".$this->getPhone()."]) already exists");
+			}
+		}
+		# validate that name exists with same phone
+		if(!isEmptyString($this->getDistrictID())){
+			if($this->nameExistsWithLocation($this->getFirstName(), $this->getLastName(), $this->getDistrictID())){
+				$this->getErrorStack()->add("name.unique", "Member (<b>".$this->getName()."</b>) from ".$this->getDistrict()->getName()." District already exists");
+			}
+		}
+		# validate that entry doesnot exist
+		if(isEmptyString($this->getPhone()) && isEmptyString($this->getDistrictID())){
+			if($this->nameExists($this->getFirstName(), $this->getLastName(), $this->getOtherName(), $this->getDisplayName())){
+				$this->getErrorStack()->add("name.unique", "Member (<b>".$this->getName()."</b>) already exists");
+			}
 		}
 		
 		/* if($this->phoneExists()){
@@ -311,6 +345,67 @@ class Member extends BaseEntity {
 			$email = $this->getEmail();
 		}
 		$query = "SELECT id FROM member WHERE email = '".$email."' AND email <> '' ".$id_check;
+		// debugMessage($ref_query);
+		$result = $conn->fetchOne($query);
+		// debugMessage($ref_result);
+		if(isEmptyString($result)){
+			return false;
+		}
+		return true;
+	}
+	# determine if the name already exists
+	function nameExistsWithPhone($firstname, $lastname, $phone){
+		$conn = Doctrine_Manager::connection();
+		# validate unique username and email
+		$id_check = "";
+		if(!isEmptyString($this->getID())){
+			$id_check = " AND (id <> '".$this->getID()."') ";
+		}
+	
+		$query = "SELECT id FROM member WHERE 
+		((firstname = '".$firstname."' AND lastname = '".$lastname."' AND phone = '".$phone."' AND phone <> '') OR 
+		(firstname = '".$lastname."' AND lastname = '".$firstname."' AND phone = '".$phone."' AND phone <> '')) 
+		".$id_check;
+		// debugMessage($ref_query);
+		$result = $conn->fetchOne($query);
+		// debugMessage($ref_result);
+		if(isEmptyString($result)){
+			return false;
+		}
+		return true;
+	}
+	function nameExistsWithLocation($firstname, $lastname, $districtid){
+		$conn = Doctrine_Manager::connection();
+		# validate unique username and email
+		$id_check = "";
+		if(!isEmptyString($this->getID())){
+			$id_check = " AND (id <> '".$this->getID()."') ";
+		}
+	
+		$query = "SELECT id FROM member WHERE
+		((firstname = '".$firstname."' AND lastname = '".$lastname."' AND districtid = '".$districtid."' ) OR
+		(firstname = '".$lastname."' AND lastname = '".$firstname."' AND districtid = '".$districtid."' ))
+		".$id_check;
+		// debugMessage($ref_query);
+		$result = $conn->fetchOne($query);
+		// debugMessage($ref_result);
+		if(isEmptyString($result)){
+			return false;
+		}
+		return true;
+	}
+	function nameExists($firstname, $lastname, $othername, $displayname){
+		$conn = Doctrine_Manager::connection();
+		# validate unique username and email
+		$id_check = "";
+		if(!isEmptyString($this->getID())){
+			$id_check = " AND (id <> '".$this->getID()."') ";
+		}
+		
+		$query = "SELECT id FROM member WHERE
+		((firstname = '".$firstname."' AND lastname = '".$lastname."' AND othername = '".$othername."' AND displayname = '".$displayname."' ) OR
+		(firstname = '".$lastname."' AND lastname = '".$firstname."' AND othername = '".$othername."' AND displayname = '".$displayname."' ))
+		".$id_check;
 		// debugMessage($ref_query);
 		$result = $conn->fetchOne($query);
 		// debugMessage($ref_result);
@@ -563,6 +658,18 @@ class Member extends BaseEntity {
 			$formvalues['districtid'] = $formvalues['districtid_hidden'];
 		}
 		
+		if(isArrayKeyAnEmptyString('committeeid', $formvalues)){
+			unset($formvalues['committeeid']);
+		}
+		if(isArrayKeyAnEmptyString('departmentid', $formvalues)){
+			unset($formvalues['departmentid']);
+		}
+		if(isArrayKeyAnEmptyString('positionid', $formvalues)){
+			unset($formvalues['positionid']);
+		}
+		if(isArrayKeyAnEmptyString('isbulkupload', $formvalues)){
+			unset($formvalues['isbulkupload']);
+		}
 		// debugMessage($formvalues); exit();
 		parent::processPost($formvalues);
 	}

@@ -201,8 +201,12 @@ $(document).ready(function() {
                                                     </div>
                                                 </div>
                                                 <div class="form-group">
-                                                    <label class="col-md-4 control-label">Number of Members:</label>
-                                                    <div class="col-md-8">
+                                                    <label class="col-md-4 control-label">Members In Church:</label>
+                                                    <div class="col-md-2">
+                                                        <p class="form-control-static nullifempty view"><?php echo $organisation->getMemberCount(); ?></p>
+                                                    </div>
+                                                    <label class="col-md-4 control-label">Members On Portal:</label>
+                                                    <div class="col-md-2">
                                                         <p class="form-control-static nullifempty view"><?php echo $organisation->countRegistered(); ?></p>
                                                     </div>
                                                 </div>
@@ -230,7 +234,7 @@ $(document).ready(function() {
                                             <div class="form-group">
                                                 <label class="col-md-12 control-label">Date Registered:</label>
                                                 <div class="col-md-8">
-                                                    <p class="form-control-static nullifempty view"><?php echo changeMySQLDateToPageFormat($organisation->getRegDate()); ?></p>
+                                                    <p class="form-control-static nullifempty view"><?php echo isEmptyString($organisation->getRegDate()) ? changeMySQLDateToPageFormat($organisation->getDateCreated()) :  changeMySQLDateToPageFormat($organisation->getRegDate()); ?></p>
                                                 </div>
                                             </div>
                                         </div>

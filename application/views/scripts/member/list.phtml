@@ -287,6 +287,9 @@
         <?php if (!isEmptyString($session->getVar(SUCCESS_MESSAGE))) { ?>
             <div class="alert alert-success alert-dismissable"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button> <?php echo $session->getVar(SUCCESS_MESSAGE); ?></div>
         <?php } ?>
+        <?php if (!isEmptyString($session->getVar(WARNING_MESSAGE))) { ?>
+            <div class="alert alert-warning alert-dismissable" style="padding-left:30px;"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button> <?php echo $session->getVar(WARNING_MESSAGE); ?></div>
+        <?php } ?>
         <div class="row-fluid clearfix">
         	<div class="col-md-9 paddingleft0">
             	<ul class="listfilter blocked">

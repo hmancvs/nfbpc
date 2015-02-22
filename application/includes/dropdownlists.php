@@ -896,6 +896,10 @@
 		$query = "SELECT id as optionvalue, name as optiontext FROM location WHERE provinceid = '".$provinceid."' AND locationtype = 2 ORDER BY optiontext";
 		return getOptionValuesFromDatabaseQuery($query);
 	}
+	function getNFBPCDistricts($districtid) {
+		$query = "SELECT id as optionvalue, name as optiontext FROM location WHERE districtid = '".$districtid."' AND locationtype = 2 ORDER BY optiontext";
+		return getOptionValuesFromDatabaseQuery($query);
+	}
 	/**
 	 * Get the Counties in the specified region
 	 *

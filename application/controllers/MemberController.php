@@ -16,7 +16,10 @@ class MemberController extends SecureController {
 		){
 	 		return ACTION_EDIT;
 	 	}
-	 	if($action = "search" || $action = "populatemember"){
+	 	if($action = "bulkupload" || $action == "processbulkupload"){
+	 		return ACTION_CREATE;
+	 	}
+	 	if($action = "search" || $action = "searchparish" || $action = "populatemember"){
 	 		return ACTION_VIEW;
 	 	}
 		return parent::getActionforACL();
@@ -376,11 +379,27 @@ class MemberController extends SecureController {
     	//exit();
     	
     	$q = $formvalues['term'];
-    	$query = "SELECT l.id, l.locationtype, l.regionid, l.provinceid, l.districtid, l.countyid, l.subcountyid, l.parishid,
-    	r.name as region, p.name as province, d.name as district, c.name as county, s.name as subcounty, ps.name as parish, concat(l.name,' <br> {',d.name, '-District, ', c.name, '-County, ', s.name, '-Subcounty, ', ps.name, '-Parish', '}') as name 
+    	$query = "SELECT 
+    	l.id as villageid, 
+    	l.id as id, 
+    	l.locationtype as locationtype, 
+    	l.name as name,
+    	l.name as village,
+    	l.nfbpcregionid as regionid, 
+    	r.name as region,
+    	l.provinceid, 
+    	p.name as province, 
+    	l.districtid, 
+    	d.name as district, 
+    	l.countyid, 
+    	c.name as county, 
+    	l.subcountyid, 
+    	s.name as subcounty, 
+    	l.parishid,
+    	ps.name as parish  
     	FROM location as l
 		left join location d on (l.districtid = d.id and d.locationtype = 2)
-		left join region r on (d.regionid = r.id) 
+		left join region r on (d.nfbpcregionid = r.id) 
 		left join province p on (d.provinceid = p.id) 
 		left join location c on (l.countyid = c.id and c.locationtype = 3)
 		left join location s on (l.subcountyid = s.id and s.locationtype = 4)
@@ -390,9 +409,55 @@ class MemberController extends SecureController {
     	// debugMessage($query);
     	$data = $conn->fetchAll($query);
     	$count_results = count($data);
-    	// debugMessage($result);
+    	// debugMessage($data);
     	
-    	//echo json_encode($data);
+    	echo json_encode($data);
+    }
+    
+    public function searchparishAction() {
+    	// disable rendering of the view and layout so that we can just echo the AJAX output
+    	$this->_helper->layout->disableLayout();
+    	$this->_helper->viewRenderer->setNoRender(TRUE);
+    
+    	$conn = Doctrine_Manager::connection();
+    	$session = SessionWrapper::getInstance();
+    	$config = Zend_Registry::get("config");
+    	$this->_translate = Zend_Registry::get("translate");
+    
+    	$formvalues = $this->_getAllParams();
+    	// debugMessage($formvalues);
+    	//exit();
+    	 
+    	$q = $formvalues['term'];
+    	$query = "SELECT
+    	l.id as parishid,
+    	l.id as id,
+    	l.locationtype as locationtype,
+    	l.name as name,
+    	l.name as parish,
+    	l.nfbpcregionid as regionid,
+    	r.name as region,
+    	l.provinceid,
+    	p.name as province,
+    	l.districtid,
+    	d.name as district,
+    	l.countyid,
+    	c.name as county,
+    	l.subcountyid,
+    	s.name as subcounty
+    	FROM location as l
+    	left join location d on (l.districtid = d.id and d.locationtype = 2)
+    	left join region r on (d.nfbpcregionid = r.id)
+    	left join province p on (d.provinceid = p.id)
+    	left join location c on (l.countyid = c.id and c.locationtype = 3)
+    	left join location s on (l.subcountyid = s.id and s.locationtype = 4)
+    	WHERE l.name like '".$q."%' AND l.locationtype = 5
+    	GROUP BY l.id order by l.name asc ";
+    	// debugMessage($query);
+    	$data = $conn->fetchAll($query);
+    	$count_results = count($data);
+    	// debugMessage($data);
+    	 
     	echo json_encode($data);
     }
     
@@ -436,6 +501,140 @@ class MemberController extends SecureController {
     	} catch (Exception $e) {
     		$session->setVar(ERROR_MESSAGE, $e->getMessage());
     		$this->_helper->redirector->gotoUrl(decode($this->_getParam(URL_FAILURE)));
+    	}
+    }
+    
+    public function bulkuploadAction() {
+    	
+    }
+    
+    public function processbulkuploadAction() {
+    	$this->_helper->layout->disableLayout();
+    	$this->_helper->viewRenderer->setNoRender(TRUE);
+    	
+    	$session = SessionWrapper::getInstance();
+    	$config = Zend_Registry::get("config");
+    	$this->_translate = Zend_Registry::get("translate");
+    	$formvalues = $this->_getAllParams(); debugMessage($formvalues);
+    	
+    	// only upload a file if the attachment field is specified
+    	$upload = new Zend_File_Transfer();
+    	// set the file size in bytes
+    	$upload->setOptions(array('useByteString' => false));
+    	
+    	// Limit the extensions to the specified file extensions
+    	$upload->addValidator('Extension', false, $config->uploads->docallowedformats);
+    	$upload->addValidator('Size', false, $config->uploads->docmaximumfilesize);
+    	
+    	// base path for profile pictures
+    	$destination_path = BASE_PATH.DIRECTORY_SEPARATOR."temp";
+    	
+    	//debugMessage($destination_path);
+    	$upload->setDestination($destination_path);
+    	
+    	// the profile image info before upload
+    	$file = $upload->getFileInfo('filename');
+    	$uploadedext = findExtension($file['filename']['name']);
+    	$currenttime = mktime();
+    	$currenttime_file = $currenttime.'.'.$uploadedext;
+    	
+    	$thefilename = $destination_path.DIRECTORY_SEPARATOR.$currenttime_file;
+    	//debugMessage($thefilename);
+    	// rename the base image file
+    	$upload->addFilter('Rename',  array('target' => $thefilename, 'overwrite' => true));
+    	// exit();
+    	// process the file upload
+    	if($upload->receive()){
+    		// debugMessage('Completed');
+    		$file = $upload->getFileInfo('filename'); // debugMessage($file); 
+    		$csvpath = $file['filename']['tmp_name']; // debugMessage($csvpath); // exit();
+    		$cvsarray = ImportCSV2Array($csvpath); // debugMessage($cvsarray); exit();
+    		
+    		$memberfails = array(); $issuesstr = '';
+    		$member_collection = new Doctrine_Collection(Doctrine_Core::getTable("Member"));
+    		foreach ($cvsarray as $key => $value){
+    			if(!isArrayKeyAnEmptyString('id', $value)){
+    				$member = new Member();
+    				$member->populate($value['id']); 
+    				
+    				foreach ($value as $field => $data){
+    					if(isArrayKeyAnEmptyString($field, $value)){
+    						 unset($value[$field]);
+    					}
+    				}
+    				
+    				if(!isArrayKeyAnEmptyString('committeeid', $value) && !isArrayKeyAnEmptyString('positionid', $value)){
+    					$value['locationid'] = NULL;
+    					$value['committeeid'] = $value['committeid'];
+    					if($value['committeeid'] == 12 && !isArrayKeyAnEmptyString('subcountyid', $value)){
+    						$value['locationid'] = $member->getSubCountyID();
+    					}
+    					if($value['committeeid'] == 11 && !isArrayKeyAnEmptyString('districtid', $value)){
+    						$value['locationid'] = $member->getDistrictID();
+    					}
+    					if($value['committeeid'] == 10 && !isArrayKeyAnEmptyString('provinceid', $value)){
+    						$value['locationid'] = $member->getPID();
+    					}
+    					if($value['committeeid'] == 9 && !isArrayKeyAnEmptyString('regionid', $value)){
+    						$value['locationid'] = $member->getRegionID();
+    					}
+    						
+    					$appointment = array(
+    							array(
+    									"committeeid" => $value['committeeid'],
+    									"positionid" => $value['positionid'],
+    									"departmentid" => $value['departmentid'],
+    									"locationid" => $value['locationid'],
+    									"startdate" => "2013-06-01",
+    									"enddate" => "2018-06-30",
+    									"status" => "1",
+    									"createdby" => $session->getVar('userid'),
+    							)
+    					);
+    						
+    					$value['appointments'] = $appointment; // debugMessage($appointment);
+    				}
+    				
+    				debugMessage($value);
+    				$member->processPost($value); debugMessage($member->toArray());
+    				
+    			} else{
+    				if(isArrayKeyAnEmptyString('firstname', $value) && isArrayKeyAnEmptyString('lastname', $value) && isArrayKeyAnEmptyString('displayname', $value)){
+    					unset($cvsarray[$key]); unset($value);
+    				} else {
+    				
+    				
+    				
+    				}
+    			} 
+    				
+    		}
+    		
+    		
+    		exit();
+    		$this->_helper->redirector->gotoUrl(decode($this->_getParam(URL_SUCCESS)));
+    	} else {
+    		// debugMessage($upload->getMessages());
+    		$uploaderrors = $upload->getMessages();
+    		$customerrors = array();
+    		if(!isArrayKeyAnEmptyString('fileUploadErrorNoFile', $uploaderrors)){
+    			$customerrors['fileUploadErrorNoFile'] = "Please browse for image on computer";
+    		}
+    		if(!isArrayKeyAnEmptyString('fileExtensionFalse', $uploaderrors)){
+    			$custom_exterr = sprintf($this->_translate->translate('global_invalid_ext_error'), $config->uploads->photoallowedformats);
+    			$customerrors['fileExtensionFalse'] = $custom_exterr;
+    		}
+    		if(!isArrayKeyAnEmptyString('fileUploadErrorIniSize', $uploaderrors)){
+    			$custom_exterr = sprintf($this->_translate->translate('global_invalid_size_error'), formatBytes($config->uploads->photomaximumfilesize,0));
+    			$customerrors['fileUploadErrorIniSize'] = $custom_exterr;
+    		}
+    		if(!isArrayKeyAnEmptyString('fileSizeTooBig', $uploaderrors)){
+    			$custom_exterr = sprintf($this->_translate->translate('global_invalid_size_error'), formatBytes($config->uploads->photomaximumfilesize,0));
+    			$customerrors['fileSizeTooBig'] = $custom_exterr;
+    		}
+    		$session->setVar(ERROR_MESSAGE, 'The following errors occured <ul><li>'.implode('</li><li>', $customerrors).'</li></ul>'); debugMessage('The following errors occured <ul><li>'.implode('</li><li>', $customerrors).'</li></ul>');
+    		$session->setVar(FORM_VALUES, $this->_getAllParams());
+    		// $this->_helper->redirector->gotoUrl(decode($this->_getParam(URL_FAILURE)));
     	}
     }
 }

@@ -9,3 +9,4 @@
 	$session->setVar("custommessage3", ""); 
 	$session->setVar("custommessage4", ""); 
 	$session->setVar("custommessage5", ""); 
+	$session->setVar(WARNING_MESSAGE, ""); 

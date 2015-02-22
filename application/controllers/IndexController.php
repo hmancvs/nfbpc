@@ -217,6 +217,44 @@ class IndexController extends Zend_Controller_Action  {
     	$this->createAction();
     }
     
+    public function batchdeleteAction() {
+    	$this->_setParam("action", ACTION_DELETE);
+    
+    	$session = SessionWrapper::getInstance();
+    	$this->_helper->layout->disableLayout();
+    	$this->_helper->viewRenderer->setNoRender(TRUE);
+    
+    	$formvalues = $this->_getAllParams(); debugMessage($formvalues); // exit;
+    	$successurl = decode($formvalues[URL_SUCCESS]);
+    	if(!isArrayKeyAnEmptyString(SUCCESS_MESSAGE, $formvalues)){
+    		$successmessage = decode($formvalues[SUCCESS_MESSAGE]);
+    	}
+    	$classname = $formvalues['entityname'];
+    	$altclassname = '';
+    	if(!isArrayKeyAnEmptyString('altdeleteentity', $formvalues)){
+    		$altclassname = $formvalues['altdeleteentity'];
+    	}
+    	
+    	$member_collection = new Doctrine_Collection(Doctrine_Core::getTable("Member"));
+    	
+    	$memberarray = explode(',', $formvalues['ids']);  debugMessage($memberarray);
+    	foreach($memberarray as $id){
+    		$member = new Member();
+    		$member->populate($id);
+    		$member_collection->add($member);
+    	}
+    	// debugMessage($member_collection->toArray());
+    	if($member_collection->delete()) {
+    		$session->setVar(SUCCESS_MESSAGE, $this->_translate->translate("global_delete_success"));
+    		$successmessage = $this->_getParam(SUCCESS_MESSAGE);
+    		if(!isEmptyString($successmessage)){
+    			$session->setVar(SUCCESS_MESSAGE, $successmessage);
+    		}
+    		$this->notify(new sfEvent($this, $type, $audit_values));
+    	}
+    	$this->_helper->redirector->gotoUrl($successurl);
+    }
+    
 	public function deleteAction() {
     	$this->_setParam("action", ACTION_DELETE);
     
@@ -524,6 +562,11 @@ class IndexController extends Zend_Controller_Action  {
 				$result = json_encode($result);
 				echo ($result);
 				break;
+			case 'nfbpcdistricts':
+				$result = getNFBPCDistricts($this->_getParam('districtid'), false); // debugMessage($result);
+				$result = json_encode($result);
+				echo ($result);
+				break;
 			case 'district_subcounties':
 				$result = getSubcountiesInDistrict($this->_getParam('districtid'));
 				$result = json_encode($result);
@@ -652,8 +695,8 @@ class IndexController extends Zend_Controller_Action  {
 		$currenterror = $session->getVar(ERROR_MESSAGE);
 		if(isEmptyString($currenterror)){
 			$session->setVar(ERROR_MESSAGE, "An error occured in updating database");
-				}  
-			}
+		}  
+	}
 	
 	public function profileupdatesuccessAction(){
 		$session = SessionWrapper::getInstance(); 

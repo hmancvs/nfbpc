@@ -31,18 +31,22 @@
 	$has_no_data = (count($result_coverage) == 0) ? true : false; 
 	// debugMessage($result_coverage);exit();
 	
-	$where_query = " WHERE o.id <> '' AND o.gpslat <> '' AND o.gpslng <> '' ";
+	$where_query = " WHERE l.id <> '' ";
 	$all_results_query = "
-			SELECT o.id as id, 
-			o.name as church,
-			o.gpslat as gpslat,
-			o.gpslng as gpslng
-			from organisation o 
+		SELECT l.id as id, 
+			l.name as district,
+			l.name as name,
+			l.gpslat as gpslat,
+			l.gpslng as gpslng,
+			count(o.id) as totalchurches			
+			from location l 
+			left join organisation o on (o.districtid = l.id)
 			".$where_query."
-			GROUP BY o.id
-			order by o.name asc ";
+			GROUP BY l.id
+			HAVING count(o.id) > 0
+			order by l.name asc ";
 	
-	//debugMessage($all_results_query); //exit;
+	// debugMessage($all_results_query); exit;
 	$conn = Doctrine_Manager::connection(); 
 	$result_church = $conn->fetchAll($all_results_query);
 	$has_no_data_church = (count($result_church) == 0) ? true : false; 
@@ -224,27 +228,27 @@ $(document).ready(function() {
 		map.setOptions({scrollwheel: false, disableDoubleClickZoom: true});
 		
 		<?php
-			foreach($result_church as $church){
+			foreach($result_church as $location2){
 				$hasgps = false;
-				if(!isEmptyString($church['gpslat']) && !isEmptyString($church['gpslng'])){
+				if(!isEmptyString($location2['gpslat']) && !isEmptyString($location2['gpslng'])){
 					$hasgps = true;
 				}
 		?>
 			<?php if($hasgps){ ?>
-				var mgpslat = '<?php echo $church['gpslat']; ?>';
-				var mgpslng = '<?php echo $church['gpslng']; ?>';
-				var churchname = "<?php echo $church['church']; ?>";
+				var mgpslat = '<?php echo $location2['gpslat']; ?>';
+				var mgpslng = '<?php echo $location2['gpslng']; ?>';
+				var locationname = "<?php echo $location2['name']; ?>";
 				
-				var id = '<?php echo $church['id']; ?>';
-				var contentdetails= $("#church_"+id).html();
-				var contentString = '<div id="content" style="margin-left:10px; min-height:250px; height:auto; width:460px;">'+
+				var id = '<?php echo $location2['id']; ?>';
+				var contentdetails= $("#location2_"+id).html();
+				var contentString = '<div id="content" style="margin-left:10px; min-height:250px; height:auto; width:410px;">'+
 					  '<div id="bodyContent">'+contentdetails+'</div>'+
 					'</div>';
 	
 				map2.addMarker({
 					lat: mgpslat,
 					lng: mgpslng,
-					title: churchname,
+					title: locationname,
 					infoWindow: {
 						content: contentString
 					}
@@ -402,6 +406,7 @@ $(document).ready(function() {
         </div>
     </div>
 </div>
+
 <div class="row row-bg" style="margin-bottom:10px;">
     <div class="col-sm-12 col-md-12">
         <div class="widget box hidden-xs">
@@ -440,29 +445,29 @@ $(document).ready(function() {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <tr>
+                                        <!--<tr>
                                             <td>Total Churches</td>
-                                            <td class="maptablecell"><span class="nullifempty"><?php echo formatNumber($district->getNumberOfChurches()); ?></span></td>
-                                            <td>No of Counties</td>
-                                            <td class="maptablecell"><span class="nullifempty"><?php echo formatNumber($district->getNumberOfLocations(3)); ?></span></td>
-                                        </tr>
+                                            <td class="maptablecell"><span class="nullifempty"><?php //echo formatNumber($district->getNumberOfChurches()); ?></span></td>
+                                            <td></td>
+                                            <td class="maptablecell"></td>
+                                        </tr>-->
                                         <tr>
                                             <td>Total Members</td>
                                             <td class="maptablecell"><span class="nullifempty"><?php echo formatNumber($line['totalmembers']); ?></span></td>
-                                            <td>No of Sub-counties</td>
-                                            <td class="maptablecell"><span class="nullifempty"><?php echo formatNumber($district->getNumberOfLocations(4)); ?></span></td>
+                                            <td></td>
+                                            <td class="maptablecell"></td>
                                         </tr>
                                         <tr>
                                             <td>Male Members</td>
                                             <td class="maptablecell"><span class="nullifempty"><?php echo formatNumber($line['male']); ?></span></td>
-                                            <td>No of Parishes</td>
-                                            <td class="maptablecell"><span class="nullifempty"><?php echo formatNumber($district->getNumberOfLocations(5)); ?></span></td>
+                                            <td></td>
+                                            <td class="maptablecell"></td>
                                         </tr>
                                         <tr>
                                             <td>Female Members</td>
                                             <td class="maptablecell"><span class="nullifempty"><?php echo formatNumber($line['female']); ?></span></td>
-                                            <td>No of Villages</td>
-                                            <td class="maptablecell"><span class="nullifempty"><?php echo formatNumber($district->getNumberOfLocations(6)); ?></span></td>
+                                            <td></td>
+                                            <td class="maptablecell"></td>
                                         </tr>
                                         <tr>
                                             <td>Population</td>
@@ -497,39 +502,26 @@ $(document).ready(function() {
                 <div class="row span12 margin0 padding0 clearfix">
                     <?php
                          $counter = 1;
+                         $total = 0;
                          foreach($result_church as $line){
-							 $org = new Organisation();
-							 $org->populate($line['id']);
+                             $total += $line['totalchurches'];
+							 $district = new Location();
+							 $district->populate($line['id']);
                     ?>
-                    	<div class="row hidden" id="church_<?php echo $line['id']; ?>" style="margin-left:10px;">
+                    	<div class="row hidden" id="location2_<?php echo $line['id']; ?>" style="margin-left:10px;">
                             <div class="widget-content" style="padding-left:0;">
-                                <h4><i class="glyphicon glyphicon-th"></i><?php echo $line['church']; ?> &nbsp;Statistics</h4>
-                                <table class="table table-hover table-bordered table-condensed noround margin0" style="font-size:12px; width:450px;">
-                                    
+                                <h4><i class="glyphicon glyphicon-th"></i><?php echo $line['district']; ?> &nbsp;Statistics</h4>
+                                <table class="table table-hover table-bordered table-condensed noround margin0" style="font-size:12px; width:400px;">
+                                    <thead>
+                                        <tr>
+                                            <th class="bolded" style="width:30%; font-size:12px;">Variable</th>
+                                            <th class="centeralign" style="width:20%; font-size:10px;">Count</th>
+                                        </tr>
+                                    </thead>
                                     <tbody>
                                         <tr>
-                                            <td class="bolded">Total Members</td>
-                                            <td class="maptablecell" style="text-align:left;"><span class="nullifempty"><?php echo formatNumber($org->countRegistered()); ?></span></td>
-                                            <td class="bolded">County</td>
-                                            <td class="maptablecell" style="text-align:left;"><span class="nullifempty"><?php echo $org->getCounty()->getName(); ?></span></td>
-                                        </tr>
-                                        <tr>
-                                            <td class="bolded">Region</td>
-                                            <td class="maptablecell" style="text-align:left;"><span class="nullifempty"><?php echo $org->getRegion()->getName(); ?></span></td>
-                                            <td class="bolded">Sub-county</td>
-                                            <td class="maptablecell" style="text-align:left;"><span class="nullifempty"><?php echo $org->getSubCounty()->getName(); ?></span></td>
-                                        </tr>
-                                        <tr>
-                                            <td class="bolded">Province</td>
-                                            <td class="maptablecell" style="text-align:left;"><span class="nullifempty"><?php echo $org->getProvince()->getName(); ?></span></td>
-                                            <td class="bolded">Parish</td>
-                                            <td class="maptablecell" style="text-align:left;"><span class="nullifempty"><?php echo $org->getParish()->getName(); ?></span></td>
-                                        </tr>
-                                        <tr>
-                                            <td class="bolded">District</td>
-                                            <td class="maptablecell" style="text-align:left;"><span class="nullifempty"><?php echo $org->getDistrict()->getName(); ?></span></td>
-                                            <td class="bolded">Village</td>
-                                            <td class="maptablecell" style="text-align:left;"><span class="nullifempty"><?php echo $org->getVillage()->getName(); ?></span></td>
+                                            <td>Total No of Churches</td>
+                                            <td class="maptablecell"><span class="nullifempty"><?php echo formatNumber($line['totalchurches']); ?></span></td>
                                         </tr>
                                     </tbody>
                                 </table>

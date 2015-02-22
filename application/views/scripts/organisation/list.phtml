@@ -112,7 +112,7 @@
 	}
 	// f.orgname as fundername, concat(u.firstname,' ',u.lastname) as supervisorname
 	$paginate->processPost($request->getParams());
-	$all_results_query = "SELECT o.id as id, o.type as type, o.name as `name`, o.bio as `Bio`, o.phone, o.email, o.website, o.mission, o.vision,
+	$all_results_query = "SELECT o.id as id, o.refno, o.type as type, o.name as `name`, o.bio as `Bio`, o.phone, o.email, o.website, o.mission, o.vision,
 	r.name as region,p.name as province,d.name as district, c.name as county,s.name as subcounty,ps.name as parish, v.name as village,
 	o.regionid as regionid, o.districtid as districtid, o.parishid as parishid, o.villageid as villageid,
 	o.address1 as address1, o.leadid, ms.displayname as contact, o.leadname, o.createdby as createdby, o.datecreated as regdate, mc.displayname as addedby, o.profilephoto
@@ -456,7 +456,7 @@ $(document).ready(function() {
                                                     <?php } ?>
                                                 </ul>
                                             </td>
-                                            <td class="nullifempty"><a href="<?php echo $viewurl; ?>" class="blockanchor"><?php echo 'CH'.number_pad($line['id'], 4); ?></a></td>
+                                            <td class="nullifempty"><a href="<?php echo $viewurl; ?>" class="blockanchor"><?php echo isEmptyString($line['refno']) ? 'CH'.number_pad($line['id'], 4) : $line['refno']; ?></a></td>
                                             <td class="nullifempty"><?php echo $line['name']; ?></a></td>
                                             <?php if($type != 1){ ?>
                                             	<td class="nullifempty"><?php echo isArrayKeyAnEmptyString($line['type'], $types) ? '' : $types[$line['type']]; ?></td>

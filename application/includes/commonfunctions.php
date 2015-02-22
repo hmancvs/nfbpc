@@ -27,7 +27,9 @@ define("FORM_VALUES", "formvalues");
 # the session variable holding the error message when processing a form 
 define("ERROR_MESSAGE", "errors"); 
 # the session variable holding the success message when processing a form 
-define("SUCCESS_MESSAGE", "successmessage"); 
+define("SUCCESS_MESSAGE", "successmessage");
+define("WARNING_MESSAGE", "warningmessage"); 
+
 # the session variable holding the error message for the error page which is not cleared from page to page 
 define("APPLICATION_ERROR_PAGE_MESSAGE", "error_page_erros"); 
 # the session variable for the access control lists 
@@ -1469,5 +1471,37 @@ function getTranslations(){
 	);
 	
 	return $labels;
+}
+function ImportCSV2Array($filename)
+{
+    $row = 0;
+    $col = 0;
+ 
+    $handle = @fopen($filename, "r");
+    if ($handle) 
+    {
+        while (($row = fgetcsv($handle, 4096)) !== false) 
+        {
+            if (empty($fields)) 
+            {
+                $fields = $row;
+                continue;
+            }
+ 
+            foreach ($row as $k=>$value) 
+            {
+                $results[$col][$fields[$k]] = $value;
+            }
+            $col++;
+            unset($row);
+        }
+        if (!feof($handle)) 
+        {
+            echo "Error: unexpected fgets() failn";
+        }
+        fclose($handle);
+    }
+ 
+    return $results;
 }
 ?>

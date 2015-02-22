@@ -34,6 +34,7 @@ function getTransactionTypes(){
 		'2.2' => 'member.update', // done
 		'2.3' => 'member.delete', // done
 		'2.4' => 'member.uploadphoto', // done
+		'2.5' => 'member.bulkupload', // done
 	
 		'3.1' => 'organisation.create', // done
 		'3.2' => 'organisation.update', // done
@@ -79,6 +80,25 @@ define("USER_ACTIVATE", "user.activate");
 define("USER_SIGNUP", "user.signup");
 define("USER_UPLOADPHOTO", "user.uploadphoto");
 
+define("MEMBER_CREATE", "member.create");
+define("MEMBER_UPDATE", "member.update"); 
+define("MEMBER_DELETE", "member.delete");
+define("MEMBER_UPLOADPHOTO", "member.uploadphoto");
+define("MEMBER_BULKUPLOAD", "member.bulkupload");
+
+define("ORG_CREATE", "organisation.create");
+define("ORG_UPDATE", "organisation.update");
+define("ORG_DELETE", "organisation.delete");
+define("ORG_UPLOADPHOTO", "organisation.uploadphoto");
+
+define("LOCATION_CREATE", "location.create");
+define("LOCATION_UPDATE", "location.update");
+define("LOCATION_DELETE", "location.delete");
+
+define("COMMITTEE_CREATE", "committee.create");
+define("COMMITTEE_UPDATE", "committee.update");
+define("COMMITTEE_DELETE", "committee.delete");
+
 /**
  * Initialize and Configure an SFEventDispatcher instance
  *
@@ -112,6 +132,25 @@ function initializeSFEventDispatcher() {
    $eventdispatcher->connect(USER_SIGNUP, "auditTransactionEventHandler");
    $eventdispatcher->connect(USER_UPLOADPHOTO, "auditTransactionEventHandler");
    
+   $eventdispatcher->connect(MEMBER_CREATE, "auditTransactionEventHandler");
+   $eventdispatcher->connect(MEMBER_UPDATE, "auditTransactionEventHandler");
+   $eventdispatcher->connect(MEMBER_DELETE, "auditTransactionEventHandler");
+   $eventdispatcher->connect(MEMBER_UPLOADPHOTO, "auditTransactionEventHandler");
+   $eventdispatcher->connect(MEMBER_BULKUPLOAD, "auditTransactionEventHandler");
+   
+   $eventdispatcher->connect(ORG_CREATE, "auditTransactionEventHandler");
+   $eventdispatcher->connect(ORG_UPDATE, "auditTransactionEventHandler");
+   $eventdispatcher->connect(ORG_DELETE, "auditTransactionEventHandler");
+   $eventdispatcher->connect(ORG_UPLOADPHOTO, "auditTransactionEventHandler");
+   
+   $eventdispatcher->connect(LOCATION_CREATE, "auditTransactionEventHandler");
+   $eventdispatcher->connect(LOCATION_UPDATE, "auditTransactionEventHandler");
+   $eventdispatcher->connect(LOCATION_DELETE, "auditTransactionEventHandler");
+   
+   $eventdispatcher->connect(COMMITTEE_CREATE, "auditTransactionEventHandler");
+   $eventdispatcher->connect(COMMITTEE_UPDATE, "auditTransactionEventHandler");
+   $eventdispatcher->connect(COMMITTEE_DELETE, "auditTransactionEventHandler");
+   
    return $eventdispatcher; 
 }
 /**
@@ -139,7 +178,11 @@ function getSystemModules(){
 	$types = array(
 			0 => 'system',
 			1 => 'user',
-			2 => ''
+			2 => 'member',
+			3 => 'organisation',
+			4 => 'location',
+			5 => 'committee',
+			6 => 'notification'
 	);
 	return $types;
 }
